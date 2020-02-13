@@ -7,6 +7,7 @@ use semver::Version;
 use std::cmp::Ordering;
 use std::fmt;
 use std::str;
+use clap::Values;
 
 #[derive(RustEmbed)]
 #[folder = "resources/db/migrations/"]
@@ -57,13 +58,11 @@ impl Vault {
             })
             .collect();
 
-        // sort migrations by version first
+        // sort migrations by versions first
         migrations.sort_by(|m1, m2| m1.version.cmp(&m2.version));
 
         // ...and keep only those which haven't been applied yet
-        migrations.retain(|m| {
-            base_version.is_empty() || m.version.cmp(&base_version) == Ordering::Greater
-        });
+        migrations.retain(|m| base_version.is_empty() || m.version.gt(&base_version));
 
         // compose final transaction
         let final_txn = migrations.iter().fold(String::default(), |mut txn, m| {
@@ -111,6 +110,14 @@ impl Vault {
                 debug!("Upgraded database to {}", self.version().unwrap().0)
             }
             _ => debug!("Database up to date."),
+        }
+    }
+    pub fn add_link(&self, url: &str, desc: Option<&str>, tags: Option<Values>) {
+        println!("adding {} => {}", url, desc.unwrap_or(""));
+        if let Some(t) = tags {
+            for tag in t.collect::<Vec<&str>>() {
+                println!("-> {}", tag)
+            }
         }
     }
     pub fn new(db: &str) -> Self {

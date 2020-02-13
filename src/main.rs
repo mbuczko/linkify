@@ -8,8 +8,8 @@ extern crate clap;
 extern crate log;
 extern crate simple_logger;
 
-use clap::{App, Arg};
-use db::init_vault;
+use clap::{App, Arg, ArgMatches, SubCommand};
+use db::{init_vault, Vault};
 use log::Level;
 use semver::Version;
 use std::fmt;
@@ -51,31 +51,44 @@ fn main() {
         .about("Saves your precious links")
         .arg(
             Arg::with_name("db")
+                .help("database to use")
                 .short("d")
                 .long("db")
-                .takes_value(true)
-                .help("database to use"),
+                .takes_value(true),
         )
-        .arg(
-            Arg::with_name("url")
-                .short("u")
-                .long("url")
-                .required(true)
-                .takes_value(true)
-                .help("URL to save or search for"),
-        )
-        .arg(
-            Arg::with_name("store")
-                .short("s")
-                .long("store")
-                .help("Store given URL in DB database"),
+        .subcommand(
+            SubCommand::with_name("add")
+                .about("adds a new link")
+                .arg(
+                    Arg::with_name("url")
+                        .help("link to store in database")
+                        .required(true),
+                )
+                .arg(
+                    Arg::with_name("description")
+                        .help("optional description")
+                        .short("d")
+                        .long("desc")
+                        .takes_value(true),
+                )
+                .arg(
+                    Arg::with_name("tags")
+                        .help("optional tags assigned to the link")
+                        .short("t")
+                        .long("tags")
+                        .use_delimiter(true)
+                        .takes_value(true),
+                ),
         )
         .get_matches();
 
     let db = matches.value_of("db").unwrap_or("links.db");
-    let url = matches.value_of("url").unwrap();
+    //let url = matches.value_of("url").unwrap();
 
-    init_vault(db, Version::parse(VERSION).unwrap());
+    match init_vault(db, Version::parse(VERSION).unwrap()) {
+        Ok(v) => process_command(v, matches),
+        _ => panic!("cannot initialize database"),
+    }
     //    if is_storing {
     //        conn.execute("INSERT INTO links(url) VALUES (?1)", params![url])?;
     //    } else {
@@ -87,4 +100,15 @@ fn main() {
     //            println!("{}", link.unwrap());
     //        }
     //    }
+}
+
+fn process_command(vault: Vault, matches: ArgMatches) {
+    match matches.subcommand() {
+        ("add", Some(sub_m)) => vault.add_link(
+            sub_m.value_of("url").unwrap(),
+            sub_m.value_of("description"),
+            sub_m.values_of("tags")
+        ),
+        _ => {}
+    }
 }
