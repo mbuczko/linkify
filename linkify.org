@@ -1,0 +1,38 @@
+* commands
+** adding a new link
+Specify database:
+- [ ] linkify add http://github.com -db links.db
+
+Specify user:
+- [ ] linkify add http://github.com -u mbuczko
+
+Specify user and tags:
+- [ ] linkify add http://github.com -u mbuczko -t dev,progs
+
+Specify description (no description opens editor):
+- [ ] linkify add http://github.com -u mbuczko -d "blah blah"
+- [ ] linkify add http://github.com -u mbuczko -d
+
+** searching for links
+List public+private links of env user:
+- [ ] linkify ls
+
+List public+private, specify user:
+- [ ] linkify ls -u mbuczko
+
+List public+private, specify tags
+- [ ] linkify ls -t dev,progs
+
+List links with specified keyword
+- [ ] linkify ls github
+
+** managing with links
+- [ ] linkify ls github --edit
+
+** managing with users
+- [ ] linkify users
+- [ ] linkify users add mbuczko
+- [ ] linkify users del mbuczko
+- [ ] linikfy users passwd -u mbuczko
+
+
