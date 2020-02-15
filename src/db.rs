@@ -112,12 +112,13 @@ impl Vault {
     pub fn add_link(&mut self, url: &str, desc: Option<&str>, tags: Option<Values>) {
         let tags = tags.unwrap_or_default().collect::<Vec<&str>>();
         let link = Link::new(url, desc.unwrap_or_default(), &tags);
-
         let tx = self.connection.transaction().unwrap();
+
         tx.execute(
             "INSERT INTO links(url, description, hash) VALUES(?1, ?2, ?3)",
             params![url, desc, link.hash],
-        ).expect("Couldn't add a link");
+        )
+        .expect("Couldn't add a link");
 
         for tag in link.tags {
             tx.execute(
@@ -125,11 +126,12 @@ impl Vault {
             ON CONFLICT(tag, user_id) \
             DO UPDATE SET used_at = CURRENT_TIMESTAMP",
                 params![tag],
-            ).expect("Couldn't update tags");
-        };
+            )
+            .expect("Couldn't update tags");
+        }
         match tx.commit() {
             Ok(_) => println!("adding {} ", link),
-            _ => panic!("Couldn't add a link")
+            _ => panic!("Couldn't add a link"),
         }
     }
     pub fn new(db: &str) -> Self {
