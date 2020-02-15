@@ -24,10 +24,13 @@ CREATE TABLE IF NOT EXISTS links (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TRIGGER "uniqenull" BEFORE INSERT ON tags WHEN ((NEW.user_id IS NULL))
+-- this is to avoid duplicates of public tags, which are caused by
+-- UNIQUE INDEX treating NULL values as non-identical ones
+
+CREATE TRIGGER "uniqenull" BEFORE INSERT ON tags WHEN NEW.user_id IS NULL
 BEGIN
-    SELECT RAISE(ABORT, 'constraint violation: unique null')
-    WHERE EXISTS (SELECT 1 FROM tags c WHERE ((user_id IS NULL) AND (tag = NEW.tag)));
+    SELECT RAISE(IGNORE)
+    WHERE EXISTS (SELECT 1 FROM tags c WHERE user_id IS NULL AND tag = NEW.tag);
 END;
 
 CREATE UNIQUE INDEX users_idx ON users(login);
