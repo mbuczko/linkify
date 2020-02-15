@@ -1,46 +1,15 @@
 mod db;
-
-#[macro_use]
-extern crate rust_embed;
-extern crate clap;
-
-#[macro_use]
-extern crate log;
-extern crate simple_logger;
+mod utils;
+mod link;
+mod user;
 
 use clap::{App, Arg, ArgMatches, SubCommand};
 use db::{init_vault, Vault};
 use log::Level;
 use semver::Version;
-use std::fmt;
 
-#[derive(Debug)]
-struct Link {
-    url: String,
-}
-
-#[derive(PartialEq)]
-enum Action {
-    Store,
-    Find,
-}
 
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
-
-impl Action {
-    fn from_opt(is_storing: bool) -> Action {
-        match is_storing {
-            true => Self::Store,
-            _ => Self::Find,
-        }
-    }
-}
-
-impl fmt::Display for Link {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "url: {}", self.url)
-    }
-}
 
 fn main() {
     simple_logger::init_with_level(Level::Debug).unwrap();
@@ -50,7 +19,7 @@ fn main() {
         .author("Haksior MB")
         .about("Saves your precious links")
         .arg(
-            Arg::with_name("db")
+            Arg::with_name("database")
                 .help("database to use")
                 .short("d")
                 .long("db")
@@ -82,8 +51,7 @@ fn main() {
         )
         .get_matches();
 
-    let db = matches.value_of("db").unwrap_or("links.db");
-    //let url = matches.value_of("url").unwrap();
+    let db = matches.value_of("database").unwrap_or("links.db");
 
     match init_vault(db, Version::parse(VERSION).unwrap()) {
         Ok(v) => process_command(v, matches),
@@ -102,7 +70,7 @@ fn main() {
     //    }
 }
 
-fn process_command(vault: Vault, matches: ArgMatches) {
+fn process_command(mut vault: Vault, matches: ArgMatches) {
     match matches.subcommand() {
         ("add", Some(sub_m)) => vault.add_link(
             sub_m.value_of("url").unwrap(),

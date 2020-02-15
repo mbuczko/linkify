@@ -1,13 +1,11 @@
-extern crate rusqlite;
-extern crate semver;
-
-use log::{debug, info};
-use rusqlite::{Connection, Result, NO_PARAMS};
+use crate::link::Link;
+use clap::Values;
+use log::debug;
+use rusqlite::{params, Connection, Result, NO_PARAMS};
+use rust_embed::RustEmbed;
 use semver::Version;
-use std::cmp::Ordering;
 use std::fmt;
 use std::str;
-use clap::Values;
 
 #[derive(RustEmbed)]
 #[folder = "resources/db/migrations/"]
@@ -104,20 +102,34 @@ impl Vault {
         )
     }
     pub fn upgrade(&self, base_script_version: String, app_semver: Version) {
-        match self.build_migration(base_script_version, app_semver) {
-            Some(m) => {
-                self.connection.execute_batch(m.as_str());
-                debug!("Upgraded database to {}", self.version().unwrap().0)
+        if let Some(m) = self.build_migration(base_script_version, app_semver) {
+            match self.connection.execute_batch(m.as_str()) {
+                Ok(_) => debug!("Upgraded to {}", self.version().unwrap().0),
+                _ => panic!("Couldn't update the database. Bailing out."),
             }
-            _ => debug!("Database up to date."),
         }
     }
-    pub fn add_link(&self, url: &str, desc: Option<&str>, tags: Option<Values>) {
-        println!("adding {} => {}", url, desc.unwrap_or(""));
-        if let Some(t) = tags {
-            for tag in t.collect::<Vec<&str>>() {
-                println!("-> {}", tag)
-            }
+    pub fn add_link(&mut self, url: &str, desc: Option<&str>, tags: Option<Values>) {
+        let tags = tags.unwrap_or_default().collect::<Vec<&str>>();
+        let link = Link::new(url, desc.unwrap_or_default(), &tags);
+
+        let tx = self.connection.transaction().unwrap();
+        tx.execute(
+            "INSERT INTO links(url, description, hash) VALUES(?1, ?2, ?3)",
+            params![url, desc, link.hash],
+        ).expect("Couldn't add a link");
+
+        for tag in link.tags {
+            tx.execute(
+                "INSERT INTO tags(tag, user_id) VALUES(?1, NULL) \
+            ON CONFLICT(tag, user_id) \
+            DO UPDATE SET used_at = CURRENT_TIMESTAMP",
+                params![tag],
+            ).expect("Couldn't update tags");
+        };
+        match tx.commit() {
+            Ok(_) => println!("adding {} ", link),
+            _ => panic!("Couldn't add a link")
         }
     }
     pub fn new(db: &str) -> Self {
