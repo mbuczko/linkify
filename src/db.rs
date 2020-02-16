@@ -1,5 +1,4 @@
 use crate::link::Link;
-use clap::Values;
 use log::debug;
 use rusqlite::types::Value;
 use rusqlite::{params, vtab::array, Connection, Result, NO_PARAMS};
@@ -39,8 +38,8 @@ impl fmt::Display for Migration {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "{} ({}) => {}",
-            self.version, self.description, self.file
+            "{} => {} ({})",
+            self.file, self.version, self.description
         )
     }
 }
@@ -111,65 +110,57 @@ impl Vault {
             }
         }
     }
-    pub fn add_link(&mut self, url: &str, desc: Option<&str>, tags: Option<Values>) {
-        let tags = tags
-            .unwrap()
-            .into_iter()
-            .map(String::from)
-            .collect::<Vec<String>>();
-        let link = Link::new(url, desc.unwrap_or_default(), &tags);
-        let pretty = format!("{}", link);
-
+    pub fn add_link(&mut self, link: &Link) {
         // insert a link first
-        // note that last_insert_rowid returns 0 for already existing URLs
-        let tx = self.connection.transaction().unwrap();
-        tx.execute(
+        let txn = self.connection.transaction().unwrap();
+        txn.execute(
             "INSERT INTO links(url, description, hash) VALUES(?1, ?2, ?3) \
             ON CONFLICT(url) \
             DO UPDATE SET description = ?2",
-            params![url, desc, link.hash],
+            params![link.url, link.description, link.hash],
         )
         .expect("Couldn't add a link");
 
-        let rowid = tx.last_insert_rowid();
-        let id = if rowid == 0 {
-            tx.query_row(
-                "SELECT id FROM links WHERE url = ?1 AND user_id IS NULL",
-                params![url],
-                |row| row.get(0),
-            )
-        } else {
-            Ok(rowid)
-        }
-        .expect("Couldn't determine link identifier");
+        // note that last_insert_rowid returns 0 for already existing URLs
+        let id = match txn.last_insert_rowid() {
+            0 => txn
+                .query_row(
+                    "SELECT id FROM links WHERE url = ?1 AND user_id IS NULL",
+                    params![link.url],
+                    |row| row.get(0),
+                )
+                .unwrap(),
+            n => n,
+        };
 
         // remove tags associated so far
-        tx.execute("DELETE FROM links_tags WHERE link_id = ?1", params![id])
+        txn.execute("DELETE FROM links_tags WHERE link_id = ?1", params![id])
             .expect("Couldn't update tags");
 
-        // insert tags (if required) next...
-        for tag in link.tags {
-            tx.execute(
-                "INSERT INTO tags(tag, user_id) VALUES(?1, NULL) \
+        // join link with its tags (if provided)
+        if let Some(tv) = &link.tags {
+            let mut values: Vec<Value> = Vec::new();
+
+            // insert tags (if required) next...
+            for tag in tv {
+                txn.execute(
+                    "INSERT INTO tags(tag, user_id) VALUES(?1, NULL) \
             ON CONFLICT(tag, user_id) \
             DO UPDATE SET used_at = CURRENT_TIMESTAMP",
-                params![tag],
-            )
-            .expect("Couldn't add tags");
-        }
-
-        // join link with its tags at the end
-        let v = tags.into_iter().map(Value::from).collect();
-
-        tx.execute(
-            "INSERT INTO links_tags(link_id, tag_id) \
+                    params![tag],
+                )
+                .expect("Couldn't add tags");
+                values.push(Value::from(tag.to_string()));
+            }
+            txn.execute(
+                "INSERT INTO links_tags(link_id, tag_id) \
         SELECT ?1, id FROM tags WHERE tag IN rarray(?2) AND user_id IS NULL",
-            params![id, Rc::new(v)],
-        )
-        .expect("Could not connect tags with link");
-
-        match tx.commit() {
-            Ok(_) => println!("{}", pretty),
+                params![id, Rc::new(values)],
+            )
+            .expect("Could not connect tags with link");
+        }
+        match txn.commit() {
+            Ok(_) => println!("{}", link),
             _ => panic!("Couldn't add link"),
         }
     }

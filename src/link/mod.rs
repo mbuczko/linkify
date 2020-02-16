@@ -1,33 +1,40 @@
 use crate::utils::digest;
 use std::fmt;
 
+type Tag = String;
+
 #[derive(Debug)]
-pub struct Link<'a> {
+pub struct Link {
     pub url: String,
-    pub description: String,
-    pub tags: &'a Vec<String>,
+    pub description: Option<String>,
+    pub tags: Option<Vec<Tag>>,
     pub hash: String,
 }
 
-impl fmt::Display for Link<'_> {
+impl fmt::Display for Link {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "Link => {}\nTags => {}\n--\n{}",
-            self.url,
-            self.tags.join(","),
-            self.description,
-        )
+        let mut s = vec![self.url.as_str()];
+        let tags: Option<String> = self.tags.as_ref().and_then(|t| Some(t.join(" ")));
+
+        if let Some(d) = self.description.as_ref() {
+            s.push(&d);
+        }
+        let t = tags.unwrap_or_default();
+        if !t.is_empty() {
+            s.push("--");
+            s.push(&t);
+        }
+        write!(f, "{}\n", s.join("\n"))
     }
 }
 
-impl<'a> Link<'a> {
-    pub fn new(url: &'a str, description: &'a str, tags: &'a Vec<String>) -> Link<'a> {
+impl Link {
+    pub fn new(url: &str, description: Option<&str>, tags: Option<Vec<Tag>>) -> Link {
         Link {
             url: url.to_string(),
-            description: description.to_string(),
+            description: description.map(Into::into),
+            hash: digest(url, &description, &tags),
             tags,
-            hash: digest(url, description, tags),
         }
     }
 }

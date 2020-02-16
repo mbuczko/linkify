@@ -1,12 +1,13 @@
 mod db;
-mod utils;
 mod link;
 mod user;
+mod utils;
 
 use clap::{App, Arg, ArgMatches, SubCommand};
 use db::{init_vault, Vault};
 use log::Level;
 use semver::Version;
+use crate::link::Link;
 
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
@@ -71,11 +72,17 @@ fn main() {
 
 fn process_command(mut vault: Vault, matches: ArgMatches) {
     match matches.subcommand() {
-        ("add", Some(sub_m)) => vault.add_link(
-            sub_m.value_of("url").unwrap(),
-            sub_m.value_of("description"),
-            sub_m.values_of("tags")
-        ),
+        ("add", Some(sub_m)) => {
+            let tags = sub_m
+                .values_of("tags")
+                .and_then(|t| Some(t.map(String::from).collect::<Vec<String>>()));
+            let link = Link::new(
+                sub_m.value_of("url").unwrap(),
+                sub_m.value_of("description"),
+                tags
+            );
+            vault.add_link(&link);
+        }
         _ => {}
     }
 }
