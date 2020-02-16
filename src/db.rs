@@ -1,10 +1,12 @@
 use crate::link::Link;
 use clap::Values;
 use log::debug;
-use rusqlite::{params, Connection, Result, NO_PARAMS};
+use rusqlite::types::Value;
+use rusqlite::{params, vtab::array, Connection, Result, NO_PARAMS};
 use rust_embed::RustEmbed;
 use semver::Version;
 use std::fmt;
+use std::rc::Rc;
 use std::str;
 
 #[derive(RustEmbed)]
@@ -26,9 +28,9 @@ pub struct Vault {
 impl Migration {
     pub fn new(file: String, version: String, description: String) -> Self {
         Migration {
-            file: file,
-            version: version,
-            description: description,
+            file,
+            version,
+            description,
         }
     }
 }
@@ -110,16 +112,42 @@ impl Vault {
         }
     }
     pub fn add_link(&mut self, url: &str, desc: Option<&str>, tags: Option<Values>) {
-        let tags = tags.unwrap_or_default().collect::<Vec<&str>>();
+        let tags = tags
+            .unwrap()
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<String>>();
         let link = Link::new(url, desc.unwrap_or_default(), &tags);
-        let tx = self.connection.transaction().unwrap();
+        let pretty = format!("{}", link);
 
+        // insert a link first
+        // note that last_insert_rowid returns 0 for already existing URLs
+        let tx = self.connection.transaction().unwrap();
         tx.execute(
-            "INSERT INTO links(url, description, hash) VALUES(?1, ?2, ?3)",
+            "INSERT INTO links(url, description, hash) VALUES(?1, ?2, ?3) \
+            ON CONFLICT(url) \
+            DO UPDATE SET description = ?2",
             params![url, desc, link.hash],
         )
         .expect("Couldn't add a link");
 
+        let rowid = tx.last_insert_rowid();
+        let id = if rowid == 0 {
+            tx.query_row(
+                "SELECT id FROM links WHERE url = ?1 AND user_id IS NULL",
+                params![url],
+                |row| row.get(0),
+            )
+        } else {
+            Ok(rowid)
+        }
+        .expect("Couldn't determine link identifier");
+
+        // remove tags associated so far
+        tx.execute("DELETE FROM links_tags WHERE link_id = ?1", params![id])
+            .expect("Couldn't update tags");
+
+        // insert tags (if required) next...
         for tag in link.tags {
             tx.execute(
                 "INSERT INTO tags(tag, user_id) VALUES(?1, NULL) \
@@ -127,16 +155,30 @@ impl Vault {
             DO UPDATE SET used_at = CURRENT_TIMESTAMP",
                 params![tag],
             )
-            .expect("Couldn't update tags");
+            .expect("Couldn't add tags");
         }
+
+        // join link with its tags at the end
+        let v = tags.into_iter().map(Value::from).collect();
+
+        tx.execute(
+            "INSERT INTO links_tags(link_id, tag_id) \
+        SELECT ?1, id FROM tags WHERE tag IN rarray(?2) AND user_id IS NULL",
+            params![id, Rc::new(v)],
+        )
+        .expect("Could not connect tags with link");
+
         match tx.commit() {
-            Ok(_) => println!("adding {} ", link),
-            _ => panic!("Couldn't add a link"),
+            Ok(_) => println!("{}", pretty),
+            _ => panic!("Couldn't add link"),
         }
     }
     pub fn new(db: &str) -> Self {
         match Connection::open(db) {
-            Ok(conn) => Vault { connection: conn },
+            Ok(conn) => {
+                array::load_module(&conn).unwrap();
+                Vault { connection: conn }
+            }
             _ => panic!("Cannot open connection to database"),
         }
     }

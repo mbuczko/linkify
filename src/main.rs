@@ -8,7 +8,6 @@ use db::{init_vault, Vault};
 use log::Level;
 use semver::Version;
 
-
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
 fn main() {

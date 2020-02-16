@@ -1,11 +1,13 @@
-CREATE TABLE IF NOT EXISTS users (
+CREATE TABLE IF NOT EXISTS users
+(
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   login TEXT NOT NULL,
   token TEXT NOT NULL,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS tags (
+CREATE TABLE IF NOT EXISTS tags
+(
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   tag TEXT NOT NULL,
   user_id INTEGER REFERENCES users(id),
@@ -13,7 +15,8 @@ CREATE TABLE IF NOT EXISTS tags (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS links (
+CREATE TABLE IF NOT EXISTS links
+(
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   url TEXT NOT NULL,
   description TEXT,
@@ -22,6 +25,12 @@ CREATE TABLE IF NOT EXISTS links (
   is_shared BOOLEAN NOT NULL DEFAULT FALSE,
   is_toread BOOLEAN NOT NULL DEFAULT FALSE,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS links_tags
+(
+    link_id INTEGER REFERENCES links (id),
+    tag_id  INTEGER REFERENCES tags (id)
 );
 
 -- this is to avoid duplicates of public tags, which are caused by
@@ -35,5 +44,6 @@ END;
 
 CREATE UNIQUE INDEX users_idx ON users(login);
 CREATE UNIQUE INDEX links_idx ON links(url);
+CREATE UNIQUE INDEX links_tags_idx ON links_tags(link_id, tag_id);
 CREATE UNIQUE INDEX tags_user_idx ON tags(tag, user_id);
 CREATE INDEX tags_used_idx ON tags(used_at);
