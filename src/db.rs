@@ -92,7 +92,7 @@ impl Vault {
             Some(format!("BEGIN TRANSACTION;\n\n{}\n\nCOMMIT;", final_txn))
         };
     }
-    pub fn version(&self) -> Result<(String, Version)> {
+    fn version(&self) -> Result<(String, Version)> {
         self.connection.query_row(
             "SELECT version, app_semver FROM migrations ORDER BY version DESC LIMIT 1",
             NO_PARAMS,
@@ -102,7 +102,7 @@ impl Vault {
             },
         )
     }
-    pub fn upgrade(&self, base_script_version: String, app_semver: Version) {
+    fn upgrade(&self, base_script_version: String, app_semver: Version) {
         if let Some(m) = self.build_migration(base_script_version, app_semver) {
             match self.connection.execute_batch(m.as_str()) {
                 Ok(_) => debug!("Upgraded to {}", self.version().unwrap().0),
@@ -116,7 +116,7 @@ impl Vault {
         txn.execute(
             "INSERT INTO links(url, description, hash) VALUES(?1, ?2, ?3) \
             ON CONFLICT(url) \
-            DO UPDATE SET description = ?2",
+            DO UPDATE SET description = ?2, hash = ?3",
             params![link.url, link.description, link.hash],
         )
         .expect("Couldn't add a link");
@@ -140,8 +140,6 @@ impl Vault {
         // join link with its tags (if provided)
         if let Some(tv) = &link.tags {
             let mut values: Vec<Value> = Vec::new();
-
-            // insert tags (if required) next...
             for tag in tv {
                 txn.execute(
                     "INSERT INTO tags(tag, user_id) VALUES(?1, NULL) \
@@ -170,7 +168,7 @@ impl Vault {
                 array::load_module(&conn).unwrap();
                 Vault { connection: conn }
             }
-            _ => panic!("Cannot open connection to database"),
+            _ => panic!("Cannot open connection to database or load required modules (array)"),
         }
     }
 }

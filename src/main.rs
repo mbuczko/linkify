@@ -16,8 +16,7 @@ fn main() {
 
     let matches = App::new("Świnka skarbonka na linki")
         .version(VERSION)
-        .author("Haksior MB")
-        .about("Saves your precious links")
+        .about("Saves your precious links into local vault")
         .arg(
             Arg::with_name("database")
                 .help("database to use")
