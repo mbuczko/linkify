@@ -1,6 +1,7 @@
 use crate::link::Link;
+use crate::utils::patternize;
 use log::debug;
-use rusqlite::types::Value;
+use rusqlite::types::{ToSql, Value as SqlValue};
 use rusqlite::{params, vtab::array, Connection, Result, NO_PARAMS};
 use rust_embed::RustEmbed;
 use semver::Version;
@@ -139,7 +140,7 @@ impl Vault {
 
         // join link with its tags (if provided)
         if let Some(tv) = &link.tags {
-            let mut values: Vec<Value> = Vec::new();
+            let mut values: Vec<SqlValue> = Vec::new();
             for tag in tv {
                 txn.execute(
                     "INSERT INTO tags(tag, user_id) VALUES(?1, NULL) \
@@ -148,7 +149,7 @@ impl Vault {
                     params![tag],
                 )
                 .expect("Couldn't add tags");
-                values.push(Value::from(tag.to_string()));
+                values.push(SqlValue::from(tag.to_string()));
             }
             txn.execute(
                 "INSERT INTO links_tags(link_id, tag_id) \
@@ -169,6 +170,72 @@ impl Vault {
                 Vault { connection: conn }
             }
             _ => panic!("Cannot open connection to database or load required modules (array)"),
+        }
+    }
+
+    // SELECT url, group_concat(tag)
+    // FROM links l LEFT JOIN links_tags lt ON l.id = lt.link_id LEFT JOIN tags t ON lt.tag_id = t.id
+    // WHERE ...
+    // GROUP BY l.id
+    // HAVING l.id IN
+    //   (SELECT link_id
+    //      FROM links_tags lt2
+    //      JOIN tags t2 ON lt2.tag_id = t2.id AND t2.tag = '...');
+
+    pub fn match_links(&mut self, link: &Link) {
+        let mut query = vec![
+            "SELECT url, description, group_concat(tag) FROM links l \
+        LEFT JOIN links_tags lt ON l.id = lt.link_id \
+        LEFT JOIN tags t ON lt.tag_id = t.id \
+        WHERE",
+        ];
+        let mut params: Vec<(&str, &dyn ToSql)> = Vec::new();
+        let mut url_pattern = String::with_capacity(32);
+        let mut desc_pattern = String::with_capacity(32);
+
+        let tags = link.tags.to_owned().unwrap_or_default();
+        let ptr = Rc::new(tags.into_iter().map(SqlValue::from).collect());
+
+        if !link.url.is_empty() {
+            patternize(&mut url_pattern, &link.url);
+            query.push("url LIKE :url AND");
+            params.push((":url", &url_pattern));
+        }
+        if let Some(desc) = &link.description {
+            patternize(&mut desc_pattern, desc);
+            query.push("lower(description) LIKE :desc AND");
+            params.push((":desc", &desc_pattern));
+        }
+        query.push("1=1 GROUP BY l.id");
+
+        if link.tags.is_some() {
+            query.push(
+                "HAVING l.id IN \
+            (SELECT link_id FROM links_tags lt2 \
+            JOIN tags t2 ON lt2.tag_id = t2.id AND t2.tag IN rarray(:tags))",
+            );
+            params.push((":tags", &ptr));
+        }
+
+        let mut stmt = self
+            .connection
+            .prepare(&query.join(" "))
+            .expect("Cannot construct a query");
+        let rows = stmt.query_map_named(params.as_slice(), |row| {
+            let url: String = row.get_unwrap(0);
+            let desc: Result<String> = row.get(1);
+            let tags: Result<String> = row.get(2);
+            Ok(Link::new(
+                &url,
+                desc.as_ref().map_or(None, |v| Some(v.as_str())),
+                tags.map_or(None, |t| Some(t.split('.').map(String::from).collect())),
+            ))
+        });
+        for link in rows.unwrap() {
+            match link {
+                Ok(l) => println!("{}", l),
+                _ => (),
+            };
         }
     }
 }

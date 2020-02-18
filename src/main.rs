@@ -26,7 +26,7 @@ fn main() {
         )
         .subcommand(
             SubCommand::with_name("add")
-                .about("adds a new link")
+                .about("Adds a new link")
                 .arg(
                     Arg::with_name("url")
                         .help("link to store in database")
@@ -48,40 +48,44 @@ fn main() {
                         .takes_value(true),
                 ),
         )
+        .subcommand(
+            SubCommand::with_name("ls")
+                .about("List matching links")
+                .arg(
+                    Arg::with_name("url")
+                        .help("link or its part to match")
+                )
+                .arg(
+                    Arg::with_name("description")
+                        .help("optional part of description to match")
+                        .short("d")
+                        .long("desc")
+                        .takes_value(true),
+                )
+                .arg(
+                    Arg::with_name("tags")
+                        .help("optional comma-separated tags to match")
+                        .short("t")
+                        .long("tags")
+                        .use_delimiter(true)
+                        .takes_value(true),
+                ),
+        )
         .get_matches();
 
     let db = matches.value_of("database").unwrap_or("links.db");
-
     match init_vault(db, Version::parse(VERSION).unwrap()) {
         Ok(v) => process_command(v, matches),
         _ => panic!("cannot initialize database"),
     }
-    //    if is_storing {
-    //        conn.execute("INSERT INTO links(url) VALUES (?1)", params![url])?;
-    //    } else {
-    //        let mut stmt = conn.prepare("SELECT url FROM links WHERE url LIKE ?1")?;
-    //        let links = stmt.query_map(params![format!("%{}%", url)], |row| {
-    //            Ok(Link { url: row.get(0)? })
-    //        })?;
-    //        for link in links {
-    //            println!("{}", link.unwrap());
-    //        }
-    //    }
 }
 
 fn process_command(mut vault: Vault, matches: ArgMatches) {
     match matches.subcommand() {
-        ("add", Some(sub_m)) => {
-            let tags = sub_m
-                .values_of("tags")
-                .and_then(|t| Some(t.map(String::from).collect::<Vec<String>>()));
-            let link = Link::new(
-                sub_m.value_of("url").unwrap(),
-                sub_m.value_of("description"),
-                tags
-            );
-            vault.add_link(&link);
-        }
-        _ => {}
+        ("add", Some(sub_m)) => vault.add_link(&Link::from(sub_m)),
+        ("ls", Some(sub_m)) => {
+            let _links = vault.match_links(&Link::from(sub_m));
+        },
+         _ => {}
     }
 }

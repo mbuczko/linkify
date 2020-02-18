@@ -1,5 +1,6 @@
 use crate::utils::digest;
 use std::fmt;
+use clap::ArgMatches;
 
 type Tag = String;
 
@@ -37,4 +38,16 @@ impl Link {
             tags,
         }
     }
+    pub fn from(matches: &ArgMatches) -> Link {
+        let tags = matches
+            .values_of("tags")
+            .and_then(|t| Some(t.map(String::from).collect::<Vec<String>>()));
+
+        Link::new(
+            matches.value_of("url").unwrap_or_default(),
+            matches.value_of("description"),
+            tags
+        )
+    }
 }
+
