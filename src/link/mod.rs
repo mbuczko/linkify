@@ -15,15 +15,14 @@ pub struct Link {
 impl fmt::Display for Link {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut s = vec![self.url.as_str()];
-        let tags: Option<String> = self.tags.as_ref().and_then(|t| Some(t.join(" ")));
+        let tags = self.tags.as_ref().map_or(None, |t| Some(t.join(" ")));
 
         if let Some(d) = self.description.as_ref() {
-            s.push(&d);
+            s.push(d);
         }
-        let t = tags.unwrap_or_default();
-        if !t.is_empty() {
+        if let Some(t) = tags.as_ref() {
             s.push("--");
-            s.push(&t);
+            s.push(t);
         }
         write!(f, "{}\n", s.join("\n"))
     }

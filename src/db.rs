@@ -2,12 +2,22 @@ use crate::link::Link;
 use crate::utils::patternize;
 use log::debug;
 use rusqlite::types::{ToSql, Value as SqlValue};
-use rusqlite::{params, vtab::array, Connection, Result, NO_PARAMS};
+use rusqlite::{
+    params, vtab::array, Connection, Error as SqliteError, Result as SqliteResult, NO_PARAMS,
+};
 use rust_embed::RustEmbed;
 use semver::Version;
 use std::fmt;
+use std::iter::FromIterator;
 use std::rc::Rc;
 use std::str;
+
+#[derive(Debug)]
+pub enum DBError {
+    Sqlite(SqliteError),
+}
+
+type DBResult<T> = Result<T, DBError>;
 
 #[derive(RustEmbed)]
 #[folder = "resources/db/migrations/"]
@@ -23,6 +33,12 @@ struct Migration {
 #[derive(Debug)]
 pub struct Vault {
     connection: Connection,
+}
+
+impl From<SqliteError> for DBError {
+    fn from(err: SqliteError) -> Self {
+        DBError::Sqlite(err)
+    }
 }
 
 impl Migration {
@@ -93,15 +109,17 @@ impl Vault {
             Some(format!("BEGIN TRANSACTION;\n\n{}\n\nCOMMIT;", final_txn))
         };
     }
-    fn version(&self) -> Result<(String, Version)> {
-        self.connection.query_row(
-            "SELECT version, app_semver FROM migrations ORDER BY version DESC LIMIT 1",
-            NO_PARAMS,
-            |row| {
-                let ver: String = row.get(1)?;
-                Ok((row.get(0)?, Version::parse(&ver).unwrap()))
-            },
-        )
+    fn version(&self) -> DBResult<(String, Version)> {
+        self.connection
+            .query_row(
+                "SELECT version, app_semver FROM migrations ORDER BY version DESC LIMIT 1",
+                NO_PARAMS,
+                |row| {
+                    let ver: String = row.get(1)?;
+                    Ok((row.get(0)?, Version::parse(&ver).unwrap()))
+                },
+            )
+            .map_err(Into::into)
     }
     fn upgrade(&self, base_script_version: String, app_semver: Version) {
         if let Some(m) = self.build_migration(base_script_version, app_semver) {
@@ -111,16 +129,14 @@ impl Vault {
             }
         }
     }
-    pub fn add_link(&mut self, link: &Link) {
-        // insert a link first
+    pub fn add_link<'a>(&mut self, link: &'a Link) -> DBResult<&'a Link> {
         let txn = self.connection.transaction().unwrap();
         txn.execute(
             "INSERT INTO links(url, description, hash) VALUES(?1, ?2, ?3) \
             ON CONFLICT(url) \
             DO UPDATE SET description = ?2, hash = ?3",
             params![link.url, link.description, link.hash],
-        )
-        .expect("Couldn't add a link");
+        )?;
 
         // note that last_insert_rowid returns 0 for already existing URLs
         let id = match txn.last_insert_rowid() {
@@ -135,8 +151,7 @@ impl Vault {
         };
 
         // remove tags associated so far
-        txn.execute("DELETE FROM links_tags WHERE link_id = ?1", params![id])
-            .expect("Couldn't update tags");
+        txn.execute("DELETE FROM links_tags WHERE link_id = ?1", params![id])?;
 
         // join link with its tags (if provided)
         if let Some(tv) = &link.tags {
@@ -147,21 +162,16 @@ impl Vault {
             ON CONFLICT(tag, user_id) \
             DO UPDATE SET used_at = CURRENT_TIMESTAMP",
                     params![tag],
-                )
-                .expect("Couldn't add tags");
+                )?;
                 values.push(SqlValue::from(tag.to_string()));
             }
             txn.execute(
                 "INSERT INTO links_tags(link_id, tag_id) \
         SELECT ?1, id FROM tags WHERE tag IN rarray(?2) AND user_id IS NULL",
                 params![id, Rc::new(values)],
-            )
-            .expect("Could not connect tags with link");
+            )?;
         }
-        match txn.commit() {
-            Ok(_) => println!("{}", link),
-            _ => panic!("Couldn't add link"),
-        }
+        txn.commit().and(Ok(link)).map_err(Into::into)
     }
     pub fn new(db: &str) -> Self {
         match Connection::open(db) {
@@ -177,24 +187,22 @@ impl Vault {
     // FROM links l LEFT JOIN links_tags lt ON l.id = lt.link_id LEFT JOIN tags t ON lt.tag_id = t.id
     // WHERE ...
     // GROUP BY l.id
+    // -- only when tags were provided:
     // HAVING l.id IN
     //   (SELECT link_id
     //      FROM links_tags lt2
     //      JOIN tags t2 ON lt2.tag_id = t2.id AND t2.tag = '...');
 
-    pub fn match_links(&mut self, link: &Link) {
+    pub fn match_links(&mut self, link: &Link) -> DBResult<Vec<Link>> {
+        let mut url_pattern = String::with_capacity(32);
+        let mut desc_pattern = String::with_capacity(32);
+        let mut params: Vec<(&str, &dyn ToSql)> = Vec::new();
         let mut query = vec![
             "SELECT url, description, group_concat(tag) FROM links l \
         LEFT JOIN links_tags lt ON l.id = lt.link_id \
         LEFT JOIN tags t ON lt.tag_id = t.id \
         WHERE",
         ];
-        let mut params: Vec<(&str, &dyn ToSql)> = Vec::new();
-        let mut url_pattern = String::with_capacity(32);
-        let mut desc_pattern = String::with_capacity(32);
-
-        let tags = link.tags.to_owned().unwrap_or_default();
-        let ptr = Rc::new(tags.into_iter().map(SqlValue::from).collect());
 
         if !link.url.is_empty() {
             patternize(&mut url_pattern, &link.url);
@@ -208,6 +216,9 @@ impl Vault {
         }
         query.push("1=1 GROUP BY l.id");
 
+        let tags = link.tags.to_owned().unwrap_or_default();
+        let ptr = Rc::new(tags.into_iter().map(SqlValue::from).collect());
+
         if link.tags.is_some() {
             query.push(
                 "HAVING l.id IN \
@@ -216,31 +227,25 @@ impl Vault {
             );
             params.push((":tags", &ptr));
         }
+        query.push("ORDER BY l.created_at DESC");
 
         let mut stmt = self
             .connection
             .prepare(&query.join(" "))
             .expect("Cannot construct a query");
         let rows = stmt.query_map_named(params.as_slice(), |row| {
-            let url: String = row.get_unwrap(0);
-            let desc: Result<String> = row.get(1);
-            let tags: Result<String> = row.get(2);
             Ok(Link::new(
-                &url,
-                desc.as_ref().map_or(None, |v| Some(v.as_str())),
-                tags.map_or(None, |t| Some(t.split('.').map(String::from).collect())),
+                &row.get_unwrap::<_, String>(0),
+                row.get::<_, String>(1).ok().as_deref(),
+                row.get::<_, String>(2)
+                    .map_or(None, |t| Some(t.split('.').map(String::from).collect())),
             ))
-        });
-        for link in rows.unwrap() {
-            match link {
-                Ok(l) => println!("{}", l),
-                _ => (),
-            };
-        }
+        })?;
+        Result::from_iter(rows).map_err(Into::into)
     }
 }
 
-pub fn init_vault(db: &str, app_semver: Version) -> Result<Vault> {
+pub fn init_vault(db: &str, app_semver: Version) -> SqliteResult<Vault> {
     let vault = Vault::new(db);
     let (last_script_version, last_app_version) = match vault.version() {
         Ok((lsv, lav)) => (lsv, lav),

@@ -3,11 +3,11 @@ mod link;
 mod user;
 mod utils;
 
+use crate::link::Link;
 use clap::{App, Arg, ArgMatches, SubCommand};
 use db::{init_vault, Vault};
 use log::Level;
 use semver::Version;
-use crate::link::Link;
 
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
@@ -51,10 +51,7 @@ fn main() {
         .subcommand(
             SubCommand::with_name("ls")
                 .about("List matching links")
-                .arg(
-                    Arg::with_name("url")
-                        .help("link or its part to match")
-                )
+                .arg(Arg::with_name("url").help("link or its part to match"))
                 .arg(
                     Arg::with_name("description")
                         .help("optional part of description to match")
@@ -82,10 +79,18 @@ fn main() {
 
 fn process_command(mut vault: Vault, matches: ArgMatches) {
     match matches.subcommand() {
-        ("add", Some(sub_m)) => vault.add_link(&Link::from(sub_m)),
-        ("ls", Some(sub_m)) => {
-            let _links = vault.match_links(&Link::from(sub_m));
+        ("add", Some(sub_m)) => match vault.add_link(&Link::from(sub_m)) {
+            Ok(link) => println!("{}", link),
+            Err(_) => println!("Error while adding a link")
+        }
+        ("ls", Some(sub_m)) => match vault.match_links(&Link::from(sub_m)) {
+            Ok(links) => {
+                for link in links {
+                    println!("{}", link)
+                }
+            }
+            Err(_) => println!("Error while fetching links"),
         },
-         _ => {}
+        _ => {}
     }
 }
