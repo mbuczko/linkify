@@ -1,5 +1,7 @@
 use crate::link::Link;
+use crate::user::User;
 use crate::utils::patternize;
+use bcrypt::hash;
 use log::debug;
 use rusqlite::types::{ToSql, Value as SqlValue};
 use rusqlite::{
@@ -203,7 +205,6 @@ impl Vault {
         LEFT JOIN tags t ON lt.tag_id = t.id \
         WHERE",
         ];
-
         if !link.url.is_empty() {
             patternize(&mut url_pattern, &link.url);
             query.push("url LIKE :url AND");
@@ -229,16 +230,58 @@ impl Vault {
         }
         query.push("ORDER BY l.created_at DESC");
 
-        let mut stmt = self
-            .connection
-            .prepare(&query.join(" "))
-            .expect("Cannot construct a query");
+        let mut stmt = self.connection.prepare(&query.join(" "))?;
         let rows = stmt.query_map_named(params.as_slice(), |row| {
             Ok(Link::new(
                 &row.get_unwrap::<_, String>(0),
                 row.get::<_, String>(1).ok().as_deref(),
                 row.get::<_, String>(2)
                     .map_or(None, |t| Some(t.split('.').map(String::from).collect())),
+            ))
+        })?;
+        Result::from_iter(rows).map_err(Into::into)
+    }
+
+    //
+    // users
+    //
+    pub fn add_user(&self, login: &str, password: String) -> DBResult<User> {
+        let hashed = hash(password, 10).expect("Couldn't hash a password for some reason");
+        self.connection.execute(
+            "INSERT INTO users(login, password) VALUES(?1, ?2)",
+            params![login, hashed],
+        )?;
+        Ok(User::from(login))
+    }
+    pub fn passwd_user(&self, login: &str, new_password: String) -> DBResult<User> {
+        let hashed = hash(new_password, 10).expect("Couldn't hash a password for some reason");
+        self.connection.execute(
+            "UPDATE users SET password=?1 WHERE login=?2",
+            params![login, hashed],
+        )?;
+        Ok(User::from(login))
+    }
+    pub fn match_users(&self, pattern: Option<&str>) -> DBResult<Vec<(User, u16)>> {
+        let mut user_pattern = String::with_capacity(32);
+        let mut params = Vec::new();
+        let mut query = vec![
+            "SELECT login, count(l.id) FROM users u \
+            LEFT JOIN links l ON l.user_id = u.id",
+        ];
+        if let Some(pat) = pattern {
+            patternize(&mut user_pattern, pat);
+            query.push("WHERE lower(login) like ?1");
+            params.push(user_pattern.to_ascii_lowercase());
+        }
+        query.push("GROUP BY login");
+
+        let mut stmt = self.connection.prepare(query.join(" ").as_str())?;
+        let rows = stmt.query_map(&params, |row| {
+            Ok((
+                User {
+                    login: row.get(0).unwrap(),
+                },
+                row.get_unwrap(1),
             ))
         })?;
         Result::from_iter(rows).map_err(Into::into)
