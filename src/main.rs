@@ -2,6 +2,7 @@ mod db;
 mod link;
 mod user;
 mod utils;
+mod query;
 
 use crate::link::Link;
 use crate::utils::password;

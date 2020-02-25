@@ -1,9 +1,10 @@
 use crate::link::Link;
+use crate::query::Query;
 use crate::user::User;
 use crate::utils::patternize;
 use bcrypt::hash;
 use log::debug;
-use rusqlite::types::{ToSql, Value as SqlValue};
+use rusqlite::types::Value as SqlValue;
 use rusqlite::{
     params, vtab::array, Connection, Error as SqliteError, Result as SqliteResult, NO_PARAMS,
 };
@@ -64,6 +65,10 @@ impl fmt::Display for Migration {
 }
 
 impl Vault {
+    //
+    // migrations
+    //
+
     fn build_migration(&self, base_version: String, app_semver: Version) -> Option<String> {
         let mut migrations: Vec<Migration> = Asset::iter()
             .map(|file| {
@@ -131,6 +136,11 @@ impl Vault {
             }
         }
     }
+
+    //
+    // links
+    //
+
     pub fn add_link<'a>(&mut self, link: &'a Link) -> DBResult<&'a Link> {
         let txn = self.connection.transaction().unwrap();
         txn.execute(
@@ -184,54 +194,41 @@ impl Vault {
             _ => panic!("Cannot open connection to database or load required modules (array)"),
         }
     }
-
-    // SELECT url, group_concat(tag)
-    // FROM links l LEFT JOIN links_tags lt ON l.id = lt.link_id LEFT JOIN tags t ON lt.tag_id = t.id
-    // WHERE ...
-    // GROUP BY l.id
-    // -- only when tags were provided:
-    // HAVING l.id IN
-    //   (SELECT link_id
-    //      FROM links_tags lt2
-    //      JOIN tags t2 ON lt2.tag_id = t2.id AND t2.tag = '...');
-
     pub fn match_links(&mut self, link: &Link) -> DBResult<Vec<Link>> {
-        let mut url_pattern = String::with_capacity(32);
-        let mut desc_pattern = String::with_capacity(32);
-        let mut params: Vec<(&str, &dyn ToSql)> = Vec::new();
-        let mut query = vec![
+        let tags = link.tags.to_owned().unwrap_or_default();
+        let ptr = Rc::new(tags.into_iter().map(SqlValue::from).collect());
+        let url = Query::like(&link.url).unwrap_or_default();
+        let desc = link
+            .description
+            .as_ref()
+            .map_or(None, |v| Query::like(v))
+            .unwrap_or_default();
+
+        let mut query = Query::new_with_initial(
             "SELECT url, description, group_concat(tag) FROM links l \
         LEFT JOIN links_tags lt ON l.id = lt.link_id \
         LEFT JOIN tags t ON lt.tag_id = t.id \
         WHERE",
-        ];
-        if !link.url.is_empty() {
-            patternize(&mut url_pattern, &link.url);
-            query.push("url LIKE :url AND");
-            params.push((":url", &url_pattern));
+        );
+        if !url.is_empty() {
+            query.concat_with_named_param("url LIKE :url AND", (":url", &url));
         }
-        if let Some(desc) = &link.description {
-            patternize(&mut desc_pattern, desc);
-            query.push("lower(description) LIKE :desc AND");
-            params.push((":desc", &desc_pattern));
+        if !desc.is_empty() {
+            query.concat_with_named_param("lower(description) LIKE :desc AND", (":desc", &desc));
         }
-        query.push("1=1 GROUP BY l.id");
-
-        let tags = link.tags.to_owned().unwrap_or_default();
-        let ptr = Rc::new(tags.into_iter().map(SqlValue::from).collect());
-
+        query.concat("1=1 GROUP BY l.id");
         if link.tags.is_some() {
-            query.push(
+            query.concat_with_named_param(
                 "HAVING l.id IN \
             (SELECT link_id FROM links_tags lt2 \
             JOIN tags t2 ON lt2.tag_id = t2.id AND t2.tag IN rarray(:tags))",
+                (":tags", &ptr),
             );
-            params.push((":tags", &ptr));
         }
-        query.push("ORDER BY l.created_at DESC");
+        query.concat("ORDER BY l.created_at DESC");
 
-        let mut stmt = self.connection.prepare(&query.join(" "))?;
-        let rows = stmt.query_map_named(params.as_slice(), |row| {
+        let mut stmt = self.connection.prepare(query.to_string().as_str())?;
+        let rows = stmt.query_map_named(query.named_params(), |row| {
             Ok(Link::new(
                 &row.get_unwrap::<_, String>(0),
                 row.get::<_, String>(1).ok().as_deref(),
@@ -245,6 +242,7 @@ impl Vault {
     //
     // users
     //
+
     pub fn add_user(&self, login: &str, password: String) -> DBResult<User> {
         let hashed = hash(password, 10).expect("Couldn't hash a password for some reason");
         self.connection.execute(
