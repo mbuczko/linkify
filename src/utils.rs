@@ -1,6 +1,5 @@
 use rpassword::read_password;
 use sha1::Sha1;
-use std::fmt::Write;
 use std::io::{stdout, Write as IoWrite};
 
 pub fn digest(url: &str, description: &Option<&str>, tags: &Option<Vec<String>>) -> String {
@@ -25,9 +24,4 @@ pub fn password(password: Option<&str>) -> String {
             read_password().expect("Password not provided")
         }
     }
-}
-
-pub fn patternize<W: Write>(f: &mut W, s: &str) {
-    f.write_fmt(format_args!("%{}%", s.to_ascii_lowercase()))
-        .unwrap();
 }

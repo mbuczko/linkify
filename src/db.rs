@@ -1,7 +1,6 @@
 use crate::link::Link;
 use crate::query::Query;
 use crate::user::User;
-use crate::utils::patternize;
 use bcrypt::hash;
 use log::debug;
 use rusqlite::types::Value as SqlValue;
@@ -260,21 +259,20 @@ impl Vault {
         Ok(User::from(login))
     }
     pub fn match_users(&self, pattern: Option<&str>) -> DBResult<Vec<(User, u16)>> {
-        let mut user_pattern = String::with_capacity(32);
-        let mut params = Vec::new();
-        let mut query = vec![
+        let user = pattern
+            .map_or(None, |v| Query::like(v.to_ascii_lowercase().as_str()))
+            .unwrap_or_default();
+        let mut query = Query::new_with_initial(
             "SELECT login, count(l.id) FROM users u \
             LEFT JOIN links l ON l.user_id = u.id",
-        ];
-        if let Some(pat) = pattern {
-            patternize(&mut user_pattern, pat);
-            query.push("WHERE lower(login) like ?1");
-            params.push(user_pattern.to_ascii_lowercase());
+        );
+        if !user.is_empty() {
+            query.concat_with_named_param("WHERE lower(login) like :login", (":login", &user));
         }
-        query.push("GROUP BY login");
+        query.concat("GROUP BY login");
 
-        let mut stmt = self.connection.prepare(query.join(" ").as_str())?;
-        let rows = stmt.query_map(&params, |row| {
+        let mut stmt = self.connection.prepare(query.to_string().as_str())?;
+        let rows = stmt.query_map_named(query.named_params(), |row| {
             Ok((
                 User {
                     login: row.get(0).unwrap(),
