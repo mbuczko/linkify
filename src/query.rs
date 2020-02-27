@@ -21,7 +21,7 @@ impl<'a> Query<'a> {
         self.query.push(query_str);
         self
     }
-    pub fn concat_with_named_param(
+    pub fn concat_with_param(
         &mut self,
         query_str: &'static str,
         query_param: (&'a str, &'a dyn ToSql),

@@ -1,7 +1,9 @@
+use crate::db::DBError::{BadPassword, Unauthenticated, UnknownUser};
 use crate::link::Link;
 use crate::query::Query;
-use crate::user::User;
-use bcrypt::hash;
+use crate::user::{Authentication, User};
+
+use bcrypt::{hash, verify};
 use log::debug;
 use rusqlite::types::Value as SqlValue;
 use rusqlite::{
@@ -17,6 +19,9 @@ use std::str;
 #[derive(Debug)]
 pub enum DBError {
     Sqlite(SqliteError),
+    Unauthenticated,
+    UnknownUser,
+    BadPassword,
 }
 
 type DBResult<T> = Result<T, DBError>;
@@ -140,7 +145,21 @@ impl Vault {
     // links
     //
 
-    pub fn add_link<'a>(&mut self, link: &'a Link) -> DBResult<&'a Link> {
+    pub fn add_link<'a>(
+        &mut self,
+        link: &'a Link,
+        auth: &'a Option<Authentication>,
+    ) -> DBResult<&'a Link> {
+        let login = match auth
+            .as_ref()
+            .map_or(Err(Unauthenticated), |a| self.authenticate_user(a))
+        {
+            Ok(user) => user.login,
+            Err(e) => return Err(e),
+        };
+
+        println!("Authenticated as {}", login);
+
         let txn = self.connection.transaction().unwrap();
         txn.execute(
             "INSERT INTO links(url, description, hash) VALUES(?1, ?2, ?3) \
@@ -184,15 +203,6 @@ impl Vault {
         }
         txn.commit().and(Ok(link)).map_err(Into::into)
     }
-    pub fn new(db: &str) -> Self {
-        match Connection::open(db) {
-            Ok(conn) => {
-                array::load_module(&conn).unwrap();
-                Vault { connection: conn }
-            }
-            _ => panic!("Cannot open connection to database or load required modules (array)"),
-        }
-    }
     pub fn match_links(&mut self, link: &Link) -> DBResult<Vec<Link>> {
         let tags = link.tags.to_owned().unwrap_or_default();
         let ptr = Rc::new(tags.into_iter().map(SqlValue::from).collect());
@@ -210,14 +220,14 @@ impl Vault {
         WHERE",
         );
         if !url.is_empty() {
-            query.concat_with_named_param("url LIKE :url AND", (":url", &url));
+            query.concat_with_param("url LIKE :url AND", (":url", &url));
         }
         if !desc.is_empty() {
-            query.concat_with_named_param("lower(description) LIKE :desc AND", (":desc", &desc));
+            query.concat_with_param("lower(description) LIKE :desc AND", (":desc", &desc));
         }
         query.concat("1=1 GROUP BY l.id");
         if link.tags.is_some() {
-            query.concat_with_named_param(
+            query.concat_with_param(
                 "HAVING l.id IN \
             (SELECT link_id FROM links_tags lt2 \
             JOIN tags t2 ON lt2.tag_id = t2.id AND t2.tag IN rarray(:tags))",
@@ -248,15 +258,30 @@ impl Vault {
             "INSERT INTO users(login, password) VALUES(?1, ?2)",
             params![login, hashed],
         )?;
-        Ok(User::from(login))
+        Ok(User::new(login))
     }
     pub fn passwd_user(&self, login: &str, new_password: String) -> DBResult<User> {
         let hashed = hash(new_password, 10).expect("Couldn't hash a password for some reason");
         self.connection.execute(
             "UPDATE users SET password=?1 WHERE login=?2",
-            params![login, hashed],
+            params![hashed, login],
         )?;
-        Ok(User::from(login))
+        Ok(User::new(login))
+    }
+    pub fn authenticate_user(&self, auth: &Authentication) -> DBResult<User> {
+        self.connection
+            .query_row(
+                "SELECT password FROM users WHERE login = ?1",
+                params![auth.login],
+                |row| Ok(row.get(0)?),
+            )
+            .map_or(Err(UnknownUser), |h: String| {
+                if verify(&auth.password, &h).unwrap_or(false) {
+                    Ok(User::new(&auth.login))
+                } else {
+                    Err(BadPassword)
+                }
+            })
     }
     pub fn match_users(&self, pattern: Option<&str>) -> DBResult<Vec<(User, u16)>> {
         let user = pattern
@@ -267,7 +292,7 @@ impl Vault {
             LEFT JOIN links l ON l.user_id = u.id",
         );
         if !user.is_empty() {
-            query.concat_with_named_param("WHERE lower(login) like :login", (":login", &user));
+            query.concat_with_param("WHERE lower(login) like :login", (":login", &user));
         }
         query.concat("GROUP BY login");
 
@@ -281,6 +306,20 @@ impl Vault {
             ))
         })?;
         Result::from_iter(rows).map_err(Into::into)
+    }
+
+    //
+    // vault
+    //
+
+    pub fn new(db: &str) -> Self {
+        match Connection::open(db) {
+            Ok(conn) => {
+                array::load_module(&conn).unwrap();
+                Vault { connection: conn }
+            }
+            _ => panic!("Cannot open connection to database or load required modules (array)"),
+        }
     }
 }
 

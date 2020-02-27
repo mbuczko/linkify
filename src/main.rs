@@ -1,10 +1,11 @@
 mod db;
 mod link;
+mod query;
 mod user;
 mod utils;
-mod query;
 
 use crate::link::Link;
+use crate::user::{Authentication};
 use crate::utils::password;
 use clap::{App, Arg, ArgMatches, SubCommand};
 use db::{init_vault, Vault};
@@ -33,6 +34,20 @@ fn main() {
                     Arg::with_name("url")
                         .help("link to store in database")
                         .required(true),
+                )
+                .arg(
+                    Arg::with_name("user")
+                        .help("an owner of stored link")
+                        .short("u")
+                        .long("user")
+                        .takes_value(true),
+                )
+                .arg(
+                    Arg::with_name("password")
+                        .help("owner's password")
+                        .short("p")
+                        .long("pass")
+                        .takes_value(true),
                 )
                 .arg(
                     Arg::with_name("description")
@@ -108,10 +123,7 @@ fn main() {
                 .subcommand(
                     SubCommand::with_name("ls")
                         .about("Lists matching users")
-                        .arg(
-                            Arg::with_name("login")
-                                .help("User's identifier pattern to list")
-                        ),
+                        .arg(Arg::with_name("login").help("User's identifier pattern to list")),
                 ),
         )
         .get_matches();
@@ -125,10 +137,12 @@ fn main() {
 
 fn process_command(mut vault: Vault, matches: ArgMatches) {
     match matches.subcommand() {
-        ("add", Some(sub_m)) => match vault.add_link(&Link::from(sub_m)) {
-            Ok(link) => println!("{}", link),
-            Err(_) => println!("Error while adding a link"),
-        },
+        ("add", Some(sub_m)) => {
+            match vault.add_link(&Link::from(sub_m), &Authentication::from(sub_m)) {
+                Ok(link) => println!("{}", link),
+                Err(e) => println!("Error while adding a link ({:?})", e),
+            }
+        }
         ("ls", Some(sub_m)) => match vault.match_links(&Link::from(sub_m)) {
             Ok(links) => {
                 for link in links {
