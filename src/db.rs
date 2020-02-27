@@ -162,7 +162,7 @@ impl Vault {
         let txn = self.connection.transaction().unwrap();
         txn.execute(
             "INSERT INTO links(url, description, hash, user_id) VALUES(?1, ?2, ?3, ?4) \
-            ON CONFLICT(url) \
+            ON CONFLICT(url, user_id) \
             DO UPDATE SET description = ?2, hash = ?3",
             params![link.url, link.description, link.hash, user_id],
         )?;
