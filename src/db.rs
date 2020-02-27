@@ -3,6 +3,7 @@ use crate::link::Link;
 use crate::query::Query;
 use crate::user::{Authentication, User};
 
+use crate::utils::password;
 use bcrypt::{hash, verify};
 use log::debug;
 use rusqlite::types::Value as SqlValue;
@@ -150,30 +151,28 @@ impl Vault {
         link: &'a Link,
         auth: &'a Option<Authentication>,
     ) -> DBResult<&'a Link> {
-        let login = match auth
+        let (user_id, _login) = match auth
             .as_ref()
             .map_or(Err(Unauthenticated), |a| self.authenticate_user(a))
         {
-            Ok(user) => user.login,
+            Ok(user) => (user.id, user.login),
             Err(e) => return Err(e),
         };
 
-        println!("Authenticated as {}", login);
-
         let txn = self.connection.transaction().unwrap();
         txn.execute(
-            "INSERT INTO links(url, description, hash) VALUES(?1, ?2, ?3) \
+            "INSERT INTO links(url, description, hash, user_id) VALUES(?1, ?2, ?3, ?4) \
             ON CONFLICT(url) \
             DO UPDATE SET description = ?2, hash = ?3",
-            params![link.url, link.description, link.hash],
+            params![link.url, link.description, link.hash, user_id],
         )?;
 
         // note that last_insert_rowid returns 0 for already existing URLs
         let id = match txn.last_insert_rowid() {
             0 => txn
                 .query_row(
-                    "SELECT id FROM links WHERE url = ?1 AND user_id IS NULL",
-                    params![link.url],
+                    "SELECT id FROM links WHERE url = ?1 AND user_id = ?2",
+                    params![link.url, user_id],
                     |row| row.get(0),
                 )
                 .unwrap(),
@@ -203,7 +202,18 @@ impl Vault {
         }
         txn.commit().and(Ok(link)).map_err(Into::into)
     }
-    pub fn match_links(&mut self, link: &Link) -> DBResult<Vec<Link>> {
+    pub fn match_links(
+        &mut self,
+        link: &Link,
+        auth: &Option<Authentication>,
+    ) -> DBResult<Vec<Link>> {
+        let (user_id, _login) = match auth
+            .as_ref()
+            .map_or(Err(Unauthenticated), |a| self.authenticate_user(a))
+        {
+            Ok(user) => (user.id, user.login),
+            Err(e) => return Err(e),
+        };
         let tags = link.tags.to_owned().unwrap_or_default();
         let ptr = Rc::new(tags.into_iter().map(SqlValue::from).collect());
         let url = Query::like(&link.url).unwrap_or_default();
@@ -225,7 +235,10 @@ impl Vault {
         if !desc.is_empty() {
             query.concat_with_param("lower(description) LIKE :desc AND", (":desc", &desc));
         }
-        query.concat("1=1 GROUP BY l.id");
+
+        query.concat_with_param("l.user_id = :id", (":id", &user_id));
+        query.concat("GROUP BY l.id");
+
         if link.tags.is_some() {
             query.concat_with_param(
                 "HAVING l.id IN \
@@ -252,47 +265,61 @@ impl Vault {
     // users
     //
 
-    pub fn add_user(&self, login: &str, password: String) -> DBResult<User> {
-        let hashed = hash(password, 10).expect("Couldn't hash a password for some reason");
-        self.connection.execute(
-            "INSERT INTO users(login, password) VALUES(?1, ?2)",
-            params![login, hashed],
-        )?;
-        Ok(User::new(login))
+    pub fn add_user(&self, auth: &Option<Authentication>) -> DBResult<User> {
+        match auth {
+            Some(auth) => {
+                let hashed =
+                    hash(&auth.password, 10).expect("Couldn't hash a password for some reason");
+                self.connection.execute(
+                    "INSERT INTO users(login, password) VALUES(?1, ?2)",
+                    params![auth.login, hashed],
+                )?;
+                Ok(User::new(self.connection.last_insert_rowid(), &auth.login))
+            }
+            _ => Err(BadPassword),
+        }
     }
-    pub fn passwd_user(&self, login: &str, new_password: String) -> DBResult<User> {
-        let hashed = hash(new_password, 10).expect("Couldn't hash a password for some reason");
+    pub fn passwd_user(&self, auth: &Option<Authentication>) -> DBResult<User> {
+        let (id, login) = match auth
+            .as_ref()
+            .map_or(Err(Unauthenticated), |a| self.authenticate_user(a))
+        {
+            Ok(user) => (user.id, user.login),
+            Err(e) => return Err(e),
+        };
+        let pass = password(None, Some("New password"));
+        let hashed = hash(pass, 10).expect("Couldn't hash a password for some reason");
         self.connection.execute(
-            "UPDATE users SET password=?1 WHERE login=?2",
-            params![hashed, login],
+            "UPDATE users SET password=?1 WHERE id=?2",
+            params![hashed, id],
         )?;
-        Ok(User::new(login))
+        Ok(User::new(id, &login))
     }
     pub fn authenticate_user(&self, auth: &Authentication) -> DBResult<User> {
         self.connection
             .query_row(
-                "SELECT password FROM users WHERE login = ?1",
+                "SELECT id, login, password FROM users WHERE login = ?1",
                 params![auth.login],
-                |row| Ok(row.get(0)?),
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
             )
-            .map_or(Err(UnknownUser), |h: String| {
-                if verify(&auth.password, &h).unwrap_or(false) {
-                    Ok(User::new(&auth.login))
+            .map_or(Err(UnknownUser), |user: (i64, String, String)| {
+                if verify(&auth.password, &user.2).unwrap_or(false) {
+                    Ok(User::new(user.0, &user.1))
                 } else {
                     Err(BadPassword)
                 }
             })
     }
     pub fn match_users(&self, pattern: Option<&str>) -> DBResult<Vec<(User, u16)>> {
-        let user = pattern
+        let login = pattern
             .map_or(None, |v| Query::like(v.to_ascii_lowercase().as_str()))
             .unwrap_or_default();
         let mut query = Query::new_with_initial(
-            "SELECT login, count(l.id) FROM users u \
+            "SELECT u.id, login, count(l.id) FROM users u \
             LEFT JOIN links l ON l.user_id = u.id",
         );
-        if !user.is_empty() {
-            query.concat_with_param("WHERE lower(login) like :login", (":login", &user));
+        if !login.is_empty() {
+            query.concat_with_param("WHERE lower(login) like :login", (":login", &login));
         }
         query.concat("GROUP BY login");
 
@@ -300,9 +327,10 @@ impl Vault {
         let rows = stmt.query_map_named(query.named_params(), |row| {
             Ok((
                 User {
-                    login: row.get(0).unwrap(),
+                    id: row.get(0).unwrap(),
+                    login: row.get(1).unwrap(),
                 },
-                row.get_unwrap(1),
+                row.get_unwrap(2),
             ))
         })?;
         Result::from_iter(rows).map_err(Into::into)

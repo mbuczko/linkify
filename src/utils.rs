@@ -15,11 +15,11 @@ pub fn digest(url: &str, description: &Option<&str>, tags: &Option<Vec<String>>)
     hasher.digest().to_string()
 }
 
-pub fn password(password: Option<&str>) -> String {
+pub fn password(password: Option<&str>, prompt: Option<&str>) -> String {
     match password {
         Some(p) => p.to_string(),
         _ => {
-            print!("Password: ");
+            print!("{}: ", prompt.unwrap_or("Password"));
             stdout().flush().unwrap();
             read_password().expect("Password not provided")
         }

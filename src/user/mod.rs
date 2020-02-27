@@ -4,6 +4,7 @@ use std::fmt;
 
 #[derive(Debug)]
 pub struct User {
+    pub id: i64,
     pub login: String,
 }
 
@@ -20,8 +21,9 @@ impl fmt::Display for User {
 }
 
 impl User {
-    pub fn new(login: &str) -> Self {
+    pub fn new(id: i64, login: &str) -> Self {
         User {
+            id,
             login: login.to_string(),
         }
     }
@@ -33,7 +35,7 @@ impl Authentication {
         if login.is_some() {
             Some(Authentication {
                 login: login.unwrap().to_string(),
-                password: password(matches.value_of("password")),
+                password: password(matches.value_of("password"), None),
             })
         } else {
             None

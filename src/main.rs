@@ -5,8 +5,7 @@ mod user;
 mod utils;
 
 use crate::link::Link;
-use crate::user::{Authentication};
-use crate::utils::password;
+use crate::user::Authentication;
 use clap::{App, Arg, ArgMatches, SubCommand};
 use db::{init_vault, Vault};
 use log::Level;
@@ -77,6 +76,13 @@ fn main() {
                         .takes_value(true),
                 )
                 .arg(
+                    Arg::with_name("user")
+                        .help("an owner of stored link")
+                        .short("u")
+                        .long("user")
+                        .takes_value(true),
+                )
+                .arg(
                     Arg::with_name("tags")
                         .help("optional comma-separated tags to match")
                         .short("t")
@@ -92,8 +98,8 @@ fn main() {
                     SubCommand::with_name("add")
                         .about("Adds a new user")
                         .arg(
-                            Arg::with_name("login")
-                                .help("User's login to create")
+                            Arg::with_name("user")
+                                .help("User's identifier (login)")
                                 .required(true),
                         )
                         .arg(
@@ -108,8 +114,8 @@ fn main() {
                     SubCommand::with_name("passwd")
                         .about("Changes user's password")
                         .arg(
-                            Arg::with_name("login")
-                                .help("User's login to change a password")
+                            Arg::with_name("user")
+                                .help("User's identifier (login)")
                                 .required(true),
                         )
                         .arg(
@@ -143,36 +149,32 @@ fn process_command(mut vault: Vault, matches: ArgMatches) {
                 Err(e) => println!("Error while adding a link ({:?})", e),
             }
         }
-        ("ls", Some(sub_m)) => match vault.match_links(&Link::from(sub_m)) {
-            Ok(links) => {
-                for link in links {
-                    println!("{}", link)
+        ("ls", Some(sub_m)) => {
+            match vault.match_links(&Link::from(sub_m), &Authentication::from(sub_m)) {
+                Ok(links) => {
+                    for link in links {
+                        println!("{}", link)
+                    }
                 }
+                Err(e) => println!("Error while fetching links ({:?}).", e),
             }
-            Err(_) => println!("Error while fetching links"),
-        },
+        }
         ("users", Some(sub_m)) => match sub_m.subcommand() {
-            ("add", Some(sub_m)) => {
-                let pass = password(sub_m.value_of("password"));
-                match vault.add_user(sub_m.value_of("login").unwrap(), pass) {
-                    Ok(_) => println!("Ok."),
-                    Err(_) => println!("Error while adding new user. User might already exist."),
-                }
-            }
-            ("passwd", Some(sub_m)) => {
-                let pass = password(sub_m.value_of("password"));
-                match vault.passwd_user(sub_m.value_of("login").unwrap(), pass) {
-                    Ok(_) => println!("Changed."),
-                    Err(_) => println!("Error while changing password. User might not exist yet."),
-                }
-            }
+            ("add", Some(sub_m)) => match vault.add_user(&Authentication::from(sub_m)) {
+                Ok(_) => println!("Ok."),
+                Err(_) => println!("Error while adding new user. User might already exist."),
+            },
+            ("passwd", Some(sub_m)) => match vault.passwd_user(&Authentication::from(sub_m)) {
+                Ok(_) => println!("Changed."),
+                Err(e) => println!("Error while changing password ({:?}).", e),
+            },
             ("ls", Some(sub_m)) => match vault.match_users(sub_m.value_of("login")) {
                 Ok(users) => {
                     for (user, count) in users {
                         println!("{} ({})", user, count);
                     }
                 }
-                Err(_) => println!("Error while changing password. User might not exist yet."),
+                Err(_) => println!("Error while fetching users."),
             },
             _ => (),
         },
