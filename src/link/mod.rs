@@ -1,7 +1,7 @@
 use crate::auth::Authentication;
-use crate::vault::{DBResult, Vault};
 use crate::query::Query;
 use crate::utils::digest;
+use crate::vault::{DBResult, Vault};
 
 use crate::user::User;
 use clap::ArgMatches;
@@ -160,7 +160,7 @@ impl Vault {
             query.concat_with_param("href LIKE :href AND", (":href", &href));
         }
         if !desc.is_empty() {
-            query.concat_with_param("lower(description) LIKE :desc AND", (":desc", &desc));
+            query.concat_with_param("description LIKE :desc AND", (":desc", &desc));
         }
 
         query.concat_with_param("l.user_id = :id", (":id", &user.id));

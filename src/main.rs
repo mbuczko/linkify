@@ -205,14 +205,14 @@ fn process_command(mut vault: Vault, matches: ArgMatches) {
         },
         ("users", Some(sub_m)) => match sub_m.subcommand() {
             ("add", Some(sub_m)) => match vault.add_user(&Authentication::from(sub_m)) {
-                Ok(_) => println!("Added."),
+                Ok(u) => println!("Added ({}).", u.login),
                 Err(_) => {
                     eprintln!("Error while adding new user. User might already exist.");
                     exit(1);
                 }
             },
             ("passwd", Some(sub_m)) => match vault.passwd_user(&Authentication::from(sub_m)) {
-                Ok(_) => println!("Changed."),
+                Ok(u) => println!("Changed ({}).", u.login),
                 Err(e) => {
                     eprintln!("Error while changing password ({:?}).", e);
                     exit(1);

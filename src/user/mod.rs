@@ -34,13 +34,14 @@ impl Vault {
     pub fn add_user(&self, auth: &Option<Authentication>) -> DBResult<User> {
         match auth {
             Some(auth) => {
+                let login = auth.login.to_ascii_lowercase();
                 let hashed =
                     hash(&auth.password, 10).expect("Couldn't hash a password for some reason");
                 self.connection.execute(
                     "INSERT INTO users(login, password) VALUES(?1, ?2)",
-                    params![auth.login, hashed],
+                    params![login, hashed],
                 )?;
-                Ok(User::new(self.connection.last_insert_rowid(), &auth.login))
+                Ok(User::new(self.connection.last_insert_rowid(), &login))
             }
             _ => Err(BadPassword),
         }
@@ -58,17 +59,14 @@ impl Vault {
         )?;
         Ok(user)
     }
-    pub fn match_users(&self, pattern: Option<&str>) -> DBResult<Vec<(User, u16)>> {
+    pub fn match_users(&self, pattern: Option<&str>) -> DBResult<Vec<(User, u32)>> {
         let mut query = Query::new_with_initial(
             "SELECT u.id, login, count(l.id) FROM users u \
             LEFT JOIN links l ON l.user_id = u.id",
         );
-        let login = pattern
-            .map_or(None, |v| Query::like(v.to_ascii_lowercase().as_str()))
-            .unwrap_or_default();
-
+        let login = pattern.map_or(None, Query::like).unwrap_or_default();
         if !login.is_empty() {
-            query.concat_with_param("WHERE lower(login) like :login", (":login", &login));
+            query.concat_with_param("WHERE login like :login", (":login", &login));
         }
         query.concat("GROUP BY login");
 
