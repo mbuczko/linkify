@@ -74,7 +74,21 @@ fn main() {
                     Arg::with_name("file")
                         .help("JSON file to import")
                         .required(true),
-                ),
+                )
+                .arg(
+                    Arg::with_name("user")
+                        .help("an owner of stored link")
+                        .short("u")
+                        .long("user")
+                        .takes_value(true),
+                )
+                .arg(
+                    Arg::with_name("password")
+                        .help("owner's password")
+                        .short("p")
+                        .long("pass")
+                        .takes_value(true),
+                )
         )
         .subcommand(
             SubCommand::with_name("ls")
@@ -156,7 +170,7 @@ fn main() {
 fn process_command(mut vault: Vault, matches: ArgMatches) {
     match matches.subcommand() {
         ("add", Some(sub_m)) => {
-            match vault.add_link(&Link::from(sub_m), &Authentication::from(sub_m)) {
+            match vault.add_link(&mut Link::from(sub_m), &Authentication::from(sub_m)) {
                 Ok(link) => println!("{}", link),
                 Err(e) => {
                     eprintln!("Error while adding a link ({:?})", e);
@@ -178,11 +192,19 @@ fn process_command(mut vault: Vault, matches: ArgMatches) {
             }
         }
         ("import", Some(sub_m)) => {
-
+            let contents = read_file(sub_m.value_of("file").expect("Cannot read file."));
+            let links: Vec<Link> = json::from_str(&contents).expect("Invalid JSON.");
+            match vault.import_links(links, &Authentication::from(sub_m)) {
+                Ok(n) => println!("Imported {} links.", n),
+                Err(e) => {
+                    eprintln!("Error while importing links ({:?}).", e);
+                    exit(1);
+                }
+            }
         },
         ("users", Some(sub_m)) => match sub_m.subcommand() {
             ("add", Some(sub_m)) => match vault.add_user(&Authentication::from(sub_m)) {
-                Ok(_) => println!("Ok."),
+                Ok(_) => println!("Added."),
                 Err(_) => {
                     eprintln!("Error while adding new user. User might already exist.");
                     exit(1);

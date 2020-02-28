@@ -147,16 +147,7 @@ impl Vault {
     //
     // links
     //
-
-    pub fn add_link<'a>(
-        &mut self,
-        link: &'a Link,
-        auth: &'a Option<Authentication>,
-    ) -> DBResult<&'a Link> {
-        let user = match self.authenticate_user(auth) {
-            Ok(u) => u,
-            Err(e) => return Err(e),
-        };
+    fn store_link(&mut self, link: &Link, user: &User) -> DBResult<i64> {
         let txn = self.connection.transaction().unwrap();
         txn.execute(
             "INSERT INTO links(href, description, hash, user_id) VALUES(?1, ?2, ?3, ?4) \
@@ -198,7 +189,32 @@ impl Vault {
                 params![id, Rc::new(values)],
             )?;
         }
-        txn.commit().and(Ok(link)).map_err(Into::into)
+        txn.commit().and(Ok(id)).map_err(Into::into)
+    }
+    pub fn add_link(&mut self, link: &Link, auth: &Option<Authentication>) -> DBResult<i64> {
+        match self.authenticate_user(auth) {
+            Ok(u) => self.store_link(link, &u),
+            Err(e) => return Err(e),
+        }
+    }
+    pub fn import_links(
+        &mut self,
+        links: Vec<Link>,
+        auth: &Option<Authentication>,
+    ) -> DBResult<u32> {
+        match self.authenticate_user(auth) {
+            Ok(u) => {
+                let mut imported: u32 = 0;
+                for link in links {
+                    if self.store_link(&link, &u).is_ok() {
+                        imported += 1;
+                        println!("+ {}", link.href)
+                    }
+                }
+                Ok(imported)
+            }
+            Err(e) => return Err(e),
+        }
     }
     pub fn match_links(
         &mut self,

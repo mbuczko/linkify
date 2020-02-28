@@ -1,15 +1,18 @@
 use crate::utils::digest;
-use std::fmt;
 use clap::ArgMatches;
+use miniserde::{Deserialize, Serialize};
+use std::fmt;
 
 type Tag = String;
 
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Link {
     pub href: String,
     pub description: Option<String>,
     pub tags: Option<Vec<Tag>>,
     pub hash: String,
+    pub shared: bool,
+    pub toread: bool,
 }
 
 impl fmt::Display for Link {
@@ -34,6 +37,8 @@ impl Link {
             href: href.to_string(),
             description: description.map(Into::into),
             hash: digest(href, &description, &tags),
+            shared: false,
+            toread: false,
             tags,
         }
     }
@@ -45,8 +50,7 @@ impl Link {
         Link::new(
             matches.value_of("url").unwrap_or_default(),
             matches.value_of("description"),
-            tags
+            tags,
         )
     }
 }
-
