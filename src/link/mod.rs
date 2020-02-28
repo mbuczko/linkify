@@ -6,7 +6,7 @@ type Tag = String;
 
 #[derive(Debug)]
 pub struct Link {
-    pub url: String,
+    pub href: String,
     pub description: Option<String>,
     pub tags: Option<Vec<Tag>>,
     pub hash: String,
@@ -14,7 +14,7 @@ pub struct Link {
 
 impl fmt::Display for Link {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut s = vec![self.url.as_str()];
+        let mut s = vec![self.href.as_str()];
         let tags = self.tags.as_ref().map_or(None, |t| Some(t.join(" ")));
 
         if let Some(d) = self.description.as_ref() {
@@ -29,11 +29,11 @@ impl fmt::Display for Link {
 }
 
 impl Link {
-    pub fn new(url: &str, description: Option<&str>, tags: Option<Vec<Tag>>) -> Link {
+    pub fn new(href: &str, description: Option<&str>, tags: Option<Vec<Tag>>) -> Link {
         Link {
-            url: url.to_string(),
+            href: href.to_string(),
             description: description.map(Into::into),
-            hash: digest(url, &description, &tags),
+            hash: digest(href, &description, &tags),
             tags,
         }
     }

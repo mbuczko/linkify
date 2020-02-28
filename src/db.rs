@@ -159,18 +159,18 @@ impl Vault {
         };
         let txn = self.connection.transaction().unwrap();
         txn.execute(
-            "INSERT INTO links(url, description, hash, user_id) VALUES(?1, ?2, ?3, ?4) \
-            ON CONFLICT(url, user_id) \
+            "INSERT INTO links(href, description, hash, user_id) VALUES(?1, ?2, ?3, ?4) \
+            ON CONFLICT(href, user_id) \
             DO UPDATE SET description = ?2, hash = ?3",
-            params![link.url, link.description, link.hash, user.id],
+            params![link.href, link.description, link.hash, user.id],
         )?;
 
         // note that last_insert_rowid returns 0 for already existing URLs
         let id = match txn.last_insert_rowid() {
             0 => txn
                 .query_row(
-                    "SELECT id FROM links WHERE url = ?1 AND user_id = ?2",
-                    params![link.url, user.id],
+                    "SELECT id FROM links WHERE href = ?1 AND user_id = ?2",
+                    params![link.href, user.id],
                     |row| row.get(0),
                 )
                 .unwrap(),
@@ -211,7 +211,7 @@ impl Vault {
         };
         let tags = link.tags.to_owned().unwrap_or_default();
         let ptr = Rc::new(tags.into_iter().map(SqlValue::from).collect());
-        let url = Query::like(&link.url).unwrap_or_default();
+        let href = Query::like(&link.href).unwrap_or_default();
         let desc = link
             .description
             .as_ref()
@@ -219,13 +219,13 @@ impl Vault {
             .unwrap_or_default();
 
         let mut query = Query::new_with_initial(
-            "SELECT url, description, group_concat(tag) FROM links l \
+            "SELECT href, description, group_concat(tag) FROM links l \
         LEFT JOIN links_tags lt ON l.id = lt.link_id \
         LEFT JOIN tags t ON lt.tag_id = t.id \
         WHERE",
         );
-        if !url.is_empty() {
-            query.concat_with_param("url LIKE :url AND", (":url", &url));
+        if !href.is_empty() {
+            query.concat_with_param("href LIKE :href AND", (":href", &href));
         }
         if !desc.is_empty() {
             query.concat_with_param("lower(description) LIKE :desc AND", (":desc", &desc));

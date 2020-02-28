@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS tags
 CREATE TABLE IF NOT EXISTS links
 (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  url TEXT NOT NULL,
+  href TEXT NOT NULL,
   description TEXT,
   user_id INTEGER REFERENCES users(id),
   hash TEXT NOT NULL,
@@ -43,7 +43,7 @@ BEGIN
 END;
 
 CREATE UNIQUE INDEX users_idx ON users(login);
-CREATE UNIQUE INDEX links_idx ON links(url, user_id);
+CREATE UNIQUE INDEX links_idx ON links(href, user_id);
 CREATE UNIQUE INDEX links_tags_idx ON links_tags(link_id, tag_id);
 CREATE UNIQUE INDEX tags_user_idx ON tags(tag, user_id);
 CREATE INDEX tags_used_idx ON tags(used_at);

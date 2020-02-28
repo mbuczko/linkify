@@ -16,6 +16,7 @@ log = "0.4.8"
 simple_logger = "1.5.0"
 rpassword = "4.0.5"
 bcrypt = "0.6.1"
+miniserde = "0.1.12"
 
 [profile.release]
 opt-level = 'z'  # Optimize for size.
