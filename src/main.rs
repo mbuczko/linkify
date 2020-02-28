@@ -1,18 +1,19 @@
-mod db;
+mod vault;
 mod link;
 mod query;
 mod user;
+mod auth;
 mod utils;
 
 use crate::link::Link;
-use crate::user::Authentication;
 use clap::{App, Arg, ArgMatches, SubCommand};
-use db::{init_vault, Vault};
+use vault::{init_vault, Vault};
 use log::Level;
 use semver::Version;
 use std::process::exit;
 use miniserde::json;
 use crate::utils::read_file;
+use crate::auth::Authentication;
 
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
