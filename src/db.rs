@@ -89,10 +89,10 @@ impl Vault {
         // sort migrations by versions first
         migrations.sort_by(|m1, m2| m1.version.cmp(&m2.version));
 
-        // ...and keep only those which haven't been applied yet
+        // keep only those which haven't been applied yet
         migrations.retain(|m| base_version.is_empty() || m.version.gt(&base_version));
 
-        // compose final transaction
+        // ...and compose final transaction
         let final_txn = migrations.iter().fold(String::default(), |mut txn, m| {
             let buf = Asset::get(m.file.as_ref()).unwrap();
             match str::from_utf8(&buf) {
@@ -127,8 +127,10 @@ impl Vault {
                 "SELECT version, app_semver FROM migrations ORDER BY version DESC LIMIT 1",
                 NO_PARAMS,
                 |row| {
-                    let ver: String = row.get(1)?;
-                    Ok((row.get(0)?, Version::parse(&ver).unwrap()))
+                    Ok((
+                        row.get(0)?,
+                        Version::parse(&row.get::<_, String>(1)?).unwrap(),
+                    ))
                 },
             )
             .map_err(Into::into)
@@ -151,20 +153,16 @@ impl Vault {
         link: &'a Link,
         auth: &'a Option<Authentication>,
     ) -> DBResult<&'a Link> {
-        let (user_id, _login) = match auth
-            .as_ref()
-            .map_or(Err(Unauthenticated), |a| self.authenticate_user(a))
-        {
-            Ok(user) => (user.id, user.login),
+        let user = match self.authenticate_user(auth) {
+            Ok(u) => u,
             Err(e) => return Err(e),
         };
-
         let txn = self.connection.transaction().unwrap();
         txn.execute(
             "INSERT INTO links(url, description, hash, user_id) VALUES(?1, ?2, ?3, ?4) \
             ON CONFLICT(url, user_id) \
             DO UPDATE SET description = ?2, hash = ?3",
-            params![link.url, link.description, link.hash, user_id],
+            params![link.url, link.description, link.hash, user.id],
         )?;
 
         // note that last_insert_rowid returns 0 for already existing URLs
@@ -172,7 +170,7 @@ impl Vault {
             0 => txn
                 .query_row(
                     "SELECT id FROM links WHERE url = ?1 AND user_id = ?2",
-                    params![link.url, user_id],
+                    params![link.url, user.id],
                     |row| row.get(0),
                 )
                 .unwrap(),
@@ -207,11 +205,8 @@ impl Vault {
         link: &Link,
         auth: &Option<Authentication>,
     ) -> DBResult<Vec<Link>> {
-        let (user_id, _login) = match auth
-            .as_ref()
-            .map_or(Err(Unauthenticated), |a| self.authenticate_user(a))
-        {
-            Ok(user) => (user.id, user.login),
+        let user = match self.authenticate_user(auth) {
+            Ok(u) => u,
             Err(e) => return Err(e),
         };
         let tags = link.tags.to_owned().unwrap_or_default();
@@ -236,7 +231,7 @@ impl Vault {
             query.concat_with_param("lower(description) LIKE :desc AND", (":desc", &desc));
         }
 
-        query.concat_with_param("l.user_id = :id", (":id", &user_id));
+        query.concat_with_param("l.user_id = :id", (":id", &user.id));
         query.concat("GROUP BY l.id");
 
         if link.tags.is_some() {
@@ -280,44 +275,44 @@ impl Vault {
         }
     }
     pub fn passwd_user(&self, auth: &Option<Authentication>) -> DBResult<User> {
-        let (id, login) = match auth
-            .as_ref()
-            .map_or(Err(Unauthenticated), |a| self.authenticate_user(a))
-        {
-            Ok(user) => (user.id, user.login),
+        let user = match self.authenticate_user(auth) {
+            Ok(u) => u,
             Err(e) => return Err(e),
         };
         let pass = password(None, Some("New password"));
         let hashed = hash(pass, 10).expect("Couldn't hash a password for some reason");
         self.connection.execute(
             "UPDATE users SET password=?1 WHERE id=?2",
-            params![hashed, id],
+            params![hashed, user.id],
         )?;
-        Ok(User::new(id, &login))
+        Ok(user)
     }
-    pub fn authenticate_user(&self, auth: &Authentication) -> DBResult<User> {
-        self.connection
-            .query_row(
-                "SELECT id, login, password FROM users WHERE login = ?1",
-                params![auth.login],
-                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
-            )
-            .map_or(Err(UnknownUser), |user: (i64, String, String)| {
-                if verify(&auth.password, &user.2).unwrap_or(false) {
-                    Ok(User::new(user.0, &user.1))
-                } else {
-                    Err(BadPassword)
-                }
-            })
+    pub fn authenticate_user(&self, auth: &Option<Authentication>) -> DBResult<User> {
+        auth.as_ref().map_or(Err(Unauthenticated), |a| {
+            self.connection
+                .query_row(
+                    "SELECT id, login, password FROM users WHERE login = ?1",
+                    params![a.login],
+                    |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+                )
+                .map_or(Err(UnknownUser), |user: (i64, String, String)| {
+                    if verify(&a.password, &user.2).unwrap_or(false) {
+                        Ok(User::new(user.0, &user.1))
+                    } else {
+                        Err(BadPassword)
+                    }
+                })
+        })
     }
     pub fn match_users(&self, pattern: Option<&str>) -> DBResult<Vec<(User, u16)>> {
-        let login = pattern
-            .map_or(None, |v| Query::like(v.to_ascii_lowercase().as_str()))
-            .unwrap_or_default();
         let mut query = Query::new_with_initial(
             "SELECT u.id, login, count(l.id) FROM users u \
             LEFT JOIN links l ON l.user_id = u.id",
         );
+        let login = pattern
+            .map_or(None, |v| Query::like(v.to_ascii_lowercase().as_str()))
+            .unwrap_or_default();
+
         if !login.is_empty() {
             query.concat_with_param("WHERE lower(login) like :login", (":login", &login));
         }

@@ -10,6 +10,7 @@ use clap::{App, Arg, ArgMatches, SubCommand};
 use db::{init_vault, Vault};
 use log::Level;
 use semver::Version;
+use std::process::exit;
 
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
@@ -146,7 +147,10 @@ fn process_command(mut vault: Vault, matches: ArgMatches) {
         ("add", Some(sub_m)) => {
             match vault.add_link(&Link::from(sub_m), &Authentication::from(sub_m)) {
                 Ok(link) => println!("{}", link),
-                Err(e) => println!("Error while adding a link ({:?})", e),
+                Err(e) => {
+                    eprintln!("Error while adding a link ({:?})", e);
+                    exit(1);
+                },
             }
         }
         ("ls", Some(sub_m)) => {
@@ -156,17 +160,26 @@ fn process_command(mut vault: Vault, matches: ArgMatches) {
                         println!("{}", link)
                     }
                 }
-                Err(e) => println!("Error while fetching links ({:?}).", e),
+                Err(e) => {
+                    eprintln!("Error while fetching links ({:?}).", e);
+                    exit(1);
+                },
             }
         }
         ("users", Some(sub_m)) => match sub_m.subcommand() {
             ("add", Some(sub_m)) => match vault.add_user(&Authentication::from(sub_m)) {
                 Ok(_) => println!("Ok."),
-                Err(_) => println!("Error while adding new user. User might already exist."),
+                Err(_) => {
+                    eprintln!("Error while adding new user. User might already exist.");
+                    exit(1);
+                },
             },
             ("passwd", Some(sub_m)) => match vault.passwd_user(&Authentication::from(sub_m)) {
                 Ok(_) => println!("Changed."),
-                Err(e) => println!("Error while changing password ({:?}).", e),
+                Err(e) => {
+                    eprintln!("Error while changing password ({:?}).", e);
+                    exit(1);
+                },
             },
             ("ls", Some(sub_m)) => match vault.match_users(sub_m.value_of("login")) {
                 Ok(users) => {
@@ -174,7 +187,10 @@ fn process_command(mut vault: Vault, matches: ArgMatches) {
                         println!("{} ({})", user, count);
                     }
                 }
-                Err(_) => println!("Error while fetching users."),
+                Err(_) => {
+                    eprintln!("Error while fetching users.");
+                    exit(1);
+                },
             },
             _ => (),
         },
