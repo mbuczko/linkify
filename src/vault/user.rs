@@ -1,10 +1,10 @@
-use crate::auth::Authentication;
-use crate::vault::DBError::{BadPassword};
-use crate::vault::{DBResult, Vault};
-use crate::query::Query;
+use crate::db::DBError::BadPassword;
+use crate::db::{DBResult, Query};
 use crate::utils::password;
+use crate::vault::auth::Authentication;
+use crate::vault::vault::Vault;
 
-use bcrypt::{hash};
+use bcrypt::hash;
 use rusqlite::params;
 use std::fmt;
 use std::iter::FromIterator;

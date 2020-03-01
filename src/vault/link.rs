@@ -1,9 +1,8 @@
-use crate::auth::Authentication;
-use crate::query::Query;
-use crate::utils::digest;
-use crate::vault::{DBResult, Vault};
+use crate::db::{DBResult, Query};
+use crate::vault::auth::Authentication;
+use crate::vault::user::User;
+use crate::vault::vault::Vault;
 
-use crate::user::User;
 use clap::ArgMatches;
 use miniserde::{Deserialize, Serialize};
 use rusqlite::params;
@@ -11,6 +10,7 @@ use rusqlite::types::Value as SqlValue;
 use std::fmt;
 use std::iter::FromIterator;
 use std::rc::Rc;
+use crate::utils::digest;
 
 type Tag = String;
 

@@ -1,7 +1,8 @@
-use crate::user::User;
+use crate::db::DBError::{BadPassword, Unauthenticated, UnknownUser};
+use crate::db::DBResult;
 use crate::utils::password;
-use crate::vault::DBError::{BadPassword, Unauthenticated, UnknownUser};
-use crate::vault::{DBResult, Vault};
+use crate::vault::user::User;
+use crate::vault::vault::Vault;
 
 use bcrypt::verify;
 use clap::ArgMatches;

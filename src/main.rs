@@ -1,19 +1,18 @@
-mod vault;
-mod link;
-mod query;
-mod user;
-mod auth;
+mod db;
 mod utils;
+mod vault;
 
-use crate::link::Link;
+use crate::vault::link::Link;
+use crate::vault::auth::Authentication;
+use crate::utils::read_file;
+
 use clap::{App, Arg, ArgMatches, SubCommand};
-use vault::{init_vault, Vault};
 use log::Level;
+use miniserde::json;
 use semver::Version;
 use std::process::exit;
-use miniserde::json;
-use crate::utils::read_file;
-use crate::auth::Authentication;
+use crate::vault::vault::{init_vault, Vault};
+
 
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
@@ -89,7 +88,7 @@ fn main() {
                         .short("p")
                         .long("pass")
                         .takes_value(true),
-                )
+                ),
         )
         .subcommand(
             SubCommand::with_name("ls")
@@ -202,7 +201,7 @@ fn process_command(mut vault: Vault, matches: ArgMatches) {
                     exit(1);
                 }
             }
-        },
+        }
         ("users", Some(sub_m)) => match sub_m.subcommand() {
             ("add", Some(sub_m)) => match vault.add_user(&Authentication::from(sub_m)) {
                 Ok(u) => println!("Added ({}).", u.login),

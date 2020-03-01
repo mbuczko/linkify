@@ -1,4 +1,15 @@
 use rusqlite::types::ToSql;
+use rusqlite::Error as SqliteError;
+
+#[derive(Debug)]
+pub enum DBError {
+    Sqlite(SqliteError),
+    Unauthenticated,
+    UnknownUser,
+    BadPassword,
+}
+
+pub type DBResult<T> = Result<T, DBError>;
 
 pub struct Query<'a> {
     params: Vec<(&'a str, &'a dyn ToSql)>,
