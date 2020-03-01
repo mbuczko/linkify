@@ -4,11 +4,11 @@ use crate::utils::{confirm, password};
 use crate::vault::auth::Authentication;
 use crate::vault::vault::Vault;
 
+use crate::db::DBSeachType::{Exact, Patterned};
 use bcrypt::hash;
 use rusqlite::params;
 use std::fmt;
 use std::iter::FromIterator;
-use crate::db::DBSeachType::{Exact, Patterned};
 
 #[derive(Clone, Debug)]
 pub struct User {
@@ -26,7 +26,7 @@ impl User {
     pub fn new(id: i64, login: &str) -> Self {
         User {
             id,
-            login: login.to_string(),
+            login: login.to_string().to_ascii_lowercase(),
         }
     }
 }
@@ -77,18 +77,17 @@ impl Vault {
             Ok(users) => {
                 if let Some((u, c)) = users.first() {
                     if *c == 0
-                        || confirm(
-                            format!("User {} has already {} links stored. Proceed?", u.login, *c)
-                                .as_ref(),
-                        )
+                        || confirm(format!("User has {} links stored. Proceed?", *c).as_ref())
                     {
                         self.connection
                             .execute("DELETE FROM users WHERE id = ?1", params![u.id])?;
                         Ok(Some(u.clone()))
                     } else {
+                        // user has been found but action is cancelled
                         Ok(None)
                     }
                 } else {
+                    // user not found in db
                     Err(UnknownUser)
                 }
             }
