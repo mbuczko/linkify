@@ -35,7 +35,7 @@ impl fmt::Display for Link {
         //            s.push("--");
         //            s.push(t);
         //        }
-        write!(f, "{}\n", s.join("\n"))
+        write!(f, "{}", s.join("\n"))
     }
 }
 
@@ -93,17 +93,17 @@ impl Vault {
             let mut values: Vec<SqlValue> = Vec::new();
             for tag in tv {
                 txn.execute(
-                    "INSERT INTO tags(tag, user_id) VALUES(?1, NULL) \
+                    "INSERT INTO tags(tag, user_id) VALUES(?1, ?2) \
             ON CONFLICT(tag, user_id) \
             DO UPDATE SET used_at = CURRENT_TIMESTAMP",
-                    params![tag],
+                    params![tag, user.id],
                 )?;
                 values.push(SqlValue::from(tag.to_string()));
             }
             txn.execute(
                 "INSERT INTO links_tags(link_id, tag_id) \
-        SELECT ?1, id FROM tags WHERE tag IN rarray(?2) AND user_id IS NULL",
-                params![id, Rc::new(values)],
+        SELECT ?1, id FROM tags WHERE tag IN rarray(?2) AND user_id = ?3",
+                params![id, Rc::new(values), user.id],
             )?;
         }
         txn.commit().and(Ok(id)).map_err(Into::into)
@@ -143,11 +143,11 @@ impl Vault {
         };
         let tags = link.tags.to_owned().unwrap_or_default();
         let ptr = Rc::new(tags.into_iter().map(SqlValue::from).collect());
-        let href = Query::like(&link.href).unwrap_or_default();
+        let href = Query::patternize(&link.href).unwrap_or_default();
         let desc = link
             .description
             .as_ref()
-            .map_or(None, |v| Query::like(v))
+            .map_or(None, |v| Query::patternize(v))
             .unwrap_or_default();
 
         let mut query = Query::new_with_initial(

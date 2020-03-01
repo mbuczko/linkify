@@ -9,6 +9,11 @@ pub enum DBError {
     BadPassword,
 }
 
+pub enum DBSeachType {
+    Exact,
+    Patterned
+}
+
 pub type DBResult<T> = Result<T, DBError>;
 
 pub struct Query<'a> {
@@ -46,7 +51,7 @@ impl<'a> Query<'a> {
     pub fn named_params(&self) -> &[(&str, &dyn ToSql)] {
         self.params.as_slice()
     }
-    pub fn like(arg: &str) -> Option<String> {
+    pub fn patternize(arg: &str) -> Option<String> {
         if arg.is_empty() {
             None
         } else {

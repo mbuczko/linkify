@@ -146,5 +146,8 @@ pub fn init_vault(db: &str, app_semver: Version) -> SqliteResult<Vault> {
         debug!("Upgrading data version to {}", app_semver);
         vault.upgrade(last_script_version, app_semver);
     }
+
+    // Foreign key support is not enabled in SQLite by default
+    vault.connection.execute("PRAGMA foreign_keys = ON", NO_PARAMS)?;
     Ok(vault)
 }

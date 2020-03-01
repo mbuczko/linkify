@@ -18,7 +18,7 @@ impl Authentication {
     pub fn from(matches: &ArgMatches) -> Option<Self> {
         matches.value_of("user").map_or(None, |login| {
             Some(Authentication {
-                login: login.to_string(),
+                login: login.to_string().to_ascii_lowercase(),
                 password: password(matches.value_of("password"), None),
             })
         })

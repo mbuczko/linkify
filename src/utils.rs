@@ -37,3 +37,11 @@ pub fn read_file(filepath: &str) -> String {
     };
     contents
 }
+
+pub fn confirm(message: &str) -> bool {
+    let mut input = String::new();
+    print!("{} (y/N) : ", message);
+    stdout().flush().unwrap();
+    std::io::stdin().read_line(&mut input).expect("Input expected.");
+    input.is_empty() || input.trim() == "y"
+}

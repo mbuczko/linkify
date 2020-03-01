@@ -102,11 +102,13 @@ subcommands:
                   help: user's identifier (login)
                   takes_value: true
                   required: true
-              - password:
-                  help: user's new password
-                  short: p
-                  long: password
+        - rm:
+            about: Remove user and all owning links and tags
+            args:
+              - user:
+                  help: user to remove
                   takes_value: true
+                  required: true
         - ls:
             about: List matching users
             args:

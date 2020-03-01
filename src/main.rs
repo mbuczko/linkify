@@ -7,7 +7,7 @@ use crate::vault::auth::Authentication;
 use crate::vault::link::Link;
 use crate::vault::vault::{init_vault, Vault};
 
-use clap::{App, ArgMatches, load_yaml};
+use clap::{load_yaml, App, ArgMatches};
 use log::Level;
 use miniserde::json;
 use semver::Version;
@@ -31,7 +31,7 @@ fn process_command(mut vault: Vault, matches: ArgMatches) {
     match matches.subcommand() {
         ("add", Some(sub_m)) => {
             match vault.add_link(&mut Link::from(sub_m), &Authentication::from(sub_m)) {
-                Ok(link) => println!("{}", link),
+                Ok(id) => println!("Added (id={})", id),
                 Err(e) => {
                     eprintln!("Error while adding a link ({:?})", e);
                     exit(1);
@@ -70,7 +70,20 @@ fn process_command(mut vault: Vault, matches: ArgMatches) {
                     exit(1);
                 }
             },
-            ("passwd", Some(sub_m)) => match vault.passwd_user(&Authentication::from(sub_m)) {
+            ("rm", Some(sub_m)) => match vault.del_user(sub_m.value_of("user")) {
+                Ok(u) => {
+                    if u.is_some() {
+                        println!("Removed ({}).", u.unwrap().login)
+                    } else {
+                        println!("Abandoned.")
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Error while removing user ({:?}).", e);
+                    exit(1);
+                }
+            },
+            ("passwd", Some(sub_m)) => match vault.passwd_user(sub_m.value_of("user")) {
                 Ok(u) => println!("Changed ({}).", u.login),
                 Err(e) => {
                     eprintln!("Error while changing password ({:?}).", e);

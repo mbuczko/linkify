@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS tags
 (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   tag TEXT NOT NULL,
-  user_id INTEGER REFERENCES users(id),
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   used_at DATETIME,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS links
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   href TEXT NOT NULL,
   description TEXT,
-  user_id INTEGER REFERENCES users(id),
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   hash TEXT NOT NULL,
   is_shared BOOLEAN NOT NULL DEFAULT FALSE,
   is_toread BOOLEAN NOT NULL DEFAULT FALSE,
@@ -29,8 +29,8 @@ CREATE TABLE IF NOT EXISTS links
 
 CREATE TABLE IF NOT EXISTS links_tags
 (
-    link_id INTEGER REFERENCES links (id),
-    tag_id  INTEGER REFERENCES tags (id)
+    link_id INTEGER REFERENCES links(id) ON DELETE CASCADE,
+    tag_id  INTEGER REFERENCES tags(id) ON DELETE CASCADE
 );
 
 -- this is to avoid duplicates of public tags, which are caused by
