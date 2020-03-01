@@ -16,15 +16,12 @@ pub struct Authentication {
 
 impl Authentication {
     pub fn from(matches: &ArgMatches) -> Option<Self> {
-        let login = matches.value_of("user");
-        if login.is_some() {
+        matches.value_of("user").map_or(None, |login| {
             Some(Authentication {
-                login: login.unwrap().to_string(),
+                login: login.to_string(),
                 password: password(matches.value_of("password"), None),
             })
-        } else {
-            None
-        }
+        })
     }
 }
 
