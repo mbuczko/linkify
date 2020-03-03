@@ -1,7 +1,6 @@
-use crate::db::DBError::{BadPassword, UnknownUser};
+use crate::db::DBError::UnknownUser;
 use crate::db::{DBResult, DBSeachType, Query};
 use crate::utils::{confirm, password};
-use crate::vault::auth::Authentication;
 use crate::vault::vault::Vault;
 
 use crate::db::DBSeachType::{Exact, Patterned};
@@ -58,18 +57,18 @@ impl Vault {
         })?;
         Result::from_iter(rows).map_err(Into::into)
     }
-    pub fn add_user(&self, auth: &Option<Authentication>) -> DBResult<User> {
-        match auth {
-            Some(auth) => {
-                let hashed =
-                    hash(&auth.password, 10).expect("Couldn't hash a password for some reason");
+    pub fn add_user(&self, login: Option<&str>) -> DBResult<User> {
+        match login {
+            Some(l) => {
+                let pass = password(None, Some("Initial password"));
+                let hashed = hash(pass, 10).expect("Couldn't hash a password for some reason.");
                 self.connection.execute(
                     "INSERT INTO users(login, password) VALUES(?1, ?2)",
-                    params![auth.login, hashed],
+                    params![l, hashed],
                 )?;
-                Ok(User::new(self.connection.last_insert_rowid(), &auth.login))
+                Ok(User::new(self.connection.last_insert_rowid(), &l))
             }
-            _ => Err(BadPassword),
+            _ => Err(UnknownUser),
         }
     }
     pub fn del_user(&self, login: Option<&str>) -> DBResult<Option<User>> {
@@ -77,13 +76,13 @@ impl Vault {
             Ok(users) => {
                 if let Some((u, c)) = users.first() {
                     if *c == 0
-                        || confirm(format!("User has {} links stored. Proceed?", *c).as_ref())
+                        || confirm(format!("User {} has {} links. Proceed?", u.login, *c).as_ref())
                     {
                         self.connection
                             .execute("DELETE FROM users WHERE id = ?1", params![u.id])?;
                         Ok(Some(u.clone()))
                     } else {
-                        // user has been found but action is cancelled
+                        // user found but action is cancelled
                         Ok(None)
                     }
                 } else {

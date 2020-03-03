@@ -1,7 +1,7 @@
-use crate::db::{DBError, DBResult};
+use crate::db::DBResult;
 
 use log::debug;
-use rusqlite::{vtab::array, Connection, Error as SqliteError, Result as SqliteResult, NO_PARAMS};
+use rusqlite::{vtab::array, Connection, Result as SqliteResult, NO_PARAMS};
 use rust_embed::RustEmbed;
 use semver::Version;
 use std::fmt;
@@ -21,12 +21,6 @@ struct Migration {
 #[derive(Debug)]
 pub struct Vault {
     pub connection: Connection,
-}
-
-impl From<SqliteError> for DBError {
-    fn from(err: SqliteError) -> Self {
-        DBError::Sqlite(err)
-    }
 }
 
 impl Migration {
@@ -91,11 +85,11 @@ impl Vault {
                 _ => panic!("Non UTF8 format of migration file!"),
             }
         });
-        return if final_txn.is_empty() {
+        if final_txn.is_empty() {
             None
         } else {
             Some(format!("BEGIN TRANSACTION;\n\n{}\n\nCOMMIT;", final_txn))
-        };
+        }
     }
     fn version(&self) -> DBResult<(String, Version)> {
         self.connection
@@ -131,12 +125,13 @@ impl Vault {
 }
 
 pub fn init_vault(db: &str, app_semver: Version) -> SqliteResult<Vault> {
+    debug!("Opening database ({})", db);
+
     let vault = Vault::new(db);
     let (last_script_version, last_app_version) = match vault.version() {
         Ok((lsv, lav)) => (lsv, lav),
         Err(_) => (String::default(), Version::parse("0.0.0").unwrap()),
     };
-
     if last_app_version > app_semver {
         panic!(
             "Your app version {} is too old, minimal required version is: {}",
@@ -148,6 +143,8 @@ pub fn init_vault(db: &str, app_semver: Version) -> SqliteResult<Vault> {
     }
 
     // Foreign key support is not enabled in SQLite by default
-    vault.connection.execute("PRAGMA foreign_keys = ON", NO_PARAMS)?;
+    vault
+        .connection
+        .execute("PRAGMA foreign_keys = ON", NO_PARAMS)?;
     Ok(vault)
 }

@@ -11,7 +11,7 @@ pub enum DBError {
 
 pub enum DBSeachType {
     Exact,
-    Patterned
+    Patterned,
 }
 
 pub type DBResult<T> = Result<T, DBError>;
@@ -19,6 +19,12 @@ pub type DBResult<T> = Result<T, DBError>;
 pub struct Query<'a> {
     params: Vec<(&'a str, &'a dyn ToSql)>,
     query: Vec<&'a str>,
+}
+
+impl From<SqliteError> for DBError {
+    fn from(err: SqliteError) -> Self {
+        DBError::Sqlite(err)
+    }
 }
 
 impl<'a> Query<'a> {

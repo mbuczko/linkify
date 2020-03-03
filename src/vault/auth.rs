@@ -4,8 +4,10 @@ use crate::utils::password;
 use crate::vault::user::User;
 use crate::vault::vault::Vault;
 
+use crate::config::{Config, Env};
 use bcrypt::verify;
 use clap::ArgMatches;
+use log::debug;
 use rusqlite::params;
 
 #[derive(Debug)]
@@ -15,13 +17,20 @@ pub struct Authentication {
 }
 
 impl Authentication {
-    pub fn from(matches: &ArgMatches) -> Option<Self> {
-        matches.value_of("user").map_or(None, |login| {
-            Some(Authentication {
-                login: login.to_string().to_ascii_lowercase(),
-                password: password(matches.value_of("password"), None),
+    pub fn from(config: Config, matches: &ArgMatches) -> Option<Self> {
+        matches
+            .value_of("user")
+            .or(config.get(Env::User))
+            .map_or(None, |login| {
+                debug!("Authenticating ({}).", login);
+                Some(Authentication {
+                    login: login.to_string().to_ascii_lowercase(),
+                    password: password(
+                        matches.value_of("password").or(config.get(Env::Password)),
+                        None,
+                    ),
+                })
             })
-        })
     }
 }
 

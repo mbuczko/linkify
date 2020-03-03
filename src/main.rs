@@ -1,7 +1,9 @@
+mod config;
 mod db;
 mod utils;
 mod vault;
 
+use crate::config::{Config, Env};
 use crate::utils::read_file;
 use crate::vault::auth::Authentication;
 use crate::vault::link::Link;
@@ -19,18 +21,24 @@ fn main() {
     simple_logger::init_with_level(Level::Debug).unwrap();
 
     let yaml = load_yaml!("cli.yml");
+    let config = Config::default();
     let matches = App::from(yaml).get_matches();
-    let db = matches.value_of("database").unwrap_or("links.db");
+    let db = matches
+        .value_of("database")
+        .or(config.get(Env::Database))
+        .expect(
+            "Cannot find a database. Use --db parameter or LINKIFY_DB_PATH env variable.",
+        );
     match init_vault(db, Version::parse(VERSION).unwrap()) {
-        Ok(v) => process_command(v, matches),
+        Ok(v) => process_command(config, v, matches),
         _ => panic!("Cannot initialize database"),
     }
 }
 
-fn process_command(mut vault: Vault, matches: ArgMatches) {
+fn process_command(config: Config, mut vault: Vault, matches: ArgMatches) {
     match matches.subcommand() {
         ("add", Some(sub_m)) => {
-            match vault.add_link(&mut Link::from(sub_m), &Authentication::from(sub_m)) {
+            match vault.add_link(&Link::from(sub_m), &Authentication::from(config, sub_m)) {
                 Ok(id) => println!("Added (id={})", id),
                 Err(e) => {
                     eprintln!("Error while adding a link ({:?})", e);
@@ -39,7 +47,7 @@ fn process_command(mut vault: Vault, matches: ArgMatches) {
             }
         }
         ("ls", Some(sub_m)) => {
-            match vault.match_links(&Link::from(sub_m), &Authentication::from(sub_m)) {
+            match vault.match_links(&Link::from(sub_m), &Authentication::from(config, sub_m)) {
                 Ok(links) => {
                     for link in links {
                         println!("{}", link)
@@ -54,7 +62,7 @@ fn process_command(mut vault: Vault, matches: ArgMatches) {
         ("import", Some(sub_m)) => {
             let contents = read_file(sub_m.value_of("file").expect("Cannot read file."));
             let links: Vec<Link> = json::from_str(&contents).expect("Invalid JSON.");
-            match vault.import_links(links, &Authentication::from(sub_m)) {
+            match vault.import_links(links, &Authentication::from(config, sub_m)) {
                 Ok(n) => println!("Imported {} links.", n),
                 Err(e) => {
                     eprintln!("Error while importing links ({:?}).", e);
@@ -63,14 +71,14 @@ fn process_command(mut vault: Vault, matches: ArgMatches) {
             }
         }
         ("users", Some(sub_m)) => match sub_m.subcommand() {
-            ("add", Some(sub_m)) => match vault.add_user(&Authentication::from(sub_m)) {
+            ("add", Some(sub_m)) => match vault.add_user(sub_m.value_of("login")) {
                 Ok(u) => println!("Added ({}).", u.login),
                 Err(_) => {
                     eprintln!("Error while adding new user. User might already exist.");
                     exit(1);
                 }
             },
-            ("rm", Some(sub_m)) => match vault.del_user(sub_m.value_of("user")) {
+            ("rm", Some(sub_m)) => match vault.del_user(sub_m.value_of("login")) {
                 Ok(u) => {
                     if u.is_some() {
                         println!("Removed ({}).", u.unwrap().login)
@@ -83,14 +91,14 @@ fn process_command(mut vault: Vault, matches: ArgMatches) {
                     exit(1);
                 }
             },
-            ("passwd", Some(sub_m)) => match vault.passwd_user(sub_m.value_of("user")) {
+            ("passwd", Some(sub_m)) => match vault.passwd_user(sub_m.value_of("login")) {
                 Ok(u) => println!("Changed ({}).", u.login),
                 Err(e) => {
                     eprintln!("Error while changing password ({:?}).", e);
                     exit(1);
                 }
             },
-            ("ls", Some(sub_m)) => match vault.match_users(sub_m.value_of("user")) {
+            ("ls", Some(sub_m)) => match vault.match_users(sub_m.value_of("login")) {
                 Ok(users) => {
                     for (user, count) in users {
                         println!("{} ({})", user, count);

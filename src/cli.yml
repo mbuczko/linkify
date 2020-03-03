@@ -3,10 +3,23 @@ version: "0.1.2"
 about: Saves your precious links into local vault
 args:
   - database:
-      short: db
-      long: database
-      help: Database to use
+      short: b
+      long: db
+      help: "database to use [env: LINKIFY_DB_PATH]"
       takes_value: true
+      global: true
+  - user:
+      help: "user's login [env: LINKIFY_USER]"
+      short: u
+      long: user
+      takes_value: true
+      global: true
+  - password:
+      help: "user's password [env: LINKIFY_PASSWORD]"
+      short: p
+      long: password
+      takes_value: true
+      global: true
 subcommands:
   - add:
       about: Adds a new link
@@ -14,17 +27,6 @@ subcommands:
         - url:
             help: link to store in database
             required: true
-        - user:
-            help: user to authenticate
-            short: u
-            long: user
-            takes_value: true
-            required: true
-        - password:
-            help: user's password
-            short: p
-            long: password
-            takes_value: true
         - description:
             help: optional link description
             short: d
@@ -42,17 +44,6 @@ subcommands:
         - file:
             help: JSON file to import
             required: true
-        - user:
-            help: user to authenticate
-            short: u
-            long: user
-            takes_value: true
-            required: true
-        - password:
-            help: user's password
-            short: p
-            long: password
-            takes_value: true
   - ls:
       about: List matching links
       args:
@@ -69,50 +60,34 @@ subcommands:
             long: tags
             takes_value: true
             use_delimiter: true
-        - user:
-            help: user to authenticate
-            short: u
-            long: user
-            takes_value: true
-            required: true
-        - password:
-            help: user's password
-            short: p
-            long: password
-            takes_value: true
   - users:
       about: Manage with users
       subcommands:
         - add:
             about: Add a new user
             args:
-              - user:
+              - login:
                   help: user's identifier (login)
                   takes_value: true
                   required: true
-              - password:
-                  help: user's password
-                  short: p
-                  long: password
-                  takes_value: true
         - passwd:
             about: Change user's password
             args:
-              - user:
+              - login:
                   help: user's identifier (login)
                   takes_value: true
                   required: true
         - rm:
-            about: Remove user and all owning links and tags
+            about: Remove user along with owned links and tags
             args:
-              - user:
+              - login:
                   help: user to remove
                   takes_value: true
                   required: true
         - ls:
             about: List matching users
             args:
-              - user:
+              - login:
                   help: user's identifier (or part of it) to list
 
 
