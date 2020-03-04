@@ -16,10 +16,9 @@ use semver::Version;
 use std::process::exit;
 
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
+const LOG_LEVEL: Level = Level::Warn;
 
 fn main() {
-    simple_logger::init_with_level(Level::Debug).unwrap();
-
     let yaml = load_yaml!("cli.yml");
     let config = Config::default();
     let matches = App::from(yaml).get_matches();
@@ -29,6 +28,14 @@ fn main() {
         .expect(
             "Cannot find a database. Use --db parameter or LINKIFY_DB_PATH env variable.",
         );
+
+    simple_logger::init_with_level(config.get(Env::LogLevel).map_or(LOG_LEVEL, |l| match l {
+        "info" => Level::Info,
+        "debug" => Level::Debug,
+        "error" => Level::Error,
+        _ => LOG_LEVEL
+    })).unwrap();
+
     match init_vault(db, Version::parse(VERSION).unwrap()) {
         Ok(v) => process_command(config, v, matches),
         _ => panic!("Cannot initialize database"),

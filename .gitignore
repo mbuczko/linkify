@@ -2,5 +2,6 @@
 *.iml
 *.code-workspace
 .idea
-links.db
-sample.json
+.envrc
+*.db
+*.json
