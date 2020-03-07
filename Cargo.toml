@@ -17,6 +17,8 @@ simple_logger = "1.5.0"
 rpassword = "4.0.5"
 bcrypt = "0.6.1"
 miniserde = "0.1.12"
+colored = "1.9.3"
+terminal_size = "0.1.10"
 
 [profile.release]
 opt-level = 'z'  # Optimize for size.

@@ -4,7 +4,7 @@ mod utils;
 mod vault;
 
 use crate::config::{Config, Env};
-use crate::utils::read_file;
+use crate::utils::{read_file, truncate};
 use crate::vault::auth::Authentication;
 use crate::vault::link::Link;
 use crate::vault::vault::{init_vault, Vault};
@@ -14,9 +14,11 @@ use log::Level;
 use miniserde::json;
 use semver::Version;
 use std::process::exit;
+use terminal_size::{terminal_size as ts, Width};
+use colored::Colorize;
 
-const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 const LOG_LEVEL: Level = Level::Warn;
+const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
 fn main() {
     let yaml = load_yaml!("cli.yml");
@@ -25,16 +27,15 @@ fn main() {
     let db = matches
         .value_of("database")
         .or(config.get(Env::Database))
-        .expect(
-            "Cannot find a database. Use --db parameter or LINKIFY_DB_PATH env variable.",
-        );
+        .expect("Cannot find a database. Use --db parameter or LINKIFY_DB_PATH env variable.");
 
     simple_logger::init_with_level(config.get(Env::LogLevel).map_or(LOG_LEVEL, |l| match l {
         "info" => Level::Info,
         "debug" => Level::Debug,
         "error" => Level::Error,
-        _ => LOG_LEVEL
-    })).unwrap();
+        _ => LOG_LEVEL,
+    }))
+    .unwrap();
 
     match init_vault(db, Version::parse(VERSION).unwrap()) {
         Ok(v) => process_command(config, v, matches),
@@ -56,8 +57,21 @@ fn process_command(config: Config, mut vault: Vault, matches: ArgMatches) {
         ("ls", Some(sub_m)) => {
             match vault.match_links(&Link::from(sub_m), &Authentication::from(config, sub_m)) {
                 Ok(links) => {
+                    let size = ts();
+                    let tw = if let Some((Width(w), _)) = size {
+                        w as i16
+                    } else {
+                        i16::max_value()
+                    };
                     for link in links {
-                        println!("{}", link)
+                        let description = link.description.unwrap_or_default();
+                        let href_len = link.href.chars().count() as i16;
+                        let desc_len= tw - href_len - 3;
+                        println!(
+                            "{} » {}",
+                            link.href,
+                            truncate(&description, desc_len).blue()
+                        )
                     }
                 }
                 Err(e) => {
