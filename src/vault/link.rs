@@ -114,6 +114,21 @@ impl Vault {
             Err(e) => return Err(e),
         }
     }
+    pub fn del_link(&mut self, link: &Link, auth: &Option<Authentication>) -> DBResult<i64> {
+        match self.authenticate_user(auth) {
+            Ok(u) => {
+                let link_id = self.connection.query_row(
+                    "SELECT id FROM LINKS WHERE href = ? AND user_id = ?",
+                    params![&link.href, u.id],
+                    |row| row.get::<_, i64>(0),
+                )?;
+                self.connection
+                    .execute("DELETE FROM links WHERE id = ?", params![link_id])?;
+                Ok(link_id)
+            }
+            Err(e) => return Err(e),
+        }
+    }
     pub fn import_links(
         &mut self,
         links: Vec<Link>,

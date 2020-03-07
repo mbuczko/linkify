@@ -38,6 +38,12 @@ subcommands:
             long: tags
             takes_value: true
             use_delimiter: true
+  - del:
+      about: Deletes already stored link
+      args:
+        - url:
+            help: link to delete from database
+            required: true
   - import:
       about: Import links from JSON file
       args:
@@ -77,7 +83,7 @@ subcommands:
                   help: user's identifier (login)
                   takes_value: true
                   required: true
-        - rm:
+        - del:
             about: Remove user along with owned links and tags
             args:
               - login:

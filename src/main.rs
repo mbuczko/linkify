@@ -54,6 +54,15 @@ fn process_command(config: Config, mut vault: Vault, matches: ArgMatches) {
                 }
             }
         }
+        ("del", Some(sub_m)) => {
+            match vault.del_link(&Link::from(sub_m), &Authentication::from(config, sub_m)) {
+                Ok(id) => println!("Deleted (id={})", id),
+                Err(e) => {
+                    eprintln!("Error while deleting a link ({:?})", e);
+                    exit(1);
+                }
+            }
+        }
         ("ls", Some(sub_m)) => {
             match vault.match_links(&Link::from(sub_m), &Authentication::from(config, sub_m)) {
                 Ok(links) => {
@@ -99,7 +108,7 @@ fn process_command(config: Config, mut vault: Vault, matches: ArgMatches) {
                     exit(1);
                 }
             },
-            ("rm", Some(sub_m)) => match vault.del_user(sub_m.value_of("login")) {
+            ("del", Some(sub_m)) => match vault.del_user(sub_m.value_of("login")) {
                 Ok(u) => {
                     if u.is_some() {
                         println!("Removed ({}).", u.unwrap().login)
