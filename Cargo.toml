@@ -19,6 +19,8 @@ bcrypt = "0.6.1"
 miniserde = "0.1.12"
 colored = "1.9.3"
 terminal_size = "0.1.10"
+rocket = {version = "0.4.4", default-features = false}
+rand = "0.7.3"
 
 [profile.release]
 opt-level = 'z'  # Optimize for size.

@@ -7,6 +7,7 @@ pub enum Env {
     LogLevel,
     User,
     Password,
+    ApiKey
 }
 
 pub struct Config {
@@ -26,6 +27,9 @@ impl Config {
         }
         if let Ok(password) = env::var("LINKIFY_PASSWORD") {
             config.values.insert(Env::Password, password);
+        }
+        if let Ok(password) = env::var("LINKIFY_API_KEY") {
+            config.values.insert(Env::ApiKey, password);
         }
         if let Ok(password) = env::var("LOG_LEVEL") {
             config.values.insert(Env::LogLevel, password);

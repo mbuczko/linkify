@@ -1,7 +1,12 @@
+#![feature(proc_macro_hygiene, decl_macro)]
+
 mod config;
 mod db;
 mod utils;
 mod vault;
+mod server;
+
+#[macro_use] extern crate rocket;
 
 use crate::config::{Config, Env};
 use crate::utils::{read_file, truncate};
@@ -45,6 +50,16 @@ fn main() {
 
 fn process_command(config: Config, mut vault: Vault, matches: ArgMatches) {
     match matches.subcommand() {
+        ("server", _) => {
+            server::start();
+
+//            match server::start() {
+//                Ok(_) => println!("Server started"),
+//                _ => {
+//                    eprint!("Server failed")
+//                }
+//            }
+        },
         ("add", Some(sub_m)) => {
             match vault.add_link(&Link::from(sub_m), &Authentication::from(config, sub_m)) {
                 Ok(id) => println!("Added (id={})", id),
@@ -136,6 +151,13 @@ fn process_command(config: Config, mut vault: Vault, matches: ArgMatches) {
                 }
                 Err(_) => {
                     eprintln!("Error while fetching users.");
+                    exit(1);
+                }
+            }
+            ("gen", Some(sub_m)) => match vault.generate_key(sub_m.value_of("login")) {
+                Ok(s) => println!("Generated API key: {}", s),
+                Err(e) => {
+                    eprintln!("Erro while generating API key ({:?})", e);
                     exit(1);
                 }
             },

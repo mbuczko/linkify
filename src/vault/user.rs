@@ -1,9 +1,9 @@
 use crate::db::DBError::UnknownUser;
+use crate::db::DBSeachType::{Exact, Patterned};
 use crate::db::{DBResult, DBSeachType, Query};
 use crate::utils::{confirm, password};
 use crate::vault::vault::Vault;
 
-use crate::db::DBSeachType::{Exact, Patterned};
 use bcrypt::hash;
 use rusqlite::params;
 use std::fmt;
@@ -113,5 +113,22 @@ impl Vault {
     }
     pub fn match_users(&self, pattern: Option<&str>) -> DBResult<Vec<(User, u32)>> {
         self.find_users(pattern, DBSeachType::Patterned)
+    }
+    pub fn generate_key(&self, login: Option<&str>) -> DBResult<String> {
+        match self.find_users(login, DBSeachType::Exact) {
+            Ok(users) => {
+                if let Some((u, _c)) = users.first() {
+                    let key = self.generate_api_key();
+                    self.connection.execute(
+                        "UPDATE users SET api_key = ?1 WHERE id = ?2",
+                        params![key, u.id],
+                    )?;
+                    Ok(key)
+                } else {
+                    Err(UnknownUser)
+                }
+            }
+            Err(e) => Err(e),
+        }
     }
 }
