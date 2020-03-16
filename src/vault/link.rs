@@ -1,9 +1,10 @@
-use crate::db::{DBResult, Query};
+use crate::db::DBResult;
 use crate::utils::digest;
 use crate::vault::auth::Authentication;
 use crate::vault::user::User;
-use crate::vault::vault::Vault;
+use crate::vault::Vault;
 
+use crate::db::query::Query;
 use clap::ArgMatches;
 use miniserde::{Deserialize, Serialize};
 use rusqlite::params;
@@ -64,8 +65,9 @@ impl Link {
 }
 
 impl Vault {
-    fn store_link(&mut self, link: &Link, user: &User) -> DBResult<i64> {
-        let txn = self.connection.transaction().unwrap();
+    fn store_link(&self, link: &Link, user: &User) -> DBResult<i64> {
+        let mut conn = self.get_connection();
+        let txn = conn.transaction().unwrap();
         txn.execute(
             "INSERT INTO links(href, description, hash, user_id) VALUES(?1, ?2, ?3, ?4) \
             ON CONFLICT(href, user_id) \
@@ -108,32 +110,28 @@ impl Vault {
         }
         txn.commit().and(Ok(id)).map_err(Into::into)
     }
-    pub fn add_link(&mut self, link: &Link, auth: &Option<Authentication>) -> DBResult<i64> {
+    pub fn add_link(&self, link: &Link, auth: &Option<Authentication>) -> DBResult<i64> {
         match self.authenticate_user(auth) {
             Ok(u) => self.store_link(link, &u),
             Err(e) => return Err(e),
         }
     }
-    pub fn del_link(&mut self, link: &Link, auth: &Option<Authentication>) -> DBResult<i64> {
+    pub fn del_link(&self, link: &Link, auth: &Option<Authentication>) -> DBResult<i64> {
         match self.authenticate_user(auth) {
             Ok(u) => {
-                let link_id = self.connection.query_row(
+                let link_id = self.get_connection().query_row(
                     "SELECT id FROM LINKS WHERE href = ? AND user_id = ?",
                     params![&link.href, u.id],
                     |row| row.get::<_, i64>(0),
                 )?;
-                self.connection
+                self.get_connection()
                     .execute("DELETE FROM links WHERE id = ?", params![link_id])?;
                 Ok(link_id)
             }
             Err(e) => return Err(e),
         }
     }
-    pub fn import_links(
-        &mut self,
-        links: Vec<Link>,
-        auth: &Option<Authentication>,
-    ) -> DBResult<u32> {
+    pub fn import_links(&self, links: Vec<Link>, auth: &Option<Authentication>) -> DBResult<u32> {
         let user = match self.authenticate_user(auth) {
             Ok(u) => u,
             Err(e) => return Err(e),
@@ -147,11 +145,7 @@ impl Vault {
         }
         Ok(imported)
     }
-    pub fn match_links(
-        &mut self,
-        link: &Link,
-        auth: &Option<Authentication>,
-    ) -> DBResult<Vec<Link>> {
+    pub fn match_links(&self, link: &Link, auth: &Option<Authentication>) -> DBResult<Vec<Link>> {
         let user = match self.authenticate_user(auth) {
             Ok(u) => u,
             Err(e) => return Err(e),
@@ -191,7 +185,8 @@ impl Vault {
         }
         query.concat("ORDER BY l.created_at DESC");
 
-        let mut stmt = self.connection.prepare(query.to_string().as_str())?;
+        let conn = self.get_connection();
+        let mut stmt = conn.prepare(query.to_string().as_str())?;
         let rows = stmt.query_map_named(query.named_params(), |row| {
             Ok(Link::new(
                 &row.get_unwrap::<_, String>(0),

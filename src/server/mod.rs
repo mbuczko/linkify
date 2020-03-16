@@ -1,10 +1,19 @@
-use rocket::error::LaunchError;
+pub mod handlers;
 
-#[get("/")]
-fn index() -> &'static str {
-    "Hello, world!"
-}
+use crate::server::handlers::handler;
+use crate::vault::Vault;
 
-pub fn start() -> LaunchError {
-    rocket::ignite().mount("/", routes![index]).launch()
+use log::info;
+use rouille::Response;
+
+pub fn start(vault: Vault) {
+    info!("Starting a server: http://localhost:8001");
+
+    rouille::start_server("127.0.0.1:8001", move |request| {
+        let res = handler(&request, &vault);
+        match res {
+            Ok(response) => response,
+            Err(err) => Response::text(err.to_string()).with_status_code(500),
+        }
+    })
 }

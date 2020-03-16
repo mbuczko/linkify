@@ -20,7 +20,7 @@ args:
       long: password
       takes_value: true
       global: true
-  - password:
+  - apikey:
       help: "user's API key [env: LINKIFY_API_KEY]"
       short: k
       long: apikey

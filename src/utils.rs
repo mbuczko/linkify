@@ -2,6 +2,21 @@ use rpassword::read_password;
 use sha1::Sha1;
 use std::fs::File;
 use std::io::{stdout, BufReader, Read, Write as IoWrite};
+use rand::Rng;
+
+const KEY_CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ\
+                             abcdefghijklmnopqrstuvwxyz\
+                             0123456789";
+
+pub fn generate_key(len: u8) -> String {
+    let mut rng = rand::thread_rng();
+    (0..len)
+        .map(|_| {
+            let idx = rng.gen_range(0, KEY_CHARSET.len());
+            KEY_CHARSET[idx] as char
+        })
+        .collect()
+}
 
 pub fn digest(url: &str, description: &Option<&str>, tags: &Option<Vec<String>>) -> String {
     let mut hasher = Sha1::new();

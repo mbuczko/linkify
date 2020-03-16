@@ -1,13 +1,14 @@
 use crate::db::DBError::UnknownUser;
 use crate::db::DBSeachType::{Exact, Patterned};
-use crate::db::{DBResult, DBSeachType, Query};
-use crate::utils::{confirm, password};
-use crate::vault::vault::Vault;
+use crate::db::{DBResult, DBSeachType};
+use crate::utils::{confirm, password, generate_key};
+use crate::vault::Vault;
 
 use bcrypt::hash;
 use rusqlite::params;
 use std::fmt;
 use std::iter::FromIterator;
+use crate::db::query::Query;
 
 #[derive(Clone, Debug)]
 pub struct User {
@@ -45,7 +46,8 @@ impl Vault {
         }
         query.concat("GROUP BY login");
 
-        let mut stmt = self.connection.prepare(query.to_string().as_str())?;
+        let conn = self.get_connection();
+        let mut stmt = conn.prepare(query.to_string().as_str())?;
         let rows = stmt.query_map_named(query.named_params(), |row| {
             Ok((
                 User {
@@ -62,11 +64,11 @@ impl Vault {
             Some(l) => {
                 let pass = password(None, Some("Initial password"));
                 let hashed = hash(pass, 10).expect("Couldn't hash a password for some reason.");
-                self.connection.execute(
+                self.get_connection().execute(
                     "INSERT INTO users(login, password) VALUES(?1, ?2)",
                     params![l, hashed],
                 )?;
-                Ok(User::new(self.connection.last_insert_rowid(), &l))
+                Ok(User::new(self.get_connection().last_insert_rowid(), &l))
             }
             _ => Err(UnknownUser),
         }
@@ -78,7 +80,7 @@ impl Vault {
                     if *c == 0
                         || confirm(format!("User {} has {} links. Proceed?", u.login, *c).as_ref())
                     {
-                        self.connection
+                        self.get_connection()
                             .execute("DELETE FROM users WHERE id = ?1", params![u.id])?;
                         Ok(Some(u.clone()))
                     } else {
@@ -99,7 +101,7 @@ impl Vault {
                 if let Some((u, _c)) = users.first() {
                     let pass = password(None, Some("New password"));
                     let hashed = hash(pass, 10).expect("Couldn't hash a password for some reason");
-                    self.connection.execute(
+                    self.get_connection().execute(
                         "UPDATE users SET password=?1 WHERE id=?2",
                         params![hashed, u.id],
                     )?;
@@ -118,8 +120,8 @@ impl Vault {
         match self.find_users(login, DBSeachType::Exact) {
             Ok(users) => {
                 if let Some((u, _c)) = users.first() {
-                    let key = self.generate_api_key();
-                    self.connection.execute(
+                    let key = generate_key(32);
+                    self.get_connection().execute(
                         "UPDATE users SET api_key = ?1 WHERE id = ?2",
                         params![key, u.id],
                     )?;

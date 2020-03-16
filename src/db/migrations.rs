@@ -1,7 +1,8 @@
 use crate::db::DBResult;
 
+use crate::vault::Vault;
 use log::debug;
-use rusqlite::{vtab::array, Connection, Result as SqliteResult, NO_PARAMS};
+use rusqlite::NO_PARAMS;
 use rust_embed::RustEmbed;
 use semver::Version;
 use std::fmt;
@@ -18,9 +19,14 @@ struct Migration {
     description: String,
 }
 
-#[derive(Debug)]
-pub struct Vault {
-    pub connection: Connection,
+impl fmt::Display for Migration {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{} => {} ({})",
+            self.file, self.version, self.description
+        )
+    }
 }
 
 impl Migration {
@@ -30,16 +36,6 @@ impl Migration {
             version,
             description,
         }
-    }
-}
-
-impl fmt::Display for Migration {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{} => {} ({})",
-            self.file, self.version, self.description
-        )
     }
 }
 
@@ -91,8 +87,8 @@ impl Vault {
             Some(format!("BEGIN TRANSACTION;\n\n{}\n\nCOMMIT;", final_txn))
         }
     }
-    fn version(&self) -> DBResult<(String, Version)> {
-        self.connection
+    pub fn version(&self) -> DBResult<(String, Version)> {
+        self.get_connection()
             .query_row(
                 "SELECT version, app_semver FROM migrations ORDER BY version DESC LIMIT 1",
                 NO_PARAMS,
@@ -105,46 +101,12 @@ impl Vault {
             )
             .map_err(Into::into)
     }
-    fn upgrade(&self, base_script_version: String, app_semver: Version) {
+    pub fn upgrade(&self, base_script_version: String, app_semver: Version) {
         if let Some(m) = self.build_migration(base_script_version, app_semver) {
-            match self.connection.execute_batch(m.as_str()) {
+            match self.get_connection().execute_batch(m.as_str()) {
                 Ok(_) => debug!("Upgraded to {}", self.version().unwrap().0),
                 _ => panic!("Couldn't update the database. Bailing out."),
             }
         }
     }
-    pub fn new(db: &str) -> Self {
-        match Connection::open(db) {
-            Ok(conn) => {
-                array::load_module(&conn).unwrap();
-                Vault { connection: conn }
-            }
-            _ => panic!("Cannot open connection to database or load required modules (array)"),
-        }
-    }
-}
-
-pub fn init_vault(db: &str, app_semver: Version) -> SqliteResult<Vault> {
-    debug!("Opening database ({})", db);
-
-    let vault = Vault::new(db);
-    let (last_script_version, last_app_version) = match vault.version() {
-        Ok((lsv, lav)) => (lsv, lav),
-        Err(_) => (String::default(), Version::parse("0.0.0").unwrap()),
-    };
-    if last_app_version > app_semver {
-        panic!(
-            "Your app version {} is too old, minimal required version is: {}",
-            app_semver, last_app_version
-        )
-    } else if last_app_version < app_semver {
-        debug!("Upgrading data version to {}", app_semver);
-        vault.upgrade(last_script_version, app_semver);
-    }
-
-    // Foreign key support is not enabled in SQLite by default
-    vault
-        .connection
-        .execute("PRAGMA foreign_keys = ON", NO_PARAMS)?;
-    Ok(vault)
 }

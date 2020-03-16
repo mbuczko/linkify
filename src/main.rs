@@ -1,26 +1,22 @@
-#![feature(proc_macro_hygiene, decl_macro)]
-
 mod config;
 mod db;
+mod server;
 mod utils;
 mod vault;
-mod server;
-
-#[macro_use] extern crate rocket;
 
 use crate::config::{Config, Env};
 use crate::utils::{read_file, truncate};
 use crate::vault::auth::Authentication;
 use crate::vault::link::Link;
-use crate::vault::vault::{init_vault, Vault};
+use crate::vault::{init_vault, Vault};
 
 use clap::{load_yaml, App, ArgMatches};
+use colored::Colorize;
 use log::Level;
 use miniserde::json;
 use semver::Version;
 use std::process::exit;
 use terminal_size::{terminal_size as ts, Width};
-use colored::Colorize;
 
 const LOG_LEVEL: Level = Level::Warn;
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
@@ -43,25 +39,19 @@ fn main() {
     .unwrap();
 
     match init_vault(db, Version::parse(VERSION).unwrap()) {
-        Ok(v) => process_command(config, v, matches),
+        Ok(v) => if matches.is_present("server") {
+            server::start(v);
+        } else {
+            process_command(config, v, matches)
+        },
         _ => panic!("Cannot initialize database"),
     }
 }
 
-fn process_command(config: Config, mut vault: Vault, matches: ArgMatches) {
+fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
     match matches.subcommand() {
-        ("server", _) => {
-            server::start();
-
-//            match server::start() {
-//                Ok(_) => println!("Server started"),
-//                _ => {
-//                    eprint!("Server failed")
-//                }
-//            }
-        },
         ("add", Some(sub_m)) => {
-            match vault.add_link(&Link::from(sub_m), &Authentication::from(config, sub_m)) {
+            match vault.add_link(&Link::from(sub_m), &Authentication::from_matches(config, sub_m)) {
                 Ok(id) => println!("Added (id={})", id),
                 Err(e) => {
                     eprintln!("Error while adding a link ({:?})", e);
@@ -70,7 +60,7 @@ fn process_command(config: Config, mut vault: Vault, matches: ArgMatches) {
             }
         }
         ("del", Some(sub_m)) => {
-            match vault.del_link(&Link::from(sub_m), &Authentication::from(config, sub_m)) {
+            match vault.del_link(&Link::from(sub_m), &Authentication::from_matches(config, sub_m)) {
                 Ok(id) => println!("Deleted (id={})", id),
                 Err(e) => {
                     eprintln!("Error while deleting a link ({:?})", e);
@@ -79,7 +69,7 @@ fn process_command(config: Config, mut vault: Vault, matches: ArgMatches) {
             }
         }
         ("ls", Some(sub_m)) => {
-            match vault.match_links(&Link::from(sub_m), &Authentication::from(config, sub_m)) {
+            match vault.match_links(&Link::from(sub_m), &Authentication::from_matches(config, sub_m)) {
                 Ok(links) => {
                     let size = ts();
                     let tw = if let Some((Width(w), _)) = size {
@@ -90,7 +80,7 @@ fn process_command(config: Config, mut vault: Vault, matches: ArgMatches) {
                     for link in links {
                         let description = link.description.unwrap_or_default();
                         let href_len = link.href.chars().count() as i16;
-                        let desc_len= tw - href_len - 3;
+                        let desc_len = tw - href_len - 3;
                         println!(
                             "{} » {}",
                             link.href,
@@ -107,7 +97,7 @@ fn process_command(config: Config, mut vault: Vault, matches: ArgMatches) {
         ("import", Some(sub_m)) => {
             let contents = read_file(sub_m.value_of("file").expect("Cannot read file."));
             let links: Vec<Link> = json::from_str(&contents).expect("Invalid JSON.");
-            match vault.import_links(links, &Authentication::from(config, sub_m)) {
+            match vault.import_links(links, &Authentication::from_matches(config, sub_m)) {
                 Ok(n) => println!("Imported {} links.", n),
                 Err(e) => {
                     eprintln!("Error while importing links ({:?}).", e);
@@ -153,7 +143,7 @@ fn process_command(config: Config, mut vault: Vault, matches: ArgMatches) {
                     eprintln!("Error while fetching users.");
                     exit(1);
                 }
-            }
+            },
             ("gen", Some(sub_m)) => match vault.generate_key(sub_m.value_of("login")) {
                 Ok(s) => println!("Generated API key: {}", s),
                 Err(e) => {
