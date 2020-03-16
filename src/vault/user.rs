@@ -1,14 +1,14 @@
 use crate::db::DBError::UnknownUser;
 use crate::db::DBSeachType::{Exact, Patterned};
 use crate::db::{DBResult, DBSeachType};
-use crate::utils::{confirm, password, generate_key};
+use crate::utils::{confirm, generate_key, password};
 use crate::vault::Vault;
 
+use crate::db::query::Query;
 use bcrypt::hash;
 use rusqlite::params;
 use std::fmt;
 use std::iter::FromIterator;
-use crate::db::query::Query;
 
 #[derive(Clone, Debug)]
 pub struct User {
@@ -59,6 +59,16 @@ impl Vault {
         })?;
         Result::from_iter(rows).map_err(Into::into)
     }
+    pub fn find_one(&self, login: Option<&str>) -> DBResult<(User, u32)> {
+        if login.is_some() {
+            let users = self.find_users(login, DBSeachType::Exact)?;
+            users
+                .first()
+                .map_or(Err(UnknownUser), |(user, count)| Ok((user.clone(), *count)))
+        } else {
+            Err(UnknownUser)
+        }
+    }
     pub fn add_user(&self, login: Option<&str>) -> DBResult<User> {
         match login {
             Some(l) => {
@@ -73,64 +83,46 @@ impl Vault {
             _ => Err(UnknownUser),
         }
     }
-    pub fn del_user(&self, login: Option<&str>) -> DBResult<Option<User>> {
-        match self.find_users(login, DBSeachType::Exact) {
-            Ok(users) => {
-                if let Some((u, c)) = users.first() {
-                    if *c == 0
-                        || confirm(format!("User {} has {} links. Proceed?", u.login, *c).as_ref())
-                    {
-                        self.get_connection()
-                            .execute("DELETE FROM users WHERE id = ?1", params![u.id])?;
-                        Ok(Some(u.clone()))
-                    } else {
-                        // user found but action is cancelled
-                        Ok(None)
-                    }
-                } else {
-                    // user not found in db
-                    Err(UnknownUser)
-                }
+    pub fn del_user(&self, login: Option<&str>) -> DBResult<(User, bool)> {
+        if let Ok((u, c)) = self.find_one(login) {
+            if c == 0 || confirm(format!("User {} has {} links. Proceed?", u.login, c).as_ref()) {
+                self.get_connection()
+                    .execute("DELETE FROM users WHERE id = ?1", params![u.id])?;
+                Ok((u, true))
+            } else {
+                // user found but action is cancelled
+                Ok((u, false))
             }
-            Err(e) => Err(e),
+        } else {
+            Err(UnknownUser)
         }
     }
     pub fn passwd_user(&self, login: Option<&str>) -> DBResult<User> {
-        match self.find_users(login, DBSeachType::Exact) {
-            Ok(users) => {
-                if let Some((u, _c)) = users.first() {
-                    let pass = password(None, Some("New password"));
-                    let hashed = hash(pass, 10).expect("Couldn't hash a password for some reason");
-                    self.get_connection().execute(
-                        "UPDATE users SET password=?1 WHERE id=?2",
-                        params![hashed, u.id],
-                    )?;
-                    Ok(u.clone())
-                } else {
-                    Err(UnknownUser)
-                }
-            }
-            Err(e) => Err(e),
+        if let Ok((u, _count)) = self.find_one(login) {
+            let pass = password(None, Some("New password"));
+            let hashed = hash(pass, 10).expect("Couldn't hash a password for some reason");
+            self.get_connection().execute(
+                "UPDATE users SET password=?1 WHERE id=?2",
+                params![hashed, u.id],
+            )?;
+            Ok(u)
+        } else {
+            Err(UnknownUser)
         }
     }
     pub fn match_users(&self, pattern: Option<&str>) -> DBResult<Vec<(User, u32)>> {
         self.find_users(pattern, DBSeachType::Patterned)
     }
-    pub fn generate_key(&self, login: Option<&str>) -> DBResult<String> {
-        match self.find_users(login, DBSeachType::Exact) {
-            Ok(users) => {
-                if let Some((u, _c)) = users.first() {
-                    let key = generate_key(32);
-                    self.get_connection().execute(
-                        "UPDATE users SET api_key = ?1 WHERE id = ?2",
-                        params![key, u.id],
-                    )?;
-                    Ok(key)
-                } else {
-                    Err(UnknownUser)
-                }
-            }
-            Err(e) => Err(e),
+    pub fn generate_key(&self, login: Option<&str>) -> DBResult<(User, String)> {
+        if let Ok((u, _count)) = self.find_one(login) {
+            let key = generate_key(32);
+            self.get_connection().execute(
+                "UPDATE users SET api_key = ?1 WHERE id = ?2",
+                params![key, u.id],
+            )?;
+            Ok((u, key))
+        } else {
+            Err(UnknownUser)
         }
     }
 }

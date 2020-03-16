@@ -114,9 +114,9 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
                 }
             },
             ("del", Some(sub_m)) => match vault.del_user(sub_m.value_of("login")) {
-                Ok(u) => {
-                    if u.is_some() {
-                        println!("Removed ({}).", u.unwrap().login)
+                Ok((u, is_deleted)) => {
+                    if is_deleted {
+                        println!("Removed ({}).", u.login)
                     } else {
                         println!("Abandoned.")
                     }
@@ -145,7 +145,7 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
                 }
             },
             ("gen", Some(sub_m)) => match vault.generate_key(sub_m.value_of("login")) {
-                Ok(s) => println!("Generated API key: {}", s),
+                Ok((_u, k)) => println!("Generated API key: {}", k),
                 Err(e) => {
                     eprintln!("Erro while generating API key ({:?})", e);
                     exit(1);
