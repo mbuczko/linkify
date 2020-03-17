@@ -39,11 +39,13 @@ fn main() {
     .unwrap();
 
     match init_vault(db, Version::parse(VERSION).unwrap()) {
-        Ok(v) => if matches.is_present("server") {
-            server::start(v);
-        } else {
-            process_command(config, v, matches)
-        },
+        Ok(v) => {
+            if matches.is_present("server") {
+                server::start(v);
+            } else {
+                process_command(config, v, matches)
+            }
+        }
         _ => panic!("Cannot initialize database"),
     }
 }
@@ -51,7 +53,10 @@ fn main() {
 fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
     match matches.subcommand() {
         ("add", Some(sub_m)) => {
-            match vault.add_link(&Link::from(sub_m), &Authentication::from_matches(config, sub_m)) {
+            match vault.add_link(
+                &Link::from(sub_m),
+                &Authentication::from_matches(config, sub_m),
+            ) {
                 Ok(id) => println!("Added (id={})", id),
                 Err(e) => {
                     eprintln!("Error while adding a link ({:?})", e);
@@ -60,7 +65,10 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
             }
         }
         ("del", Some(sub_m)) => {
-            match vault.del_link(&Link::from(sub_m), &Authentication::from_matches(config, sub_m)) {
+            match vault.del_link(
+                &Link::from(sub_m),
+                &Authentication::from_matches(config, sub_m),
+            ) {
                 Ok(id) => println!("Deleted (id={})", id),
                 Err(e) => {
                     eprintln!("Error while deleting a link ({:?})", e);
@@ -69,7 +77,10 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
             }
         }
         ("ls", Some(sub_m)) => {
-            match vault.match_links(&Link::from(sub_m), &Authentication::from_matches(config, sub_m)) {
+            match vault.match_links(
+                &Link::from(sub_m),
+                &Authentication::from_matches(config, sub_m),
+            ) {
                 Ok(links) => {
                     let size = ts();
                     let tw = if let Some((Width(w), _)) = size {
@@ -145,9 +156,14 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
                 }
             },
             ("gen", Some(sub_m)) => match vault.generate_key(sub_m.value_of("login")) {
-                Ok((_u, k)) => println!("Generated API key: {}", k),
+                Ok((_u, k)) => println!(
+                    "Generated API key: {}\nSample cURL:\n\n  \
+                    curl -H 'Authorization: Bearer {}' \
+                    \'http://localhost:8001?tags=rust&description=programming\'\n",
+                    k, k
+                ),
                 Err(e) => {
-                    eprintln!("Erro while generating API key ({:?})", e);
+                    eprintln!("Error while generating API key ({:?})", e);
                     exit(1);
                 }
             },

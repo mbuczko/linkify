@@ -15,7 +15,7 @@ use std::rc::Rc;
 
 type Tag = String;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Default)]
 pub struct Link {
     pub href: String,
     pub description: Option<String>,
@@ -29,13 +29,6 @@ impl fmt::Display for Link {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let _tags = self.tags.as_ref().map_or(None, |t| Some(t.join(" ")));
         let s = vec![self.href.as_str()];
-        //        if let Some(d) = self.description.as_ref() {
-        //            s.push(d);
-        //        }
-        //        if let Some(t) = tags.as_ref() {
-        //            s.push("--");
-        //            s.push(t);
-        //        }
         write!(f, "{}", s.join("\n"))
     }
 }
@@ -61,6 +54,14 @@ impl Link {
             matches.value_of("description"),
             tags,
         )
+    }
+    pub fn with_tags(&mut self, tags: Option<String>) -> &mut Self {
+        self.tags = tags.and_then(|t| Some(t.split(",").map(String::from).collect()));
+        self
+    }
+    pub fn with_description(&mut self, description: Option<String>) -> &mut Self {
+        self.description = description;
+        self
     }
 }
 

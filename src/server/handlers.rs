@@ -3,22 +3,24 @@ use crate::vault::link::Link;
 use crate::vault::Vault;
 
 use failure::Error;
-use miniserde::{json};
+use miniserde::json;
 use rouille::content_encoding;
 use rouille::{router, Request, Response, ResponseBody};
 
 pub type HandlerResult = Result<Response, Error>;
 
 pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
+    let mut link = Link::default();
     let token = request
         .header("authorization")
         .map_or(None, |header| header.split_whitespace().last());
 
     let authentication = Authentication::from_token(token);
-    let link = Link::new("", None, None);
+    let tags = request.get_param("tags");
+    let desc = request.get_param("description");
     let resp = router!(request,
         (GET) (/) => {
-            match vault.match_links(&link, &authentication) {
+            match vault.match_links(link.with_tags(tags).with_description(desc), &authentication) {
                 Ok(links) => {
                     let json = json::to_string(&links);
                     let resp = Response {
@@ -31,7 +33,6 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
                 }
                 _ => Response::empty_404()
             }
-
         },
         _ => {
            Response::empty_404()

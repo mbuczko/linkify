@@ -59,7 +59,7 @@ impl Vault {
         })?;
         Result::from_iter(rows).map_err(Into::into)
     }
-    pub fn find_one(&self, login: Option<&str>) -> DBResult<(User, u32)> {
+    pub fn find_user(&self, login: Option<&str>) -> DBResult<(User, u32)> {
         if login.is_some() {
             let users = self.find_users(login, DBSeachType::Exact)?;
             users
@@ -84,7 +84,7 @@ impl Vault {
         }
     }
     pub fn del_user(&self, login: Option<&str>) -> DBResult<(User, bool)> {
-        if let Ok((u, c)) = self.find_one(login) {
+        if let Ok((u, c)) = self.find_user(login) {
             if c == 0 || confirm(format!("User {} has {} links. Proceed?", u.login, c).as_ref()) {
                 self.get_connection()
                     .execute("DELETE FROM users WHERE id = ?1", params![u.id])?;
@@ -98,7 +98,7 @@ impl Vault {
         }
     }
     pub fn passwd_user(&self, login: Option<&str>) -> DBResult<User> {
-        if let Ok((u, _count)) = self.find_one(login) {
+        if let Ok((u, _count)) = self.find_user(login) {
             let pass = password(None, Some("New password"));
             let hashed = hash(pass, 10).expect("Couldn't hash a password for some reason");
             self.get_connection().execute(
@@ -114,7 +114,7 @@ impl Vault {
         self.find_users(pattern, DBSeachType::Patterned)
     }
     pub fn generate_key(&self, login: Option<&str>) -> DBResult<(User, String)> {
-        if let Ok((u, _count)) = self.find_one(login) {
+        if let Ok((u, _count)) = self.find_user(login) {
             let key = generate_key(32);
             self.get_connection().execute(
                 "UPDATE users SET api_key = ?1 WHERE id = ?2",

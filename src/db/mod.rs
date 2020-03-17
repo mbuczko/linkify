@@ -1,5 +1,4 @@
 pub mod query;
-pub mod migrations;
 
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::vtab::array;
