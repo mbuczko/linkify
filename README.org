@@ -46,7 +46,7 @@ No cargo installed? [[https://doc.rust-lang.org/cargo/getting-started/installati
 First things first - to store links we need a database file. Linkify opens one, given by =--db= parameter, or creates it if provided database does not exists yet. Following command creates a database and first user:
 
 #+begin_src
-  linkify --db /tmp/links.db users foo
+  linkify --db /tmp/links.db users add foo
 #+end_src
 
 Having a database with user & password (given while adding a user) we are ready now to store our first precious link:
