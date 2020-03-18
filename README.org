@@ -43,7 +43,7 @@ No cargo installed? [[https://doc.rust-lang.org/cargo/getting-started/installati
 
 ** linkify as shell command
 
-First things first - to store links we need a database file. Linkify opens one, given by `--db` parameter, or creates it if provided database does not exists yet. Following command creates a database and first user:
+First things first - to store links we need a database file. Linkify opens one, given by =--db= parameter, or creates it if provided database does not exists yet. Following command creates a database and first user:
 
 #+begin_src
   linkify --db /tmp/links.db users foo
@@ -57,7 +57,7 @@ Having a database with user & password (given while adding a user) we are ready 
 
 -d (or --desc) stands for "description", -t (or --tags) is a comma-separated list of assigned tags. Tags and description are useful when searching for a link, so it's worth to spend a few seconds to think them over a bit.
 
-Mentioning `--db` and `--user` every time might be really boring, so sometimes it's better to move this info into environmental variables:
+Mentioning =--db= and =--user= every time might be really boring, so sometimes it's better to move this info into environmental variables:
 
 #+begin_src
   export LINKIFY_DB_PATH=/tmp/links.db
@@ -113,7 +113,7 @@ TBD.
 *** Have Pinboard account?
 Move your links straight into linkify-managed db:
 - export your Pinboard links into some pinboard_export.json file
-- do `jq` magic to adjust json to our needs:
+- do =jq= magic to adjust json to our needs:
 
 #+begin_src
 jq 'map(.tags |= split(" "))|map(.shared |= test("yes"))|map(.toread |= test("yes"))' pinboard_export.json > linkify.json  
