@@ -31,6 +31,16 @@ SUBCOMMANDS:
 
 Linkify in CLI mode works pretty much like a git command - exposes a few subcommands to deal with links (obviously), with users, and some additional features like importing links from separate file.
 
+** build the command
+
+#+begin_src
+https://github.com/mbuczko/linkify.git
+cd linkify
+cargo build --release
+#+end_src
+
+No cargo installed? [[https://doc.rust-lang.org/cargo/getting-started/installation.html][Installation Guide]].
+
 ** linkify as shell command
 
 First things first - to store links we need a database file. Linkify opens one, given by `--db` parameter, or creates it if provided database does not exists yet. Following command creates a database and first user:
@@ -101,7 +111,7 @@ TBD.
 
 ** Tips & tricks
 *** Have Pinboard account?
-Move your links straight into local db:
+Move your links straight into linkify-managed db:
 - export your Pinboard links into some pinboard_export.json file
 - do `jq` magic to adjust json to our needs:
 
