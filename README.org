@@ -122,7 +122,7 @@ jq 'map(.tags |= split(" "))|map(.shared |= test("yes"))|map(.toread |= test("ye
 - import linkify.json to linkify:
 
 #+begin_src
-linkify --import linkify.json
+linkify import linkify.json
 #+end_src
 *** Love fzf?
 Use [[https://github.com/junegunn/fzf][fzf]] to search a link like a pro :)
