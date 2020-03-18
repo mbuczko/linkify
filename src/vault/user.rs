@@ -69,6 +69,9 @@ impl Vault {
             Err(UnknownUser)
         }
     }
+    pub fn match_users(&self, pattern: Option<&str>) -> DBResult<Vec<(User, u32)>> {
+        self.find_users(pattern, DBSeachType::Patterned)
+    }
     pub fn add_user(&self, login: Option<&str>) -> DBResult<User> {
         match login {
             Some(l) => {
@@ -90,7 +93,6 @@ impl Vault {
                     .execute("DELETE FROM users WHERE id = ?1", params![u.id])?;
                 Ok((u, true))
             } else {
-                // user found but action is cancelled
                 Ok((u, false))
             }
         } else {
@@ -109,9 +111,6 @@ impl Vault {
         } else {
             Err(UnknownUser)
         }
-    }
-    pub fn match_users(&self, pattern: Option<&str>) -> DBResult<Vec<(User, u32)>> {
-        self.find_users(pattern, DBSeachType::Patterned)
     }
     pub fn generate_key(&self, login: Option<&str>) -> DBResult<(User, String)> {
         if let Ok((u, _count)) = self.find_user(login) {

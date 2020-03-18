@@ -1,0 +1,128 @@
+* Make your own Pinboard
+
+Linkify is a CLI tool and HTTP server in one binary, which lets you store links in local databases (SQLite powered).
+
+#+begin_src
+linkify 0.1.2
+Saves your precious links into a local vault
+
+USAGE:
+    linkify [OPTIONS] [SUBCOMMAND]
+
+FLAGS:
+    -h, --help       Prints help information
+    -V, --version    Prints version information
+
+OPTIONS:
+    -k, --apikey <apikey>        user's API key [env: LINKIFY_API_KEY]
+    -b, --db <database>          database to use [env: LINKIFY_DB_PATH]
+    -p, --password <password>    user's password [env: LINKIFY_PASSWORD]
+    -u, --user <user>            user's login [env: LINKIFY_USER]
+
+SUBCOMMANDS:
+    add       Adds a new link
+    del       Deletes already stored link
+    help      Prints this message or the help of the given subcommand(s)
+    import    Import links from JSON file
+    ls        List matching links
+    server    Run a server
+    users     Manage with users
+#+end_src
+
+Linkify in CLI mode works pretty much like a git command - exposes a few subcommands to deal with links (obviously), with users, and some additional features like importing links from separate file.
+
+** linkify as shell command
+
+First things first - to store links we need a database file. Linkify opens one, given by `--db` parameter, or creates it if provided database does not exists yet. Following command creates a database and first user:
+
+#+begin_src
+  linkify --db /tmp/links.db users foo
+#+end_src
+
+Having a database with user & password (given while adding a user) we are ready now to store our first precious link:
+
+#+begin_src
+  linkify add --db /tmp/links.db --user foo -d "My social stuff" -t social,reddit http://reddit.com
+#+end_src
+
+-d (or --desc) stands for "description", -t (or --tags) is a comma-separated list of assigned tags. Tags and description are useful when searching for a link, so it's worth to spend a few seconds to think them over a bit.
+
+Mentioning `--db` and `--user` every time might be really boring, so sometimes it's better to move this info into environmental variables:
+
+#+begin_src
+  export LINKIFY_DB_PATH=/tmp/links.db
+  export LINKIFY_USER=foo
+  export LINKIFY_PASSWORD=secret
+#+end_src
+
+That can be simplified even further by providing API key instead of user/password pair, but more on this later.
+
+Let's see our links now:
+
+#+begin_src
+# linkify ls
+http://reddit.com » My social stuff
+#+end_src
+
+Yup, it's there. Storing the same link with different description or tags simply overrides this data:
+
+#+begin_src
+# linkify add --db /tmp/links.db -d "Time waster" http://reddit.com
+# linkify ls
+http://reddit.com » Time waster
+#+end_src
+
+Sometimes it's tempting to import data already stored somewhere else. Linkify imports everything you wish, provided as following json:
+
+#+begin_src json
+[{
+    "href": "https://developer.airly.eu/docs",
+    "description": "Airly for Developers",
+    "shared": true,
+    "toread": false,
+    "tags": [
+        "api"
+    ]
+},
+{
+    "href": "https://registry.hub.docker.com/",
+    "description": "Docker Hub Registry - Repositories of Docker Images",
+    "shared": true,
+    "toread": false,
+    "tags": [
+      "docker"
+    ]
+}]  
+#+end_src
+
+** Linkify as a server
+
+TBD.
+
+** Tips & tricks
+*** Have Pinboard account?
+Move your links straight into local db:
+- export your Pinboard links into some pinboard_export.json file
+- do `jq` magic to adjust json to our needs:
+
+#+begin_src
+jq 'map(.tags |= split(" "))|map(.shared |= test("yes"))|map(.toread |= test("yes"))' pinboard_export.json > linkify.json  
+#+end_src
+
+- import linkify.json to linkify:
+
+#+begin_src
+linkify --import linkify.json
+#+end_src
+*** Love fzf?
+Use [[https://github.com/junegunn/fzf][fzf]] to search a link like a pro :)
+
+linkify ls | fzf -e -0 --print0
+
+or even better - bind it to some shortcut in your shell configuration. Here is how it could be done with [[https://fishshell.com/][fish]] shell:
+
+#+begin_src shell
+bind \ch 'begin; set url (linkify ls|fzf -e -0 --print0); if string length -q -- $url; open $url; end; end'  
+#+end_src
+
+Control-h invokes here linkify and passes result to fzf. Select the link and boom - browser opens automagically (at least in [[https://iterm2.com/][iTerm]]).

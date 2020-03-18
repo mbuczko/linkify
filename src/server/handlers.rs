@@ -31,7 +31,7 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
                     };
                     content_encoding::apply(request, resp)
                 }
-                _ => Response::empty_404()
+                _ => Response::empty_400()
             }
         },
         _ => {
