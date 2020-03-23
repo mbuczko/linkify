@@ -146,12 +146,18 @@ impl Vault {
         }
         Ok(imported)
     }
-    pub fn match_links(&self, link: &Link, auth: &Option<Authentication>) -> DBResult<Vec<Link>> {
+    pub fn match_links(
+        &self,
+        link: &Link,
+        auth: &Option<Authentication>,
+        enhanced: bool,
+    ) -> DBResult<Vec<Link>> {
         let user = match self.authenticate_user(auth) {
             Ok(u) => u,
             Err(e) => return Err(e),
         };
         let tags = link.tags.to_owned().unwrap_or_default();
+        let omit_tags = tags.is_empty();
         let ptr = Rc::new(tags.into_iter().map(SqlValue::from).collect());
         let href = Query::patternize(&link.href).unwrap_or_default();
         let desc = link
@@ -170,13 +176,20 @@ impl Vault {
             query.concat_with_param("href LIKE :href AND", (":href", &href));
         }
         if !desc.is_empty() {
-            query.concat_with_param("description LIKE :desc AND", (":desc", &desc));
+            if enhanced && href.is_empty() {
+                query.concat_with_param(
+                    "(description LIKE :desc OR href LIKE :desc) AND",
+                    (":desc", &desc),
+                );
+            } else {
+                query.concat_with_param("description LIKE :desc AND", (":desc", &desc));
+            }
         }
 
         query.concat_with_param("l.user_id = :id", (":id", &user.id));
         query.concat("GROUP BY l.id");
 
-        if link.tags.is_some() {
+        if !omit_tags {
             query.concat_with_param(
                 "HAVING l.id IN \
             (SELECT link_id FROM links_tags lt2 \
@@ -193,9 +206,36 @@ impl Vault {
                 &row.get_unwrap::<_, String>(0),
                 row.get::<_, String>(1).ok().as_deref(),
                 row.get::<_, String>(2)
-                    .map_or(None, |t| Some(t.split('.').map(String::from).collect())),
+                    .map_or(None, |t| Some(t.split(',').map(String::from).collect())),
             ))
         })?;
         Result::from_iter(rows).map_err(Into::into)
+    }
+    pub fn omni_search(&self, omni: String, auth: &Option<Authentication>) -> DBResult<Vec<Link>> {
+        let mut href: Vec<&str> = Vec::new();
+        let mut desc: Vec<&str> = Vec::new();
+        let mut tags: Vec<String> = Vec::new();
+
+        for chunk in omni.split_whitespace() {
+            let ch: Vec<_> = chunk.split(':').collect();
+            if ch.len() == 2 {
+                match ch[0] {
+                    "tags" => {
+                        let more_tags = ch[1].split(',').map(String::from).collect::<Vec<String>>();
+                        tags.extend(more_tags);
+                    }
+                    "href" => href.push(ch[1]),
+                    _ => desc.push(chunk),
+                }
+            } else {
+                desc.push(chunk);
+            }
+        }
+        let link = Link::new(
+            href.last().map_or("", |v| v.trim()),
+            Some(&desc.join("%").trim()),
+            Some(tags),
+        );
+        self.match_links(&link, auth, true)
     }
 }

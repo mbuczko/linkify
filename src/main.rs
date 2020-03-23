@@ -80,6 +80,7 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
             match vault.match_links(
                 &Link::from(sub_m),
                 &Authentication::from_matches(config, sub_m),
+                false
             ) {
                 Ok(links) => {
                     let size = ts();

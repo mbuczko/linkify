@@ -18,9 +18,15 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
     let authentication = Authentication::from_token(token);
     let tags = request.get_param("tags");
     let desc = request.get_param("description");
+    let omni = request.get_param("omni");
     let resp = router!(request,
         (GET) (/) => {
-            match vault.match_links(link.with_tags(tags).with_description(desc), &authentication) {
+            let result = if omni.is_some() {
+                vault.omni_search(omni.unwrap(), &authentication)
+            } else {
+                vault.match_links(link.with_tags(tags).with_description(desc), &authentication, false)
+            };
+            match result {
                 Ok(links) => {
                     let json = json::to_string(&links);
                     let resp = Response {
