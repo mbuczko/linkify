@@ -34,6 +34,7 @@
 
 .ly-show {
   visibility: visible;
+  display: block !important;
 }
 
 .ly-show ~ .ly-overlay {
@@ -47,8 +48,85 @@
   position: relative;
   border-radius: 3px;
   margin: 0 auto;
-  height: 250px;
+  height: auto;
   box-shadow: 0 0 5px #555;
+  overflow: hidden;
+}
+
+#ly-content-inner {
+  display: none;
+  padding: 10px;
+}
+
+#ly-content-inner * {
+  font-family: 'Input Sans Condensed', 'Arial', sans-serif;
+}
+
+#ly-content-inner input {
+  width: 100%;
+  font-size: 14px;
+  padding: 4px;
+  border: none;
+  border-bottom: 1px solid #ccc;
+  margin: 14px 0 14px;
+  color: #333 !important;
+  outline: none;
+  background: #fff;
+}
+
+#ly-content-links {
+  overflow: hidden;
+  padding: 0;
+  margin: 0 4px;
+}
+
+#ly-content-links a {
+  color: #1095f9;
+  font-size: 13px;
+  line-height: 16px;
+  font-family: 'Input Mono Condensed', 'Droid Sans Mono', Monaco, monospace;
+  padding: 0;
+  margin: 0;
+}
+
+#ly-content-links a:hover {
+  color: #1c99db !important;
+  opacity: 1;
+}
+
+#ly-content-links span {
+  color: #999;
+  font-size: 12px;
+  line-height: 18px;
+  display: block;
+}
+
+#ly-content-links li {
+  border-bottom: 1px dotted #eee;
+  font-size: 13px;
+  line-height: 13px;
+  margin: 2px 0;
+  padding: 2px 0 0;
+}
+
+#ly-content-links li.selected {
+  background: #eee;
+}
+
+#ly-content-links li.selected a {
+  color: #393939;
+}
+
+#ly-content-spinner {
+  padding: 120px 40px;
+  display: none;
+}
+
+#ly-content-spinner p {
+  color: #666;
+  font-size: 13px;
+  font-family: "Droid Sans Mono", Monaco, monospace;
+  text-align: center;
 }
 
 .ly-effect .ly-content {
@@ -71,9 +149,9 @@
 }
 
 .ly-modal .spinner {
-  margin: 100px auto;
+  margin: 60px auto;
   width: 50px;
-  height: 40px;
+  height: 30px;
   text-align: center;
   font-size: 10px;
 }
@@ -98,7 +176,7 @@
   animation-delay: -1.0s;
 }
 
-.spinner .rect4 {
+.ly-modal .spinner .rect4 {
   -webkit-animation-delay: -0.9s;
   animation-delay: -0.9s;
 }
