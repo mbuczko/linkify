@@ -110,7 +110,7 @@ var LinkifyInject = (function() {
 
       let input = document.getElementById('ly-content-inner-input');
       input.addEventListener('keydown', keyDownHandler);
-      input.addEventListener('keypress', debounce(function(e) {
+      input.addEventListener('input', debounce(function(e) {
         fetchLinks(e.target.value);
       }, 250))
   });
@@ -120,7 +120,8 @@ var LinkifyInject = (function() {
   window.addEventListener('keydown', function(e) {
     let modal = document.getElementById('ly-modal-selector'),
         spinner = document.getElementById('ly-content-spinner'),
-        content = document.getElementById('ly-content-inner');
+        content = document.getElementById('ly-content-inner'),
+        input = document.getElementById('ly-content-inner-input');
 
     // escape? close the dialog.
     if (e.keyCode === 27) {
@@ -135,6 +136,8 @@ var LinkifyInject = (function() {
         vswitch(content);
         vswitch(spinner, true);
         vswitch(modal, true);
+
+        input.value = '';
 
         // last 10 links by default
         fetchLinks("", function() {

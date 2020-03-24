@@ -63,15 +63,24 @@
 }
 
 #ly-content-inner input {
-  width: 100%;
-  font-size: 14px;
-  padding: 4px;
+  background: #fff;
   border: none;
   border-bottom: 1px solid #ccc;
-  margin: 14px 0 14px;
   color: #333 !important;
+  display: block;
+  float: none;
+  font-size: 14px;
+  width: 100%;
+  padding: 4px;
+  margin: 14px 0 14px;
   outline: none;
-  background: #fff;
+  box-sizing: border-box;
+  -webkit-box-sizing: border-box;
+  -moz-box-sizing: border-box;
+}
+
+#ly-content-inner input::placeholder {
+  color: #bbb;
 }
 
 #ly-content-links {
@@ -107,6 +116,7 @@
   line-height: 13px;
   margin: 2px 0;
   padding: 2px 0 0;
+  text-align: left;
 }
 
 #ly-content-links li.selected {
@@ -148,7 +158,7 @@
   opacity: 1;
 }
 
-.ly-modal .spinner {
+.ly-modal .ly-spinner {
   margin: 60px auto;
   width: 50px;
   height: 30px;
@@ -156,7 +166,7 @@
   font-size: 10px;
 }
 
-.ly-modal .spinner > div {
+.ly-modal .ly-spinner > div {
   background-color: #333;
   height: 100%;
   width: 6px;
@@ -166,22 +176,22 @@
   animation: sk-stretchdelay 1.2s infinite ease-in-out;
 }
 
-.ly-modal .spinner .rect2 {
+.ly-modal .ly-spinner .rect2 {
   -webkit-animation-delay: -1.1s;
   animation-delay: -1.1s;
 }
 
-.ly-modal .spinner .rect3 {
+.ly-modal .ly-spinner .rect3 {
   -webkit-animation-delay: -1.0s;
   animation-delay: -1.0s;
 }
 
-.ly-modal .spinner .rect4 {
+.ly-modal .ly-spinner .rect4 {
   -webkit-animation-delay: -0.9s;
   animation-delay: -0.9s;
 }
 
-.ly-modal .spinner .rect5 {
+.ly-modal .ly-spinner .rect5 {
   -webkit-animation-delay: -0.8s;
   animation-delay: -0.8s;
 }
