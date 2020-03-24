@@ -19,12 +19,15 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
     let tags = request.get_param("tags");
     let desc = request.get_param("description");
     let omni = request.get_param("omni");
+    let limit = request
+        .get_param("limit")
+        .and_then(|v| v.parse::<u16>().ok());
     let resp = router!(request,
         (GET) (/) => {
             let result = if omni.is_some() {
-                vault.omni_search(omni.unwrap(), &authentication)
+                vault.omni_search(omni.unwrap(), &authentication, limit)
             } else {
-                vault.match_links(link.with_tags(tags).with_description(desc), &authentication, false)
+                vault.match_links(link.with_tags(tags).with_description(desc), &authentication, limit, false)
             };
             match result {
                 Ok(links) => {

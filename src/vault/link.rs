@@ -150,6 +150,7 @@ impl Vault {
         &self,
         link: &Link,
         auth: &Option<Authentication>,
+        limit: Option<u16>,
         enhanced: bool,
     ) -> DBResult<Vec<Link>> {
         let user = match self.authenticate_user(auth) {
@@ -157,15 +158,13 @@ impl Vault {
             Err(e) => return Err(e),
         };
         let tags = link.tags.to_owned().unwrap_or_default();
-        let omit_tags = tags.is_empty();
-        let ptr = Rc::new(tags.into_iter().map(SqlValue::from).collect());
         let href = Query::patternize(&link.href).unwrap_or_default();
         let desc = link
             .description
             .as_ref()
             .map_or(None, |v| Query::patternize(v))
             .unwrap_or_default();
-
+        let limit = limit.unwrap_or(0);
         let mut query = Query::new_with_initial(
             "SELECT href, description, group_concat(tag) FROM links l \
         LEFT JOIN links_tags lt ON l.id = lt.link_id \
@@ -189,7 +188,10 @@ impl Vault {
         query.concat_with_param("l.user_id = :id", (":id", &user.id));
         query.concat("GROUP BY l.id");
 
-        if !omit_tags {
+        // limit by tags (if provided)
+        let has_tags = !tags.is_empty();
+        let ptr = Rc::new(tags.into_iter().map(SqlValue::from).collect());
+        if has_tags {
             query.concat_with_param(
                 "HAVING l.id IN \
             (SELECT link_id FROM links_tags lt2 \
@@ -198,6 +200,11 @@ impl Vault {
             );
         }
         query.concat("ORDER BY l.created_at DESC");
+
+        // limit total number of results
+        if limit > 0 {
+            query.concat_with_param("LIMIT :limit", (":limit", &limit));
+        }
 
         let conn = self.get_connection();
         let mut stmt = conn.prepare(query.to_string().as_str())?;
@@ -211,7 +218,12 @@ impl Vault {
         })?;
         Result::from_iter(rows).map_err(Into::into)
     }
-    pub fn omni_search(&self, omni: String, auth: &Option<Authentication>) -> DBResult<Vec<Link>> {
+    pub fn omni_search(
+        &self,
+        omni: String,
+        auth: &Option<Authentication>,
+        limit: Option<u16>,
+    ) -> DBResult<Vec<Link>> {
         let mut href: Vec<&str> = Vec::new();
         let mut desc: Vec<&str> = Vec::new();
         let mut tags: Vec<String> = Vec::new();
@@ -236,6 +248,6 @@ impl Vault {
             Some(&desc.join("%").trim()),
             Some(tags),
         );
-        self.match_links(&link, auth, true)
+        self.match_links(&link, auth, limit, true)
     }
 }
