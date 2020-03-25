@@ -3,12 +3,20 @@ pub mod query;
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::vtab::array;
 use rusqlite::Error as SqliteError;
+use failure::Fail;
 
-#[derive(Debug)]
+#[derive(Debug, Fail)]
 pub enum DBError {
+    #[fail(display = "Database error")]
     Sqlite(SqliteError),
+
+    #[fail(display = "Unauthenticated request")]
     Unauthenticated,
+
+    #[fail(display = "Unknown user")]
     UnknownUser,
+
+    #[fail(display = "Bad credentials")]
     BadPassword,
 }
 

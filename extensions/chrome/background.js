@@ -47,7 +47,7 @@ var Linkify = (function() {
           if (message.action === "matchLinks") {
             asyncRequest({
               apikey: 'lKnrPZUM8Lh2kBfnraLMOgttjrMwmqC4',
-              url: 'http://localhost:8001/?limit=10&omni=' + message.omnisearch
+              url: 'http://localhost:8001/links?limit=10&omni=' + message.omnisearch
             }, function(xhr) {
               reply({
                 status: xhr.status,

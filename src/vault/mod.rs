@@ -1,6 +1,7 @@
 pub mod auth;
 pub mod link;
 pub mod user;
+pub mod search;
 pub mod migrations;
 
 use crate::db::conn_manager;
