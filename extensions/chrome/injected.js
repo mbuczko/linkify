@@ -3,9 +3,17 @@
     return document.getElementById(id);
   }
 
-  function stop(e) {
-    e.stopPropagation();
-    e.preventDefault();
+  function show(elem) {
+    elem.classList.add('ly--show')
+  }
+
+  function hide(elem) {
+    elem.classList.remove('ly--show')
+  }
+
+  function stop(event) {
+    event.stopPropagation();
+    event.preventDefault();
   }
 
   function debounce(func, wait, immediate) {
@@ -65,8 +73,10 @@
     }
     else
     if (e.ctrlKey && e.key === 'Enter') {
-      let saveInput = $('ly--content-saver-input');
+      let saveInput = $('ly--content-saver-input'),
+          warning = $('ly--content-search-saver-warning');
       switchViews('ly--content-inner', ['ly--content-search-saver']);
+      hide(warning);
       saveInput.value = '';
       saveInput.focus();
     }
@@ -75,7 +85,7 @@
   function saveKeyDownHandler(e) {
     let searchName = e.target.value;
     let warning = $('ly--content-search-saver-warning'),
-        searchInput = $('ly--content-inner-input');
+        searchInput = $('ly--content-searcher-input');
 
     if (e.key === 'Enter') {
       storeSearch(searchInput.value, searchName, function(response) {
@@ -94,9 +104,9 @@
     } else if (searchName.length > 0) {
       fetchSearches(searchName, true, function(result) {
         if (result && result.status === 200 && JSON.parse(result.response).length) {
-          warning.classList.add('ly--show');
+          show(warning);
         } else {
-          warning.classList.remove('ly--show');
+          hide(warning);
         }
       });
     }
@@ -104,26 +114,24 @@
 
   function switchViews(from, to) {
     if (from) {
-      $(from).classList.remove('ly--show');
+      hide($(from));
     }
     for (let id in to) {
-      let view = $(to[id]);
-      if (view) {
-        view.classList.add('ly--show');
-      }
+      show($(to[id]));
     }
   }
 
   function storeSearch(omnisearch, name, callback) {
-    if (omnisearch.length > 0 && name.length > 0)
-    chrome.extension.sendMessage(
-        {
-          action: 'storeSearch',
-          omnisearch: omnisearch,
-          searchname: name
-        },
-        callback
-    )
+    if (omnisearch.length > 0 && name.length > 0) {
+      chrome.extension.sendMessage(
+          {
+            action: 'storeSearch',
+            omnisearch: omnisearch,
+            searchname: name
+          },
+          callback
+      )
+    }
   }
 
   function fetchSearches(name, exact, callback) {
@@ -147,7 +155,7 @@
           if (result.status === 200) {
             let json = JSON.parse(result.response),
                 ul = $('ly--content-links'),
-                input = $('ly--content-inner-input'),
+                input = $('ly--content-searcher-input'),
                 link;
 
             let selected = ul.getElementsByClassName('selected')[0];
@@ -192,7 +200,7 @@
     .then(data => {
       document.body.insertAdjacentHTML('beforeend', data);
 
-      let searchInput = $('ly--content-inner-input'),
+      let searchInput = $('ly--content-searcher-input'),
           saveInput = $('ly--content-saver-input');
 
       saveInput.addEventListener('keydown', debounce(saveKeyDownHandler, 250));
@@ -206,7 +214,7 @@
   // register listener for dialog shortcut
   window.addEventListener('keydown', function(e) {
     let modal = $('ly--modal-selector'),
-        input = $('ly--content-inner-input');
+        input = $('ly--content-searcher-input');
 
     if (e.ctrlKey && e.key === '\\') {
       if (modal.classList.contains('ly--show')) {
