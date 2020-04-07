@@ -42,16 +42,18 @@
     }
   }
 
-  function selectNext(nodes) {
-    let selected = nodes.getElementsByClassName('selected')[0], target;
+  function selectNext() {
+    let nodes = $('ly--content-links'),
+        selected = nodes.getElementsByClassName('selected')[0], target;
     if (selected) {
       target = selected.nextSibling;
     }
     selectNode(selected, target || nodes.firstChild);
   }
 
-  function selectPrev(nodes) {
-    let selected = nodes.getElementsByClassName('selected')[0], target;
+  function selectPrev() {
+    let nodes = $('ly--content-links'),
+        selected = nodes.getElementsByClassName('selected')[0], target;
     if (selected) {
       target = selected.previousSibling;
     }
@@ -60,11 +62,11 @@
 
   function searchKeyDownHandler(e) {
     if (e.key === 'ArrowUp') {
-      selectPrev($('ly--content-links'));
+      selectPrev();
       stop(e);
     } else
     if (e.key === 'ArrowDown') {
-      selectNext($('ly--content-links'));
+      selectNext();
       stop(e);
     } else
     if (e.key === 'Escape') {
@@ -206,7 +208,7 @@
       saveInput.addEventListener('keydown', debounce(saveKeyDownHandler, 250));
       searchInput.addEventListener('keydown', searchKeyDownHandler);
       searchInput.addEventListener('input', debounce(function(e) {
-        fetchLinks(e.target.value);
+        fetchLinks(e.target.value, selectNext);
       }, 250));
   });
 
@@ -219,7 +221,11 @@
     if (e.ctrlKey && e.key === '\\') {
       if (modal.classList.contains('ly--show')) {
         switchViews('ly--modal-selector');
+        // wait for animation and remove contaner from page layout
+        setTimeout(() => modal.style.display = 'none', 500);
       } else {
+        // bring back container into page layout
+        modal.style.display = '';
         switchViews('ly--content-search-saver');
         switchViews('ly--content-inner', ['ly--modal-selector', 'ly--content-spinner']);
         input.value = '';
