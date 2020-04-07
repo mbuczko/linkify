@@ -1,8 +1,8 @@
 mod config;
 mod db;
-mod server;
 mod utils;
 mod vault;
+mod server;
 
 use crate::config::{Config, Env};
 use crate::utils::{read_file, truncate};

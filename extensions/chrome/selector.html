@@ -13,9 +13,11 @@
     <div id="ly-search-saver">
       <label>Save search query as:</label>
       <input id="ly-search-saver-input" placeholder="favourites"/>
+      <div id="ly-search-saver-warning">&#9888; There is already query saved with this name. It will be overwritten.</div>
     </div>
     <div id="ly-content-inner">
-      <input id="ly-content-inner-input" placeholder="Filter links, start with @ for saved searches..."/>
+      <input id="ly-content-inner-input" placeholder="Filter links or @saved searches..."/>
+      <div class="ly-searcher-hint">CTRL-enter to save</div>
       <ul id="ly-content-links"></ul>
     </div>
   </div>

@@ -1,13 +1,24 @@
 use crate::vault::auth::Authentication;
 use crate::vault::link::Link;
 use crate::vault::Vault;
+use crate::db::DBLookupType;
 
 use failure::Error;
-use miniserde::json;
+use miniserde::{json, Serialize};
 use rouille::content_encoding;
 use rouille::{post_input, router, try_or_400, Request, Response, ResponseBody};
 
 pub type HandlerResult = Result<Response, Error>;
+
+fn jsonize<T: Serialize>(result: T) -> Response {
+    let json = json::to_string(&result);
+    Response {
+        status_code: 200,
+        headers: vec![("Content-Type".into(), "application/json".into())],
+        data: ResponseBody::from_string(json),
+        upgrade: None,
+    }
+}
 
 pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
     let mut link = Link::default();
@@ -23,23 +34,6 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
         .and_then(|v| v.parse::<u16>().ok());
 
     let resp = router!(request,
-        (GET) (/searches) => {
-            let result = vault.list_searches(&authentication);
-            //debug!("{:?}", result);
-            match result {
-                Ok(searches) => {
-                    let json = json::to_string(&searches);
-                    let resp = Response {
-                        status_code: 200,
-                        headers: vec![("Content-Type".into(), "application/json".into())],
-                        data: ResponseBody::from_string(json),
-                        upgrade: None,
-                    };
-                    content_encoding::apply(request, resp)
-                }
-                _ => Response::empty_400()
-            }
-        },
         (POST) (/searches) => {
             match post_input!(request, {name: String, query: String}) {
                 Ok(t) => {
@@ -57,6 +51,20 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
                 }
             }
         },
+        (GET) (/searches) => {
+            let search_name = request.get_param("name");
+            let search_type = request.get_param("exact").map_or(DBLookupType::Patterned, |v| {
+                if v == "true" {
+                    DBLookupType::Exact
+                } else {
+                    DBLookupType::Patterned
+                }
+            });
+            match vault.find_searches(&authentication, search_name.as_deref(), search_type) {
+                Ok(searches) => content_encoding::apply(request, jsonize(searches)),
+                _ => Response::empty_400()
+            }
+        },
         (GET) (/links) => {
             let result = if omni.is_some() {
                 vault.omni_search(omni.unwrap(), &authentication, limit)
@@ -64,16 +72,7 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
                 vault.match_links(link.with_tags(tags).with_description(desc), &authentication, limit, false)
             };
             match result {
-                Ok(links) => {
-                    let json = json::to_string(&links);
-                    let resp = Response {
-                        status_code: 200,
-                        headers: vec![("Content-Type".into(), "application/json".into())],
-                        data: ResponseBody::from_string(json),
-                        upgrade: None,
-                    };
-                    content_encoding::apply(request, resp)
-                }
+                Ok(links) => content_encoding::apply(request, jsonize(links)),
                 _ => Response::empty_400()
             }
         },

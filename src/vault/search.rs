@@ -1,4 +1,4 @@
-use crate::db::DBResult;
+use crate::db::{DBLookupType, DBResult};
 use crate::vault::auth::Authentication;
 use crate::vault::Vault;
 
@@ -34,7 +34,7 @@ impl Vault {
         txn.execute(
             "INSERT INTO searches(user_id, name, query) VALUES(?1, ?2, ?3) \
             ON CONFLICT(user_id, name) \
-            DO UPDATE SET name = ?2, query = ?3",
+            DO UPDATE SET name = ?2, query = ?3, created_at = CURRENT_TIMESTAMP",
             params![user.id, name, query],
         )?;
         let id = match txn.last_insert_rowid() {
@@ -49,15 +49,26 @@ impl Vault {
         };
         txn.commit().and(Ok(id)).map_err(Into::into)
     }
-    pub fn list_searches(&self, auth: &Option<Authentication>) -> DBResult<Vec<Search>> {
+    pub fn find_searches(
+        &self,
+        auth: &Option<Authentication>,
+        name: Option<&str>,
+        lookup_type: DBLookupType,
+    ) -> DBResult<Vec<Search>> {
         let user = match self.authenticate_user(auth) {
             Ok(u) => u,
             Err(e) => return Err(e),
         };
+        let name = name.map_or(None, |v| match lookup_type {
+            DBLookupType::Exact => Some(v.to_string()),
+            DBLookupType::Patterned => Query::patternize(v),
+        });
         let mut query = Query::new_with_initial(
             "SELECT name, query FROM searches s INNER JOIN users u ON s.user_id = u.id WHERE",
         );
-        query.concat_with_param("u.id = :id ORDER BY s.created_at DESC", (":id", &user.id));
+        query.concat_with_param("u.id = :id AND", (":id", &user.id));
+        query.concat_with_param("name = :name  ORDER BY s.created_at DESC", (":name", &name));
+
         let conn = self.get_connection();
         let mut stmt = conn.prepare(query.to_string().as_str())?;
         let rows = stmt.query_map_named(query.named_params(), |row| {

@@ -44,17 +44,46 @@ var Linkify = (function() {
   function backgroundInit() {
     chrome.extension.onMessage.addListener(
         function(message, sender, reply) {
-          if (message.action === "matchLinks") {
-            asyncRequest({
-              apikey: 'lKnrPZUM8Lh2kBfnraLMOgttjrMwmqC4',
-              url: 'http://localhost:8001/links?limit=10&omni=' + message.omnisearch
-            }, function(xhr) {
-              reply({
-                status: xhr.status,
-                response: xhr.response
+          switch (message.action) {
+            case 'matchLinks':
+              asyncRequest({
+                apikey: 'lKnrPZUM8Lh2kBfnraLMOgttjrMwmqC4',
+                url: 'http://localhost:8001/links?limit=10&omni=' + message.omnisearch
+              }, function(xhr) {
+                reply({
+                  status: xhr.status,
+                  response: xhr.response
+                });
               });
-            });
-            return true;
+              return true;
+            case 'storeSearch':
+              asyncRequest({
+                apikey: 'lKnrPZUM8Lh2kBfnraLMOgttjrMwmqC4',
+                url: 'http://localhost:8001/searches',
+                method: 'POST',
+                data: {
+                  name: message.searchname,
+                  query: message.omnisearch
+                }
+              }, function(xhr) {
+                reply({
+                  status: xhr.status,
+                  response: xhr.response
+                });
+              });
+              return true;
+            case 'getSearches':
+              asyncRequest({
+                apikey: 'lKnrPZUM8Lh2kBfnraLMOgttjrMwmqC4',
+                url: 'http://localhost:8001/searches?name=' + message.searchname + '&exact=' + message.exact,
+                method: 'GET',
+              }, function(xhr) {
+                reply({
+                  status: xhr.status,
+                  response: xhr.response
+                });
+              });
+              return true;
           }
         }
     );

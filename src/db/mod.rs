@@ -20,7 +20,7 @@ pub enum DBError {
     BadPassword,
 }
 
-pub enum DBSeachType {
+pub enum DBLookupType {
     Exact,
     Patterned,
 }

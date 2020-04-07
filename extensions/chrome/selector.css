@@ -90,6 +90,17 @@
   padding: 10px;
 }
 
+#ly-content-inner .ly-searcher-hint {
+  position: absolute;
+  top: 30px;
+  right: 10px;
+  background: #eee;
+  border-radius: 3px;
+  color: #aaa;
+  font-size: 10px;
+  padding: 0 4px;
+}
+
 #ly-content-links {
   overflow: hidden;
   padding: 0;
@@ -147,6 +158,12 @@
 #ly-search-saver {
   display: none;
   padding: 60px;
+}
+
+#ly-search-saver-warning {
+  display: none;
+  color: red;
+  font-size: 12px;
 }
 
 #ly-content-spinner {

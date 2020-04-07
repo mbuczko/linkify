@@ -1,6 +1,11 @@
-const LinkifyInject = (function() {
+(function() {
   function $(id) {
     return document.getElementById(id);
+  }
+
+  function stop(e) {
+    e.stopPropagation();
+    e.preventDefault();
   }
 
   function debounce(func, wait, immediate) {
@@ -45,21 +50,55 @@ const LinkifyInject = (function() {
     selectNode(selected, target || nodes.lastChild);
   }
 
-  // input field onkeydown handler
-  function keyDownHandler(event) {
-    if (event.key === 'ArrowUp') {
+  function searchKeyDownHandler(e) {
+    if (e.key === 'ArrowUp') {
       selectPrev($('ly-content-links'));
-      event.stopPropagation();
-      event.preventDefault();
+      stop(e);
     } else
-    if (event.key === 'ArrowDown') {
+    if (e.key === 'ArrowDown') {
       selectNext($('ly-content-links'));
-      event.stopPropagation();
-      event.preventDefault();
+      stop(e);
     } else
-    if (event.ctrlKey && event.key === 'Enter') {
+    if (e.key === 'Escape') {
+      switchViews('ly-modal-selector');
+      stop(e);
+    }
+    else
+    if (e.ctrlKey && e.key === 'Enter') {
+      let saveInput = $('ly-search-saver-input');
       switchViews('ly-content-inner', ['ly-search-saver']);
-      $('ly-search-saver-input').focus();
+      saveInput.value = '';
+      saveInput.focus();
+    }
+  }
+
+  function saveKeyDownHandler(e) {
+    let searchName = e.target.value;
+    let warning = $('ly-search-saver-warning'),
+        searchInput = $('ly-content-inner-input');
+
+    if (e.key === 'Enter') {
+      storeSearch(searchInput.value, searchName, function(response) {
+        if (response.status === 200) {
+          switchViews('ly-search-saver', ['ly-content-inner']);
+          searchInput.focus();
+        } else {
+          console.error(response);
+        }
+      });
+    } else
+    if (e.key === 'Escape') {
+      switchViews('ly-search-saver', ['ly-content-inner']);
+      searchInput.focus();
+      stop(e);
+    } else if (searchName.length > 0) {
+      fetchSearches(searchName, true, function(result) {
+        if (result && result.status === 200 && JSON.parse(result.response).length) {
+          warning.classList.add('ly-show');
+        } else {
+          warning.classList.remove('ly-show');
+        }
+      });
     }
   }
 
@@ -73,6 +112,29 @@ const LinkifyInject = (function() {
         view.classList.add('ly-show');
       }
     }
+  }
+
+  function storeSearch(omnisearch, name, callback) {
+    if (omnisearch.length > 0 && name.length > 0)
+    chrome.extension.sendMessage(
+        {
+          action: 'storeSearch',
+          omnisearch: omnisearch,
+          searchname: name
+        },
+        callback
+    )
+  }
+
+  function fetchSearches(name, exact, callback) {
+    chrome.extension.sendMessage(
+        {
+          action: 'getSearches',
+          searchname: name,
+          exact: exact
+        },
+        callback
+    )
   }
 
   function fetchLinks(omnisearch, callback) {
@@ -109,7 +171,7 @@ const LinkifyInject = (function() {
               if (tags) {
                 let span = document.createElement('span'),
                     tagsnode = document.createTextNode(tags.join(' '));
-                span.classList.add('tags')
+                span.classList.add('tags');
                 span.appendChild(tagsnode);
                 div.appendChild(span);
               }
@@ -132,21 +194,11 @@ const LinkifyInject = (function() {
       let searchInput = $('ly-content-inner-input'),
           saveInput = $('ly-search-saver-input');
 
-      searchInput.addEventListener('keydown', keyDownHandler);
+      saveInput.addEventListener('keydown', debounce(saveKeyDownHandler, 250));
+      searchInput.addEventListener('keydown', searchKeyDownHandler);
       searchInput.addEventListener('input', debounce(function(e) {
         fetchLinks(e.target.value);
-      }, 250))
-      saveInput.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter') {
-          console.log('VAL', e.target.value);
-        } else
-        if (e.key === 'Escape') {
-          switchViews('ly-search-saver', ['ly-content-inner']);
-          searchInput.focus();
-          e.preventDefault();
-          e.stopPropagation();
-        }
-      })
+      }, 250));
   });
 
 
@@ -155,13 +207,7 @@ const LinkifyInject = (function() {
     let modal = $('ly-modal-selector'),
         input = $('ly-content-inner-input');
 
-    // escape? close the dialog.
-    if (e.key === 'Escape') {
-      switchViews('ly-modal-selector');
-    }
-    else
-    // otherwise check if dialog was not already opened
-    if (e.ctrlKey && e.keyCode === 220) {
+    if (e.ctrlKey && e.key === '\\') {
       if (modal.classList.contains('ly-show')) {
         switchViews('ly-modal-selector');
       } else {

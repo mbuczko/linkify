@@ -1,6 +1,6 @@
 use crate::db::DBError::UnknownUser;
-use crate::db::DBSeachType::{Exact, Patterned};
-use crate::db::{DBResult, DBSeachType};
+use crate::db::DBLookupType::{Exact, Patterned};
+use crate::db::{DBResult, DBLookupType};
 use crate::utils::{confirm, generate_key, password};
 use crate::vault::Vault;
 
@@ -32,8 +32,8 @@ impl User {
 }
 
 impl Vault {
-    fn find_users(&self, pattern: Option<&str>, search: DBSeachType) -> DBResult<Vec<(User, u32)>> {
-        let login = pattern.map_or(None, |v| match search {
+    fn find_users(&self, pattern: Option<&str>, lookup_type: DBLookupType) -> DBResult<Vec<(User, u32)>> {
+        let login = pattern.map_or(None, |v| match lookup_type {
             Exact => Some(v.to_string()),
             Patterned => Query::patternize(v),
         });
@@ -61,7 +61,7 @@ impl Vault {
     }
     pub fn find_user(&self, login: Option<&str>) -> DBResult<(User, u32)> {
         if login.is_some() {
-            let users = self.find_users(login, DBSeachType::Exact)?;
+            let users = self.find_users(login, DBLookupType::Exact)?;
             users
                 .first()
                 .map_or(Err(UnknownUser), |(user, count)| Ok((user.clone(), *count)))
@@ -70,7 +70,7 @@ impl Vault {
         }
     }
     pub fn match_users(&self, pattern: Option<&str>) -> DBResult<Vec<(User, u32)>> {
-        self.find_users(pattern, DBSeachType::Patterned)
+        self.find_users(pattern, DBLookupType::Patterned)
     }
     pub fn add_user(&self, login: Option<&str>) -> DBResult<User> {
         match login {
