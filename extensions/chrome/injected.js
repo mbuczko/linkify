@@ -52,21 +52,21 @@
 
   function searchKeyDownHandler(e) {
     if (e.key === 'ArrowUp') {
-      selectPrev($('ly-content-links'));
+      selectPrev($('ly--content-links'));
       stop(e);
     } else
     if (e.key === 'ArrowDown') {
-      selectNext($('ly-content-links'));
+      selectNext($('ly--content-links'));
       stop(e);
     } else
     if (e.key === 'Escape') {
-      switchViews('ly-modal-selector');
+      switchViews('ly--modal-selector');
       stop(e);
     }
     else
     if (e.ctrlKey && e.key === 'Enter') {
-      let saveInput = $('ly-search-saver-input');
-      switchViews('ly-content-inner', ['ly-search-saver']);
+      let saveInput = $('ly--content-saver-input');
+      switchViews('ly--content-inner', ['ly--content-search-saver']);
       saveInput.value = '';
       saveInput.focus();
     }
@@ -74,13 +74,13 @@
 
   function saveKeyDownHandler(e) {
     let searchName = e.target.value;
-    let warning = $('ly-search-saver-warning'),
-        searchInput = $('ly-content-inner-input');
+    let warning = $('ly--content-search-saver-warning'),
+        searchInput = $('ly--content-inner-input');
 
     if (e.key === 'Enter') {
       storeSearch(searchInput.value, searchName, function(response) {
         if (response.status === 200) {
-          switchViews('ly-search-saver', ['ly-content-inner']);
+          switchViews('ly--content-search-saver', ['ly--content-inner']);
           searchInput.focus();
         } else {
           console.error(response);
@@ -88,15 +88,15 @@
       });
     } else
     if (e.key === 'Escape') {
-      switchViews('ly-search-saver', ['ly-content-inner']);
+      switchViews('ly--content-search-saver', ['ly--content-inner']);
       searchInput.focus();
       stop(e);
     } else if (searchName.length > 0) {
       fetchSearches(searchName, true, function(result) {
         if (result && result.status === 200 && JSON.parse(result.response).length) {
-          warning.classList.add('ly-show');
+          warning.classList.add('ly--show');
         } else {
-          warning.classList.remove('ly-show');
+          warning.classList.remove('ly--show');
         }
       });
     }
@@ -104,12 +104,12 @@
 
   function switchViews(from, to) {
     if (from) {
-      $(from).classList.remove('ly-show');
+      $(from).classList.remove('ly--show');
     }
     for (let id in to) {
       let view = $(to[id]);
       if (view) {
-        view.classList.add('ly-show');
+        view.classList.add('ly--show');
       }
     }
   }
@@ -129,7 +129,7 @@
   function fetchSearches(name, exact, callback) {
     chrome.extension.sendMessage(
         {
-          action: 'getSearches',
+          action: 'matchSearches',
           searchname: name,
           exact: exact
         },
@@ -146,9 +146,10 @@
         function(result) {
           if (result.status === 200) {
             let json = JSON.parse(result.response),
-                ul = $('ly-content-links'),
-                input = $('ly-content-inner-input'),
+                ul = $('ly--content-links'),
+                input = $('ly--content-inner-input'),
                 link;
+
             let selected = ul.getElementsByClassName('selected')[0];
             if (selected) {
               selected.classList.remove('selected');
@@ -191,8 +192,8 @@
     .then(data => {
       document.body.insertAdjacentHTML('beforeend', data);
 
-      let searchInput = $('ly-content-inner-input'),
-          saveInput = $('ly-search-saver-input');
+      let searchInput = $('ly--content-inner-input'),
+          saveInput = $('ly--content-saver-input');
 
       saveInput.addEventListener('keydown', debounce(saveKeyDownHandler, 250));
       searchInput.addEventListener('keydown', searchKeyDownHandler);
@@ -204,20 +205,20 @@
 
   // register listener for dialog shortcut
   window.addEventListener('keydown', function(e) {
-    let modal = $('ly-modal-selector'),
-        input = $('ly-content-inner-input');
+    let modal = $('ly--modal-selector'),
+        input = $('ly--content-inner-input');
 
     if (e.ctrlKey && e.key === '\\') {
-      if (modal.classList.contains('ly-show')) {
-        switchViews('ly-modal-selector');
+      if (modal.classList.contains('ly--show')) {
+        switchViews('ly--modal-selector');
       } else {
-        switchViews('ly-search-saver');
-        switchViews('ly-content-inner', ['ly-modal-selector', 'ly-content-spinner']);
+        switchViews('ly--content-search-saver');
+        switchViews('ly--content-inner', ['ly--modal-selector', 'ly--content-spinner']);
         input.value = '';
 
         // last 10 links by default
         fetchLinks("", function() {
-          switchViews('ly-content-spinner', ['ly-content-inner']);
+          switchViews('ly--content-spinner', ['ly--content-inner']);
         });
       }
     }

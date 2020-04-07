@@ -1,7 +1,4 @@
-/**
- *  Linkify
- */
-var Linkify = (function() {
+(function() {
   function request(config) {
     let xhr = new XMLHttpRequest(), postData = '';
     xhr.open(config.method, config.url, config.async);
@@ -44,18 +41,28 @@ var Linkify = (function() {
   function backgroundInit() {
     chrome.extension.onMessage.addListener(
         function(message, sender, reply) {
+          let responder = (xhr) => {
+            reply({
+              status: xhr.status,
+              response: xhr.response
+            });
+          };
           switch (message.action) {
             case 'matchLinks':
               asyncRequest({
                 apikey: 'lKnrPZUM8Lh2kBfnraLMOgttjrMwmqC4',
                 url: 'http://localhost:8001/links?limit=10&omni=' + message.omnisearch
-              }, function(xhr) {
-                reply({
-                  status: xhr.status,
-                  response: xhr.response
-                });
-              });
+              }, responder);
               return true;
+
+            case 'matchSearches':
+              asyncRequest({
+                apikey: 'lKnrPZUM8Lh2kBfnraLMOgttjrMwmqC4',
+                url: 'http://localhost:8001/searches?name=' + message.searchname + '&exact=' + message.exact,
+                method: 'GET',
+              }, responder);
+              return true;
+
             case 'storeSearch':
               asyncRequest({
                 apikey: 'lKnrPZUM8Lh2kBfnraLMOgttjrMwmqC4',
@@ -65,32 +72,12 @@ var Linkify = (function() {
                   name: message.searchname,
                   query: message.omnisearch
                 }
-              }, function(xhr) {
-                reply({
-                  status: xhr.status,
-                  response: xhr.response
-                });
-              });
-              return true;
-            case 'getSearches':
-              asyncRequest({
-                apikey: 'lKnrPZUM8Lh2kBfnraLMOgttjrMwmqC4',
-                url: 'http://localhost:8001/searches?name=' + message.searchname + '&exact=' + message.exact,
-                method: 'GET',
-              }, function(xhr) {
-                reply({
-                  status: xhr.status,
-                  response: xhr.response
-                });
-              });
+              }, responder);
               return true;
           }
         }
     );
   }
-  return {
-    'backgroundInit': backgroundInit
-  };
+  window.addEventListener('load', backgroundInit)
 })();
 
-window.addEventListener('load', Linkify.backgroundInit);
