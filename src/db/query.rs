@@ -35,11 +35,7 @@ impl<'a> Query<'a> {
     pub fn named_params(&self) -> &[(&str, &dyn ToSql)] {
         self.params.as_slice()
     }
-    pub fn patternize(arg: &str) -> Option<String> {
-        if arg.is_empty() {
-            None
-        } else {
-            Some(format!("%{}%", arg))
-        }
+    pub fn patternize(arg: &str) -> String {
+        format!("%{}%", arg)
     }
 }

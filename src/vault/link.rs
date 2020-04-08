@@ -158,24 +158,22 @@ impl Vault {
             Err(e) => return Err(e),
         };
         let tags = link.tags.to_owned().unwrap_or_default();
-        let href = Query::patternize(&link.href).unwrap_or_default();
+        let href = Query::patternize(&link.href);
         let desc = link
             .description
             .as_ref()
-            .map_or(None, |v| Query::patternize(v))
-            .unwrap_or_default();
+            .map_or(Default::default(), |v| Query::patternize(v));
+
         let limit = limit.unwrap_or(0);
         let mut query = Query::new_with_initial(
             "SELECT href, description, group_concat(tag) FROM links l \
         LEFT JOIN links_tags lt ON l.id = lt.link_id \
-        LEFT JOIN tags t ON lt.tag_id = t.id \
-        WHERE",
+        LEFT JOIN tags t ON lt.tag_id = t.id ",
         );
-        if !href.is_empty() {
-            query.concat_with_param("href LIKE :href AND", (":href", &href));
-        }
+        query.concat_with_param("WHERE href LIKE :href AND", (":href", &href));
+
         if !desc.is_empty() {
-            if enhanced && href.is_empty() {
+            if enhanced && link.href.is_empty() {
                 query.concat_with_param(
                     "(description LIKE :desc OR href LIKE :desc) AND",
                     (":desc", &desc),

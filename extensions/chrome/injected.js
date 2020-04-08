@@ -11,6 +11,9 @@
     elem.classList.remove('ly--show')
   }
 
+  function toggle(elem, showing) {
+    if (showing) show(elem); else hide(elem);
+  }
   function stop(event) {
     event.stopPropagation();
     event.preventDefault();
@@ -60,6 +63,10 @@
     selectNode(selected, target || nodes.lastChild);
   }
 
+  function blockKeyUpHandler(e) {
+    stop(e);
+  }
+
   function searchKeyDownHandler(e) {
     if (e.key === 'ArrowUp') {
       selectPrev();
@@ -71,7 +78,6 @@
     } else
     if (e.key === 'Escape') {
       switchViews('ly--modal-selector');
-      stop(e);
     }
     else
     if (e.ctrlKey && e.key === 'Enter') {
@@ -102,14 +108,9 @@
     if (e.key === 'Escape') {
       switchViews('ly--content-search-saver', ['ly--content-inner']);
       searchInput.focus();
-      stop(e);
     } else if (searchName.length > 0) {
       fetchSearches(searchName, true, function(result) {
-        if (result && result.status === 200 && JSON.parse(result.response).length) {
-          show(warning);
-        } else {
-          hide(warning);
-        }
+        toggle(warning, result && result.status === 200 && JSON.parse(result.response).length);
       });
     }
   }
@@ -121,6 +122,39 @@
     for (let id in to) {
       show($(to[id]));
     }
+  }
+
+  function renderItems(items, callback) {
+    let ul = $('ly--content-links'),
+        input = $('ly--content-searcher-input');
+
+    ul.innerHTML = '';
+    for (let i in items.slice(0, 10)) {
+      let {link, desc, tags} = items[i],
+          node = document.createElement('li'),
+          a = document.createElement('a'),
+          span = document.createElement('span'),
+          div = document.createElement('div'),
+          hreftext = document.createTextNode(link),
+          desctext = document.createTextNode(desc);
+
+      a.href = link;
+      a.appendChild(hreftext);
+      span.appendChild(desctext);
+      node.appendChild(a);
+      if (tags) {
+        let span = document.createElement('span'),
+            tagsnode = document.createTextNode(tags.join(' '));
+        span.classList.add('tags');
+        span.appendChild(tagsnode);
+        div.appendChild(span);
+      }
+      div.appendChild(span);
+      node.appendChild(div);
+      ul.appendChild(node);
+    }
+    if (callback) callback();
+    input.focus();
   }
 
   function storeSearch(omnisearch, name, callback) {
@@ -143,7 +177,16 @@
           searchname: name,
           exact: exact
         },
-        callback
+        function(result) {
+          if (result.status === 200) {
+            let items = JSON.parse(result.response).map(({name, query}) => ({
+              link: name,
+              desc: query,
+              tags: null
+            }));
+            renderItems(items, () => callback(result));
+          }
+        }
     )
   }
 
@@ -155,45 +198,15 @@
         },
         function(result) {
           if (result.status === 200) {
-            let json = JSON.parse(result.response),
-                ul = $('ly--content-links'),
-                input = $('ly--content-searcher-input'),
-                link;
-
-            let selected = ul.getElementsByClassName('selected')[0];
-            if (selected) {
-              selected.classList.remove('selected');
-            }
-
-            ul.innerHTML = '';
-            for (link in json.slice(0, 10)) {
-              let {href, description, tags} = json[link],
-                  node = document.createElement('li'),
-                  a = document.createElement('a'),
-                  span = document.createElement('span'),
-                  div = document.createElement('div'),
-                  hreftext = document.createTextNode(href),
-                  desctext = document.createTextNode(description);
-
-              a.href = href;
-              a.appendChild(hreftext);
-              span.appendChild(desctext);
-              node.appendChild(a);
-              if (tags) {
-                let span = document.createElement('span'),
-                    tagsnode = document.createTextNode(tags.join(' '));
-                span.classList.add('tags');
-                span.appendChild(tagsnode);
-                div.appendChild(span);
-              }
-              div.appendChild(span);
-              node.appendChild(div);
-              ul.appendChild(node);
-            }
-            if (callback) callback();
-            input.focus();
+            let items = JSON.parse(result.response).map(({href, description, tags}) => ({
+              link: href,
+              desc: description,
+              tags: tags
+            }));
+            renderItems(items, callback);
           }
-    })
+        }
+    )
   }
 
   // inject dialog into DOM
@@ -206,10 +219,17 @@
           saveInput = $('ly--content-saver-input');
 
       saveInput.addEventListener('keydown', debounce(saveKeyDownHandler, 250));
+      saveInput.addEventListener('keyup', blockKeyUpHandler);
+      searchInput.addEventListener('keyup', blockKeyUpHandler);
       searchInput.addEventListener('keydown', searchKeyDownHandler);
       searchInput.addEventListener('input', debounce(function(e) {
-        fetchLinks(e.target.value, selectNext);
-      }, 250));
+        let query = e.target.value;
+        if (query.startsWith('@')) {
+          fetchSearches(query.substring(1), false, selectNext);
+        } else {
+          fetchLinks(query, selectNext);
+        }
+      }, 250), true);
   });
 
 
@@ -226,12 +246,12 @@
       } else {
         // bring back container into page layout
         modal.style.display = '';
+        input.value = '';
         switchViews('ly--content-search-saver');
         switchViews('ly--content-inner', ['ly--modal-selector', 'ly--content-spinner']);
-        input.value = '';
 
         // last 10 links by default
-        fetchLinks("", function() {
+        fetchLinks('', function() {
           switchViews('ly--content-spinner', ['ly--content-inner']);
         });
       }

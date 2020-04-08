@@ -33,17 +33,15 @@ impl User {
 
 impl Vault {
     fn find_users(&self, pattern: Option<&str>, lookup_type: DBLookupType) -> DBResult<Vec<(User, u32)>> {
-        let login = pattern.map_or(None, |v| match lookup_type {
-            Exact => Some(v.to_string()),
+        let login = pattern.map_or(Default::default(), |v| match lookup_type {
+            Exact => v.to_owned(),
             Patterned => Query::patternize(v),
         });
         let mut query = Query::new_with_initial(
             "SELECT u.id, login, count(l.id) FROM users u \
             LEFT JOIN links l ON l.user_id = u.id",
         );
-        if login.is_some() {
-            query.concat_with_param("WHERE login LIKE :login", (":login", &login));
-        }
+        query.concat_with_param("WHERE login LIKE :login", (":login", &login));
         query.concat("GROUP BY login");
 
         let conn = self.get_connection();
