@@ -34,6 +34,10 @@
       }
     }
   }
+  function closeModal(modal) {
+    switchViews('ly--modal-selector');
+    setTimeout(() => modal.style.display = 'none', 500);
+  }
 
   function stop(event) {
     event.stopPropagation();
@@ -122,6 +126,13 @@
 
         if (type === 'search') {
           searcher.setValue(link.dataset.query);
+        } else {
+          closeModal($('ly--modal-selector'));
+          if (e.shiftKey) {
+            window.open(link.href, '_blank');
+          } else {
+            window.location = link.href;
+          }
         }
       }
     }
@@ -171,6 +182,7 @@
 
       a.href = link;
       a.dataset.type = type;
+      a.rel = 'noopener noreferrer';
 
       if (type === 'search') {
         a.dataset.query = desc;
@@ -286,9 +298,7 @@
 
     if (e.ctrlKey && e.key === '\\') {
       if (modal.classList.contains('ly--show')) {
-        switchViews('ly--modal-selector');
-        // wait for animation and remove contaner from page layout
-        setTimeout(() => modal.style.display = 'none', 500);
+        closeModal(modal);
       } else {
         // bring back container into page layout
         modal.style.display = '';
