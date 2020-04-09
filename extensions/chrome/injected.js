@@ -117,11 +117,11 @@
         hide($('ly--content-search-saver-warning'));
         saver.setValue('');
       } else {
-        let [link, bottom] = selectedNode().selected.childNodes,
+        let link = selectedNode().selected.firstChild,
             type = link.dataset.type;
 
         if (type === 'search') {
-          searcher.setValue(bottom.lastChild.innerText);
+          searcher.setValue(link.dataset.query);
         }
       }
     }
@@ -152,11 +152,16 @@
     }
   }
 
+  function onSavedSearchClickHandler(e) {
+    searcher.setValue(e.target.dataset.query);
+    stop(e);
+  }
+
   function renderItems(items, callback) {
     let ul = $('ly--content-links');
     ul.innerHTML = '';
     for (let i in items.slice(0, 10)) {
-      let {link, desc, tags, type} = items[i],
+      let {link, desc, tags, type, handler} = items[i],
           node = document.createElement('li'),
           a = document.createElement('a'),
           span = document.createElement('span'),
@@ -167,6 +172,12 @@
       a.href = link;
       a.dataset.type = type;
 
+      if (type === 'search') {
+        a.dataset.query = desc;
+      }
+      if (handler) {
+        a.addEventListener('click', handler);
+      }
       a.appendChild(hreftext);
       span.appendChild(desctext);
       node.appendChild(a);
@@ -213,7 +224,8 @@
               let items = JSON.parse(result.response).map(({name, query}) => ({
                 link: name,
                 desc: query,
-                type: 'search'
+                type: 'search',
+                handler: onSavedSearchClickHandler
               }));
               renderItems(items, () => callback(result));
             }
