@@ -1,6 +1,6 @@
 use crate::db::DBError::UnknownUser;
 use crate::db::DBLookupType::{Exact, Patterned};
-use crate::db::{DBResult, DBLookupType};
+use crate::db::{DBLookupType, DBResult};
 use crate::utils::{confirm, generate_key, password};
 use crate::vault::Vault;
 
@@ -32,11 +32,16 @@ impl User {
 }
 
 impl Vault {
-    fn find_users(&self, pattern: Option<&str>, lookup_type: DBLookupType) -> DBResult<Vec<(User, u32)>> {
-        let login = pattern.map_or(Default::default(), |v| match lookup_type {
-            Exact => v.to_owned(),
-            Patterned => Query::patternize(v),
-        });
+    fn find_users(
+        &self,
+        pattern: Option<&str>,
+        lookup_type: DBLookupType,
+    ) -> DBResult<Vec<(User, u32)>> {
+        let input = pattern.unwrap_or("");
+        let login = match lookup_type {
+            Exact => input.to_owned(),
+            Patterned => Query::patternize(input),
+        };
         let mut query = Query::new_with_initial(
             "SELECT u.id, login, count(l.id) FROM users u \
             LEFT JOIN links l ON l.user_id = u.id",
