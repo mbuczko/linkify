@@ -1,4 +1,7 @@
 (function() {
+
+  let searcher, saver;
+
   function $(id) {
     return document.getElementById(id);
   }
@@ -14,6 +17,24 @@
   function toggle(elem, showing) {
     if (showing) show(elem); else hide(elem);
   }
+
+  function toggleWarning(showing) {
+    toggle($('ly--content-search-saver-warning'), showing);
+  }
+
+  function switchViews(from, to, showSpinner) {
+    if (from) {
+      hide($(from));
+      hide($('ly--content-spinner'));
+    }
+    if (to) {
+      show($(to));
+      if (showSpinner) {
+        show($('ly--content-spinner'));
+      }
+    }
+  }
+
   function stop(event) {
     event.stopPropagation();
     event.preventDefault();
@@ -36,6 +57,20 @@
     }
   }
 
+  function initInput(inputElem) {
+    return {
+      getValue: () => {
+        return inputElem.value;
+      },
+      setValue: (query) => {
+        if (typeof query !== 'undefined') {
+          inputElem.value = query;
+        }
+        inputElem.focus();
+      }
+    }
+  }
+
   function selectNode(current, target) {
     if (current) {
       current.classList.remove('selected');
@@ -45,26 +80,22 @@
     }
   }
 
-  function selectNext() {
-    let nodes = $('ly--content-links'),
-        selected = nodes.getElementsByClassName('selected')[0], target;
-    if (selected) {
-      target = selected.nextSibling;
+  function selectedNode() {
+    let nodes = $('ly--content-links');
+    return {
+      nodes: nodes,
+      selected: nodes.getElementsByClassName('selected')[0]
     }
+  }
+
+  function selectNext() {
+    let {nodes, selected} = selectedNode(), target = selected && selected.nextSibling;
     selectNode(selected, target || nodes.firstChild);
   }
 
   function selectPrev() {
-    let nodes = $('ly--content-links'),
-        selected = nodes.getElementsByClassName('selected')[0], target;
-    if (selected) {
-      target = selected.previousSibling;
-    }
+    let {nodes, selected} = selectedNode(), target = selected && selected.previousSibling;
     selectNode(selected, target || nodes.lastChild);
-  }
-
-  function blockKeyUpHandler(e) {
-    stop(e);
   }
 
   function searchKeyDownHandler(e) {
@@ -78,59 +109,54 @@
     } else
     if (e.key === 'Escape') {
       switchViews('ly--modal-selector');
-    }
-    else
-    if (e.ctrlKey && e.key === 'Enter') {
-      let saveInput = $('ly--content-saver-input'),
-          warning = $('ly--content-search-saver-warning');
-      switchViews('ly--content-inner', ['ly--content-search-saver']);
-      hide(warning);
-      saveInput.value = '';
-      saveInput.focus();
+    } else
+    if (e.key === 'Enter') {
+      if (e.ctrlKey) {
+        switchViews('ly--content-inner', 'ly--content-search-saver');
+        hide($('ly--content-search-saver-warning'));
+        saver.setValue('');
+      } else {
+        let [link, bottom] = selectedNode().selected.childNodes,
+            type = link.dataset.type;
+
+        if (type === 'search') {
+          let description = bottom.lastChild.innerText;
+          console.log(type, description);
+        }
+      }
     }
   }
 
   function saveKeyDownHandler(e) {
     let searchName = e.target.value;
-    let warning = $('ly--content-search-saver-warning'),
-        searchInput = $('ly--content-searcher-input');
 
     if (e.key === 'Enter') {
-      storeSearch(searchInput.value, searchName, function(response) {
+      storeSearch(searcher.getValue(), searchName, response => {
         if (response.status === 200) {
-          switchViews('ly--content-search-saver', ['ly--content-inner']);
-          searchInput.focus();
-        } else {
+          switchViews('ly--content-search-saver', 'ly--content-inner');
+          searcher.setValue();
+        } else
           console.error(response);
-        }
       });
     } else
     if (e.key === 'Escape') {
-      switchViews('ly--content-search-saver', ['ly--content-inner']);
-      searchInput.focus();
+      switchViews('ly--content-search-saver', 'ly--content-inner');
+      searcher.setValue();
     } else if (searchName.length > 0) {
       fetchSearches(searchName, true, function(result) {
-        toggle(warning, result && result.status === 200 && JSON.parse(result.response).length);
+        toggleWarning(
+            result &&
+            result.status === 200 &&
+            JSON.parse(result.response).length);
       });
-    }
-  }
-
-  function switchViews(from, to) {
-    if (from) {
-      hide($(from));
-    }
-    for (let id in to) {
-      show($(to[id]));
     }
   }
 
   function renderItems(items, callback) {
-    let ul = $('ly--content-links'),
-        input = $('ly--content-searcher-input');
-
+    let ul = $('ly--content-links');
     ul.innerHTML = '';
     for (let i in items.slice(0, 10)) {
-      let {link, desc, tags} = items[i],
+      let {link, desc, tags, type} = items[i],
           node = document.createElement('li'),
           a = document.createElement('a'),
           span = document.createElement('span'),
@@ -139,12 +165,15 @@
           desctext = document.createTextNode(desc);
 
       a.href = link;
+      a.dataset.type = type;
+
       a.appendChild(hreftext);
       span.appendChild(desctext);
       node.appendChild(a);
       if (tags) {
         let span = document.createElement('span'),
             tagsnode = document.createTextNode(tags.join(' '));
+
         span.classList.add('tags');
         span.appendChild(tagsnode);
         div.appendChild(span);
@@ -154,7 +183,7 @@
       ul.appendChild(node);
     }
     if (callback) callback();
-    input.focus();
+    searcher.setValue();
   }
 
   function storeSearch(omnisearch, name, callback) {
@@ -177,14 +206,18 @@
           searchname: name,
           exact: exact
         },
-        function(result) {
+        result => {
           if (result.status === 200) {
-            let items = JSON.parse(result.response).map(({name, query}) => ({
-              link: name,
-              desc: query,
-              tags: null
-            }));
-            renderItems(items, () => callback(result));
+            if (exact) {
+              callback(result)
+            } else {
+              let items = JSON.parse(result.response).map(({name, query}) => ({
+                link: name,
+                desc: query,
+                type: 'search'
+              }));
+              renderItems(items, () => callback(result));
+            }
           }
         }
     )
@@ -196,12 +229,13 @@
           action: 'matchLinks',
           omnisearch: omnisearch
         },
-        function(result) {
+        result => {
           if (result.status === 200) {
             let items = JSON.parse(result.response).map(({href, description, tags}) => ({
               link: href,
               desc: description,
-              tags: tags
+              tags: tags,
+              type: 'link'
             }));
             renderItems(items, callback);
           }
@@ -218,25 +252,28 @@
       let searchInput = $('ly--content-searcher-input'),
           saveInput = $('ly--content-saver-input');
 
+      searcher = initInput(searchInput);
+      saver = initInput(saveInput);
+
       saveInput.addEventListener('keydown', debounce(saveKeyDownHandler, 250));
-      saveInput.addEventListener('keyup', blockKeyUpHandler);
-      searchInput.addEventListener('keyup', blockKeyUpHandler);
+      saveInput.addEventListener('keyup', stop);
+      searchInput.addEventListener('keyup', stop);
       searchInput.addEventListener('keydown', searchKeyDownHandler);
-      searchInput.addEventListener('input', debounce(function(e) {
-        let query = e.target.value;
-        if (query.startsWith('@')) {
+      searchInput.addEventListener('input', debounce(e => {
+        let query = e.target.value, saved = query.startsWith('@');
+        toggle($('ly--searcher-hint'), !saved);
+        if (saved) {
           fetchSearches(query.substring(1), false, selectNext);
         } else {
           fetchLinks(query, selectNext);
         }
-      }, 250), true);
+      }, 250));
   });
 
 
   // register listener for dialog shortcut
-  window.addEventListener('keydown', function(e) {
-    let modal = $('ly--modal-selector'),
-        input = $('ly--content-searcher-input');
+  window.addEventListener('keydown', e => {
+    let modal = $('ly--modal-selector');
 
     if (e.ctrlKey && e.key === '\\') {
       if (modal.classList.contains('ly--show')) {
@@ -246,13 +283,16 @@
       } else {
         // bring back container into page layout
         modal.style.display = '';
-        input.value = '';
-        switchViews('ly--content-search-saver');
-        switchViews('ly--content-inner', ['ly--modal-selector', 'ly--content-spinner']);
+        searcher.setValue('');
 
-        // last 10 links by default
-        fetchLinks('', function() {
-          switchViews('ly--content-spinner', ['ly--content-inner']);
+        // pop up spinner by default
+        switchViews('ly--content-search-saver');
+        switchViews('ly--content-inner', 'ly--modal-selector', true);
+
+        // ...and grab last 10 links
+        fetchLinks('', () => {
+          switchViews('ly--content-spinner', 'ly--content-inner');
+          selectNext();
         });
       }
     }
