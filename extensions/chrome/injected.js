@@ -65,6 +65,7 @@
       setValue: (query) => {
         if (typeof query !== 'undefined') {
           inputElem.value = query;
+          inputElem.dispatchEvent(new Event('input'));
         }
         inputElem.focus();
       }
@@ -120,8 +121,7 @@
             type = link.dataset.type;
 
         if (type === 'search') {
-          let description = bottom.lastChild.innerText;
-          console.log(type, description);
+          searcher.setValue(bottom.lastChild.innerText);
         }
       }
     }
@@ -194,8 +194,7 @@
             omnisearch: omnisearch,
             searchname: name
           },
-          callback
-      )
+          callback)
     }
   }
 
@@ -219,8 +218,7 @@
               renderItems(items, () => callback(result));
             }
           }
-        }
-    )
+        })
   }
 
   function fetchLinks(omnisearch, callback) {
@@ -239,8 +237,7 @@
             }));
             renderItems(items, callback);
           }
-        }
-    )
+        })
   }
 
   // inject dialog into DOM
