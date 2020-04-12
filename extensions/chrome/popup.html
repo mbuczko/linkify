@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        .ly--add-link-popup {
+            background: #fdfdfd;
+            font-size: 14px;
+            padding: 10px;
+            width: 380px;
+            border: 1px dotted #ddd;
+            border-radius: 3px;
+            margin: 0;
+
+        }
+        .ly--add-link-popup .tags {
+            font-family: 'Input Sans Condensed', 'Droid Sans Mono', monospace;
+            font-weight: 500;
+        }
+        .ly--add-link-popup .flags {
+            margin-bottom: 8px;
+        }
+        .ly--add-link-popup .suggests {
+            margin-top: 6px;
+        }
+        .ly--add-link-popup .suggests span {
+            display: inline-block;
+            width: 300px;
+        }
+        .ly--add-link-popup .flags label.flag {
+            width: auto;
+        }
+        .ly--add-link-popup .suggests label {
+            vertical-align: top;
+        }
+        .ly--add-link-popup ul {
+            list-style-type: none;
+            margin: 0;
+            padding: 0;
+        }
+        .ly--add-link-popup li > label {
+            width: 60px;
+            color: #666;
+            font-family: serif;
+            padding-right: 4px;
+            display: inline-block;
+            text-align: right;
+        }
+        .ly--add-link-popup a {
+            color: #1095f9;
+            font-size: 13px;
+            background: #f0f5f9;
+            display: inline-block;
+            padding: 0 2px;
+            border-radius: 3px;
+        }
+        .ly--add-link-popup input[type="text"],
+        .ly--add-link-popup textarea {
+            padding: 4px;
+            margin: 2px;
+            width: 290px;
+            border: 1px solid #bbb;
+            border-radius: 2px;
+            vertical-align: middle;
+        }
+    </style>
+</head>
+<body>
+    <form class="ly--add-link-popup">
+        <ul>
+            <li>
+                <label>URL</label>
+                <input id="ly--url" type="text">
+            </li>
+            <li>
+                <label>Title</label>
+                <input type="text">
+            </li>
+            <li>
+                <label>Notes</label>
+                <textarea></textarea>
+            </li>
+            <li class="flags">
+                <label></label>
+                <label class="flag">
+                    <input type="checkbox" name="flags" value="toread">public
+                </label>
+                <label class="flag">
+                    <input type="checkbox" name="flags" value="toread">read later
+                </label>
+                <label class="flag">
+                    <input type="checkbox" name="flags" value="favourite">favourite
+                </label>
+            </li>
+            <li>
+                <label>Tags</label>
+                <input type="text" class="tags" value="pitch github"/>
+            </li>
+            <li class="suggests">
+                <label>Suggest</label>
+                <span class="tags">
+                    <a href="#"> rust </a>
+                </span>
+            </li>
+        </ul>
+    </form>
+    <script src="popup.js"></script>
+</body>
+</html>

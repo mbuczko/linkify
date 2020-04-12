@@ -119,62 +119,68 @@
   }
 
   function searchKeyDownHandler(e) {
-    if (e.key === 'ArrowUp') {
-      selectPrev();
-      stop(e);
-    } else
-    if (e.key === 'ArrowDown') {
-      selectNext();
-      stop(e);
-    } else
-    if (e.key === 'Escape') {
-      modal.close();
-    } else
-    if (e.key === 'Enter') {
-      if (e.ctrlKey) {
-        switchViews('ly--content-inner', 'ly--content-search-saver');
-        hide($('ly--content-search-saver-warning'));
-        saver.setValue('');
-      } else {
-        let link = selectedNode().selected.firstChild,
-            type = link.dataset.type;
-
-        if (type === 'search') {
-          searcher.setValue(link.dataset.query);
+    switch (e.key) {
+      case 'ArrowUp':
+        selectPrev();
+        stop(e);
+        break;
+      case 'ArrowDown':
+        selectNext();
+        stop(e);
+        break;
+      case 'Escape':
+        modal.close();
+        break;
+      case 'Enter':
+        if (e.ctrlKey) {
+          switchViews('ly--content-inner', 'ly--content-search-saver');
+          hide($('ly--content-search-saver-warning'));
+          saver.setValue('');
         } else {
-          modal.close();
-          if (e.shiftKey) {
-            window.open(link.href, '_blank');
+          let link = selectedNode().selected.firstChild,
+              type = link.dataset.type;
+
+          if (type === 'search') {
+            searcher.setValue(link.dataset.query);
           } else {
-            window.location = link.href;
+            modal.close();
+            if (e.shiftKey) {
+              chrome.extension.sendMessage({
+                action: 'openTab',
+                url: link.href
+              });
+            } else {
+              window.location = link.href;
+            }
           }
         }
-      }
     }
   }
 
   function saveKeyDownHandler(e) {
     let searchName = e.target.value;
-
-    if (e.key === 'Enter') {
-      storeSearch(searcher.getValue(), searchName, response => {
-        if (response.status === 200) {
-          switchViews('ly--content-search-saver', 'ly--content-inner');
-          searcher.setValue();
-        } else
-          console.error(response);
-      });
-    } else
-    if (e.key === 'Escape') {
-      switchViews('ly--content-search-saver', 'ly--content-inner');
-      searcher.setValue();
-    } else if (searchName.length > 0) {
-      fetchSearches(searchName, true, function(result) {
-        toggleWarning(
-            result &&
-            result.status === 200 &&
-            JSON.parse(result.response).length);
-      });
+    switch (e.key) {
+      case 'Enter':
+        storeSearch(searcher.getValue(), searchName, response => {
+          if (response.status === 200) {
+            switchViews('ly--content-search-saver', 'ly--content-inner');
+            searcher.setValue();
+          } else console.error(response);
+        });
+        break;
+      case 'Escape':
+        switchViews('ly--content-search-saver', 'ly--content-inner');
+        searcher.setValue();
+        break;
+      default:
+        if (searchName.length > 0) {
+          fetchSearches(searchName, true, function (result) {
+            toggleWarning(
+                result &&
+                result.status === 200 &&
+                JSON.parse(result.response).length);
+          });
+        }
     }
   }
 
@@ -280,7 +286,7 @@
   }
 
   // inject dialog into DOM
-  fetch(chrome.extension.getURL('/selector.html'))
+  fetch(chrome.extension.getURL('/modal.html'))
     .then(response => response.text())
     .then(data => {
       document.body.insertAdjacentHTML('beforeend', data);

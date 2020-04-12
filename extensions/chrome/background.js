@@ -1,4 +1,14 @@
 (function() {
+
+  // chrome.storage.sync.set({key: value}, function() {
+  //   console.log('Value is set to ' + value);
+  // });
+
+
+  function getOption(opt, callback) {
+    chrome.storage.sync.get([opt], callback);
+  }
+
   function request(config) {
     let xhr = new XMLHttpRequest(), postData = '';
     xhr.open(config.method, config.url, config.async);
@@ -39,6 +49,16 @@
   }
 
   function backgroundInit() {
+    chrome.declarativeContent.onPageChanged.removeRules(undefined, function() {
+      chrome.declarativeContent.onPageChanged.addRules([{
+        conditions: [new chrome.declarativeContent.PageStateMatcher({
+          pageUrl: { schemes: ['http', 'https'] },
+        })
+        ],
+        actions: [new chrome.declarativeContent.ShowPageAction()]
+      }]);
+    });
+
     chrome.extension.onMessage.addListener(
         function(message, sender, reply) {
           let responder = (xhr) => {
@@ -74,6 +94,11 @@
                 }
               }, responder);
               return true;
+            case 'openTab':
+              chrome.tabs.create({
+                active: true,
+                url: message.url
+              })
           }
         }
     );
