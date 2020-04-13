@@ -54,7 +54,7 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
     match matches.subcommand() {
         ("add", Some(sub_m)) => {
             match vault.add_link(
-                &Link::from(sub_m),
+                &Link::from_matches(sub_m),
                 &Authentication::from_matches(config, sub_m),
             ) {
                 Ok(id) => println!("Added (id={})", id),
@@ -66,7 +66,7 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
         }
         ("del", Some(sub_m)) => {
             match vault.del_link(
-                &Link::from(sub_m),
+                &Link::from_matches(sub_m),
                 &Authentication::from_matches(config, sub_m),
             ) {
                 Ok(id) => println!("Deleted (id={})", id),
@@ -78,7 +78,7 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
         }
         ("ls", Some(sub_m)) => {
             match vault.match_links(
-                &Link::from(sub_m),
+                &Link::from_matches(sub_m),
                 &Authentication::from_matches(config, sub_m),
                 None,
                 false
@@ -91,13 +91,12 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
                         i16::max_value()
                     };
                     for link in links {
-                        let description = link.description.unwrap_or_default();
                         let href_len = link.href.chars().count() as i16;
                         let desc_len = tw - href_len - 3;
                         println!(
                             "{} » {}",
                             link.href,
-                            truncate(&description, desc_len).blue()
+                            truncate(&link.title, desc_len).blue()
                         )
                     }
                 }
@@ -161,7 +160,7 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
                 Ok((_u, k)) => println!(
                     "Generated API key: {}\nSample cURL:\n\n  \
                     curl -H 'Authorization: Bearer {}' \
-                    \'http://localhost:8001?tags=rust&description=programming\'\n",
+                    \'http://localhost:8001?tags=rust&notes=programming\'\n",
                     k, k
                 ),
                 Err(e) => {

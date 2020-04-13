@@ -27,8 +27,9 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
         .map_or(None, |header| header.split_whitespace().last());
     let authentication = Authentication::from_token(token);
     let tags = request.get_param("tags");
-    let desc = request.get_param("description");
     let omni = request.get_param("omni");
+    let title = request.get_param("title");
+    let notes = request.get_param("notes");
     let limit = request
         .get_param("limit")
         .and_then(|v| v.parse::<u16>().ok());
@@ -69,7 +70,12 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
             let result = if omni.is_some() {
                 vault.omni_search(omni.unwrap(), &authentication, limit)
             } else {
-                vault.match_links(link.with_tags(tags).with_description(desc), &authentication, limit, false)
+                vault.match_links(
+                    link
+                        .with_title(title)
+                        .with_tags(tags)
+                        .with_notes(notes),
+                    &authentication, limit, false)
             };
             match result {
                 Ok(links) => content_encoding::apply(request, jsonize(links)),

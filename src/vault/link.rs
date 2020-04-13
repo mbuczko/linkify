@@ -18,7 +18,8 @@ type Tag = String;
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct Link {
     pub href: String,
-    pub description: Option<String>,
+    pub title: String,
+    pub notes: Option<String>,
     pub tags: Option<Vec<Tag>>,
     pub hash: String,
     pub shared: bool,
@@ -34,24 +35,26 @@ impl fmt::Display for Link {
 }
 
 impl Link {
-    pub fn new(href: &str, description: Option<&str>, tags: Option<Vec<Tag>>) -> Link {
+    pub fn new(href: &str, title: &str, notes: Option<&str>, tags: Option<Vec<Tag>>) -> Link {
         Link {
             href: href.to_string(),
-            description: description.map(Into::into),
-            hash: digest(href, &description, &tags),
+            title: title.to_string(),
+            notes: notes.map(Into::into),
+            hash: digest(href, &notes, &tags),
             shared: false,
             toread: false,
             tags,
         }
     }
-    pub fn from(matches: &ArgMatches) -> Link {
+    pub fn from_matches(matches: &ArgMatches) -> Link {
         let tags = matches
             .values_of("tags")
             .and_then(|t| Some(t.map(String::from).collect::<Vec<String>>()));
 
         Link::new(
             matches.value_of("url").unwrap_or_default(),
-            matches.value_of("description"),
+            matches.value_of("title").unwrap_or_default(),
+            matches.value_of("notes"),
             tags,
         )
     }
@@ -59,8 +62,12 @@ impl Link {
         self.tags = tags.and_then(|t| Some(t.split(",").map(String::from).collect()));
         self
     }
-    pub fn with_description(&mut self, description: Option<String>) -> &mut Self {
-        self.description = description;
+    pub fn with_notes(&mut self, notes: Option<String>) -> &mut Self {
+        self.notes = notes;
+        self
+    }
+    pub fn with_title(&mut self, title: Option<String>) -> &mut Self {
+        self.title = title.unwrap_or_default();
         self
     }
 }
@@ -70,10 +77,10 @@ impl Vault {
         let mut conn = self.get_connection();
         let txn = conn.transaction().unwrap();
         txn.execute(
-            "INSERT INTO links(href, description, hash, user_id) VALUES(?1, ?2, ?3, ?4) \
+            "INSERT INTO links(href, title, notes, hash, user_id) VALUES(?1, ?2, ?3, ?4, ?5) \
             ON CONFLICT(href, user_id) \
-            DO UPDATE SET description = ?2, hash = ?3",
-            params![link.href, link.description, link.hash, user.id],
+            DO UPDATE SET title = ?2, notes = ?3, hash = ?4",
+            params![link.href, link.title, link.notes, link.hash, user.id],
         )?;
 
         // note that last_insert_rowid returns 0 for already existing URLs
@@ -159,30 +166,38 @@ impl Vault {
         };
         let tags = link.tags.to_owned().unwrap_or_default();
         let href = Query::patternize(&link.href);
-        let desc = link
-            .description
+        let title = Query::patternize(&link.title);
+        let notes = link
+            .notes
             .as_ref()
             .map_or(Default::default(), |v| Query::patternize(v));
 
         let limit = limit.unwrap_or(0);
         let mut query = Query::new_with_initial(
-            "SELECT href, description, group_concat(tag) FROM links l \
+            "SELECT href, title, notes, group_concat(tag) FROM links l \
         LEFT JOIN links_tags lt ON l.id = lt.link_id \
         LEFT JOIN tags t ON lt.tag_id = t.id ",
         );
         query.concat_with_param("WHERE href LIKE :href AND", (":href", &href));
 
-        if !desc.is_empty() {
+        if !link.title.is_empty() {
+
+            // if href was not explicitly provided, treat href and title
+            // the same in enchanced query mode. this is to make query
+            // more accurate, as both href- and title will be scanned.
+
             if enhanced && link.href.is_empty() {
                 query.concat_with_param(
-                    "(description LIKE :desc OR href LIKE :desc) AND",
-                    (":desc", &desc),
+                    "(title LIKE :title OR href LIKE :title) AND",
+                    (":title", &title),
                 );
             } else {
-                query.concat_with_param("description LIKE :desc AND", (":desc", &desc));
+                query.concat_with_param("title LIKE :title AND", (":title", &title));
             }
         }
-
+        if !notes.is_empty() {
+            query.concat_with_param("notes LIKE :notes AND", (":notes", &notes));
+        }
         query.concat_with_param("l.user_id = :id", (":id", &user.id));
         query.concat("GROUP BY l.id");
 
@@ -203,14 +218,14 @@ impl Vault {
         if limit > 0 {
             query.concat_with_param("LIMIT :limit", (":limit", &limit));
         }
-
         let conn = self.get_connection();
         let mut stmt = conn.prepare(query.to_string().as_str())?;
         let rows = stmt.query_map_named(query.named_params(), |row| {
             Ok(Link::new(
                 &row.get_unwrap::<_, String>(0),
-                row.get::<_, String>(1).ok().as_deref(),
-                row.get::<_, String>(2)
+                &row.get_unwrap::<_, String>(1),
+                row.get::<_, String>(2).ok().as_deref(),
+                row.get::<_, String>(3)
                     .map_or(None, |t| Some(t.split(',').map(String::from).collect())),
             ))
         })?;
@@ -223,7 +238,8 @@ impl Vault {
         limit: Option<u16>,
     ) -> DBResult<Vec<Link>> {
         let mut href: Vec<&str> = Vec::new();
-        let mut desc: Vec<&str> = Vec::new();
+        let mut title: Vec<&str> = Vec::new();
+        let mut notes: Vec<&str> = Vec::new();
         let mut tags: Vec<String> = Vec::new();
 
         for chunk in omni.split_whitespace() {
@@ -235,15 +251,17 @@ impl Vault {
                         tags.extend(more_tags);
                     }
                     "href" => href.push(ch[1]),
-                    _ => desc.push(chunk),
+                    "notes" => notes.push(ch[1]),
+                    _ => title.push(chunk),
                 }
             } else {
-                desc.push(chunk);
+                title.push(chunk);
             }
         }
         let link = Link::new(
             href.last().map_or("", |v| v.trim()),
-            Some(&desc.join("%").trim()),
+            title.join("%").trim(),
+            Some(&notes.join("%").trim()),
             Some(tags),
         );
         self.match_links(&link, auth, limit, true)

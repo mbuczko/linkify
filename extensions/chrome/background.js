@@ -70,14 +70,14 @@
           switch (message.action) {
             case 'matchLinks':
               asyncRequest({
-                apikey: 'lKnrPZUM8Lh2kBfnraLMOgttjrMwmqC4',
+                apikey: 'JeAq00iSdr9dJSjdw5GkA1syZ7U0dis4',
                 url: 'http://localhost:8001/links?limit=10&omni=' + message.omnisearch
               }, responder);
               return true;
 
             case 'matchSearches':
               asyncRequest({
-                apikey: 'lKnrPZUM8Lh2kBfnraLMOgttjrMwmqC4',
+                apikey: 'JeAq00iSdr9dJSjdw5GkA1syZ7U0dis4',
                 url: 'http://localhost:8001/searches?name=' + message.searchname + '&exact=' + message.exact,
                 method: 'GET',
               }, responder);
@@ -85,7 +85,7 @@
 
             case 'storeSearch':
               asyncRequest({
-                apikey: 'lKnrPZUM8Lh2kBfnraLMOgttjrMwmqC4',
+                apikey: 'JeAq00iSdr9dJSjdw5GkA1syZ7U0dis4',
                 url: 'http://localhost:8001/searches',
                 method: 'POST',
                 data: {

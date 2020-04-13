@@ -4,7 +4,7 @@
     <style>
         .ly--add-link-popup {
             background: #fdfdfd;
-            font-size: 14px;
+            font-size: 1.1em;
             padding: 10px;
             width: 380px;
             border: 1px dotted #ddd;
@@ -58,6 +58,9 @@
             padding: 4px;
             margin: 2px;
             width: 290px;
+            max-width: 290px;
+            min-width: 290px;
+            max-height: 200px;
             border: 1px solid #bbb;
             border-radius: 2px;
             vertical-align: middle;
@@ -73,11 +76,11 @@
             </li>
             <li>
                 <label>Title</label>
-                <input type="text">
+                <input id="ly--title" type="text">
             </li>
             <li>
                 <label>Notes</label>
-                <textarea></textarea>
+                <textarea id="ly--notes" rows="5"></textarea>
             </li>
             <li class="flags">
                 <label></label>
@@ -93,7 +96,7 @@
             </li>
             <li>
                 <label>Tags</label>
-                <input type="text" class="tags" value="pitch github"/>
+                <input type="text" class="tags" id="ly--tags" value="pitch github"/>
             </li>
             <li class="suggests">
                 <label>Suggest</label>

@@ -18,12 +18,12 @@ pub fn generate_key(len: u8) -> String {
         .collect()
 }
 
-pub fn digest(url: &str, description: &Option<&str>, tags: &Option<Vec<String>>) -> String {
+pub fn digest(url: &str, notes: &Option<&str>, tags: &Option<Vec<String>>) -> String {
     let mut hasher = Sha1::new();
 
     hasher.update(url.as_bytes());
-    if let Some(description) = description {
-        hasher.update(description.as_bytes());
+    if let Some(notes) = notes {
+        hasher.update(notes.as_bytes());
     }
     if let Some(tags) = tags {
         hasher.update(tags.join(",").as_bytes());

@@ -47,7 +47,7 @@
       let later = function() {
         timeout = null;
         if (!immediate) func.apply(context, args);
-      };
+      }
       let callNow = immediate && !timeout;
       clearTimeout(timeout);
       timeout = setTimeout(later, wait);
@@ -193,13 +193,13 @@
     let ul = $('ly--content-links');
     ul.innerHTML = '';
     for (let i in items.slice(0, 10)) {
-      let {link, desc, tags, type, handler} = items[i],
+      let {link, title, notes, tags, type, handler} = items[i],
           node = document.createElement('li'),
           a = document.createElement('a'),
           span = document.createElement('span'),
           div = document.createElement('div'),
-          hreftext = document.createTextNode(link),
-          desctext = document.createTextNode(desc);
+          hreftext = document.createTextNode(title),
+          desctext = document.createTextNode(notes);
 
       a.href = link;
       a.dataset.type = type;
@@ -256,7 +256,8 @@
             } else {
               let items = JSON.parse(result.response).map(({name, query}) => ({
                 link: name,
-                desc: query,
+                title: name,
+                notes: query,
                 type: 'search',
                 handler: onSavedSearchClickHandler
               }));
@@ -274,9 +275,10 @@
         },
         result => {
           if (result.status === 200) {
-            let items = JSON.parse(result.response).map(({href, description, tags}) => ({
+            let items = JSON.parse(result.response).map(({href, title, notes, tags}) => ({
               link: href,
-              desc: description,
+              title: title,
+              notes: notes,
               tags: tags,
               type: 'link'
             }));

@@ -35,10 +35,16 @@ subcommands:
         - url:
             help: link to store in database
             required: true
-        - description:
-            help: optional link description
-            short: d
-            long: desc
+        - title:
+            help: descritive title
+            required: true
+            short: e
+            long: title
+            takes_value: true
+        - notes:
+            help: optional notes
+            short: n
+            long: notes
             takes_value: true
         - tags:
             help: optional, comma-separated tags
@@ -63,10 +69,15 @@ subcommands:
       args:
         - url:
             help: link or its part to match
-        - description:
-            help: optional part of description to match
-            short: d
-            long: desc
+        - title:
+            help: title or its part to match
+            short: e
+            long: title
+            takes_value: true
+        - notes:
+            help: optional notes to match
+            short: n
+            long: notes
             takes_value: true
         - tags:
             help: optional comma-separated tags to match
