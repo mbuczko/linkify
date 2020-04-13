@@ -95,7 +95,7 @@ impl Vault {
             n => n,
         };
 
-        // remove tags associated so far
+        // remove associations with tags assigned to given link so far
         txn.execute("DELETE FROM links_tags WHERE link_id = ?1", params![id])?;
 
         // join link with its tags (if provided)
@@ -112,7 +112,7 @@ impl Vault {
             }
             txn.execute(
                 "INSERT INTO links_tags(link_id, tag_id) \
-        SELECT ?1, id FROM tags WHERE tag IN rarray(?2) AND user_id = ?3",
+            SELECT ?1, id FROM tags WHERE tag IN rarray(?2) AND user_id = ?3",
                 params![id, Rc::new(values), user.id],
             )?;
         }
@@ -181,7 +181,6 @@ impl Vault {
         query.concat_with_param("WHERE href LIKE :href AND", (":href", &href));
 
         if !link.title.is_empty() {
-
             // if href was not explicitly provided, treat href and title
             // the same in enchanced query mode. this is to make query
             // more accurate, as both href- and title will be scanned.
@@ -198,8 +197,7 @@ impl Vault {
         if !notes.is_empty() {
             query.concat_with_param("notes LIKE :notes AND", (":notes", &notes));
         }
-        query.concat_with_param("l.user_id = :id", (":id", &user.id));
-        query.concat("GROUP BY l.id");
+        query.concat_with_param("l.user_id = :id GROUP BY l.id", (":id", &user.id));
 
         // limit by tags (if provided)
         let has_tags = !tags.is_empty();
@@ -265,5 +263,26 @@ impl Vault {
             Some(tags),
         );
         self.match_links(&link, auth, limit, true)
+    }
+    pub fn recent_tags(
+        &self,
+        auth: &Option<Authentication>,
+        limit: Option<u16>,
+    ) -> DBResult<Vec<Tag>> {
+        let user = match self.authenticate_user(auth) {
+            Ok(u) => u,
+            Err(e) => return Err(e),
+        };
+        let limit = limit.unwrap_or(8);
+        let mut query = Query::new_with_initial("SELECT tag FROM tags");
+        query
+            .concat_with_param("WHERE user_id = :id", (":id", &user.id))
+            .concat_with_param("ORDER BY used_at DESC LIMIT :limit", (":limit", &limit));
+
+        let conn = self.get_connection();
+        let mut stmt = conn.prepare(query.to_string().as_str())?;
+        let rows =
+            stmt.query_map_named(query.named_params(), |row| Ok(row.get_unwrap::<_, Tag>(0)))?;
+        Result::from_iter(rows).map_err(Into::into)
     }
 }

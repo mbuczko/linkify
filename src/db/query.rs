@@ -17,7 +17,7 @@ impl<'a> Query<'a> {
         q.query.push(initial_query);
         q
     }
-    pub fn concat(&mut self, query_str: &'static str) -> &Self {
+    pub fn concat(&mut self, query_str: &'static str) -> &mut Self {
         self.query.push(query_str);
         self
     }
@@ -25,7 +25,7 @@ impl<'a> Query<'a> {
         &mut self,
         query_str: &'static str,
         query_param: (&'a str, &'a dyn ToSql),
-    ) -> &Self {
+    ) -> &mut Self {
         self.params.push(query_param);
         self.concat(query_str)
     }

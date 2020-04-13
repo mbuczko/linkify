@@ -46,8 +46,7 @@ impl Vault {
             "SELECT u.id, login, count(l.id) FROM users u \
             LEFT JOIN links l ON l.user_id = u.id",
         );
-        query.concat_with_param("WHERE login LIKE :login", (":login", &login));
-        query.concat("GROUP BY login");
+        query.concat_with_param("WHERE login LIKE :login GROUP BY login", (":login", &login));
 
         let conn = self.get_connection();
         let mut stmt = conn.prepare(query.to_string().as_str())?;

@@ -29,6 +29,7 @@ impl Vault {
             Ok(u) => u,
             Err(e) => return Err(e),
         };
+
         let mut conn = self.get_connection();
         let txn = conn.transaction().unwrap();
         txn.execute(
@@ -66,8 +67,12 @@ impl Vault {
         let mut query = Query::new_with_initial(
             "SELECT name, query FROM searches s INNER JOIN users u ON s.user_id = u.id WHERE",
         );
-        query.concat_with_param("u.id = :id AND", (":id", &user.id));
-        query.concat_with_param("name LIKE :name  ORDER BY s.created_at DESC", (":name", &name));
+        query
+            .concat_with_param("u.id = :id AND", (":id", &user.id))
+            .concat_with_param(
+                "name LIKE :name  ORDER BY s.created_at DESC",
+                (":name", &name),
+            );
 
         let conn = self.get_connection();
         let mut stmt = conn.prepare(query.to_string().as_str())?;

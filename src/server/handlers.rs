@@ -1,7 +1,7 @@
+use crate::db::DBLookupType;
 use crate::vault::auth::Authentication;
 use crate::vault::link::Link;
 use crate::vault::Vault;
-use crate::db::DBLookupType;
 
 use failure::Error;
 use miniserde::{json, Serialize};
@@ -63,6 +63,12 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
             });
             match vault.find_searches(&authentication, search_name.as_deref(), search_type) {
                 Ok(searches) => content_encoding::apply(request, jsonize(searches)),
+                _ => Response::empty_400()
+            }
+        },
+        (GET) (/tags) => {
+            match vault.recent_tags(&authentication, limit) {
+                Ok(tags) => content_encoding::apply(request, jsonize(tags)),
                 _ => Response::empty_400()
             }
         },
