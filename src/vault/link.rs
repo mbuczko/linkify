@@ -1,10 +1,10 @@
+use crate::db::query::Query;
 use crate::db::DBResult;
 use crate::utils::digest;
 use crate::vault::auth::Authentication;
 use crate::vault::user::User;
 use crate::vault::Vault;
 
-use crate::db::query::Query;
 use clap::ArgMatches;
 use miniserde::{Deserialize, Serialize};
 use rusqlite::params;
@@ -167,12 +167,12 @@ impl Vault {
         let tags = link.tags.to_owned().unwrap_or_default();
         let href = Query::patternize(&link.href);
         let title = Query::patternize(&link.title);
+        let limit = limit.unwrap_or(0);
         let notes = link
             .notes
             .as_ref()
             .map_or(Default::default(), |v| Query::patternize(v));
 
-        let limit = limit.unwrap_or(0);
         let mut query = Query::new_with_initial(
             "SELECT href, title, notes, group_concat(tag) FROM links l \
         LEFT JOIN links_tags lt ON l.id = lt.link_id \
@@ -199,9 +199,9 @@ impl Vault {
         }
         query.concat_with_param("l.user_id = :id GROUP BY l.id", (":id", &user.id));
 
-        // limit by tags (if provided)
         let has_tags = !tags.is_empty();
         let ptr = Rc::new(tags.into_iter().map(SqlValue::from).collect());
+
         if has_tags {
             query.concat_with_param(
                 "HAVING l.id IN \
@@ -211,8 +211,6 @@ impl Vault {
             );
         }
         query.concat("ORDER BY l.created_at DESC");
-
-        // limit total number of results
         if limit > 0 {
             query.concat_with_param("LIMIT :limit", (":limit", &limit));
         }

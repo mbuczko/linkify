@@ -1,4 +1,5 @@
-use crate::db::DBLookupType;
+use crate::db::DBError::{Unauthenticated, UnknownUser};
+use crate::db::{DBError, DBLookupType};
 use crate::vault::auth::Authentication;
 use crate::vault::link::Link;
 use crate::vault::Vault;
@@ -20,6 +21,23 @@ fn jsonize<T: Serialize>(result: T) -> Response {
     }
 }
 
+fn empty_40x(code: u16) -> Response {
+    Response {
+        status_code: code,
+        headers: vec![],
+        data: ResponseBody::empty(),
+        upgrade: None,
+    }
+}
+
+fn err_response(err: DBError) -> Response {
+    match err {
+        UnknownUser => empty_40x(403),
+        Unauthenticated => empty_40x(401),
+        e => Response::text(e.to_string()).with_status_code(400),
+    }
+}
+
 pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
     let mut link = Link::default();
     let token = request
@@ -38,12 +56,14 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
         (POST) (/searches) => {
             match post_input!(request, {name: String, query: String}) {
                 Ok(t) => {
-                    let id = vault.store_search(&authentication, t.name, t.query)?;
-                    Response {
-                        status_code: 200,
-                        headers: vec![("Location".into(), format!("/searches/{}", id).into())],
-                        data: ResponseBody::empty(),
-                        upgrade: None,
+                    match vault.store_search(&authentication, t.name, t.query) {
+                        Ok(id) => Response {
+                            status_code: 200,
+                            headers: vec![("Location".into(), format!("/searches/{}", id).into())],
+                            data: ResponseBody::empty(),
+                            upgrade: None,
+                        },
+                        Err(e) => err_response(e)
                     }
                 }
                 Err(e) => {
@@ -63,13 +83,13 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
             });
             match vault.find_searches(&authentication, search_name.as_deref(), search_type) {
                 Ok(searches) => content_encoding::apply(request, jsonize(searches)),
-                _ => Response::empty_400()
+                Err(e) => err_response(e)
             }
         },
         (GET) (/tags) => {
             match vault.recent_tags(&authentication, limit) {
                 Ok(tags) => content_encoding::apply(request, jsonize(tags)),
-                _ => Response::empty_400()
+                Err(e) => err_response(e)
             }
         },
         (GET) (/links) => {
@@ -85,7 +105,7 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
             };
             match result {
                 Ok(links) => content_encoding::apply(request, jsonize(links)),
-                _ => Response::empty_400()
+                Err(e) => err_response(e)
             }
         },
         _ => {
