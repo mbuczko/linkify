@@ -35,6 +35,10 @@
     }
   }
 
+  function isShortcut(e) {
+    return e.key === '\\' && e.ctrlKey;
+  }
+
   function stop(event) {
     event.stopPropagation();
     event.preventDefault();
@@ -122,11 +126,11 @@
     switch (e.key) {
       case 'ArrowUp':
         selectPrev();
-        stop(e);
+        e.preventDefault();
         break;
       case 'ArrowDown':
         selectNext();
-        stop(e);
+        e.preventDefault();
         break;
       case 'Escape':
         modal.close();
@@ -155,13 +159,13 @@
           }
         }
     }
+    if (!isShortcut(e)) e.stopPropagation();
   }
 
   function saveKeyDownHandler(e) {
-    let searchName = e.target.value;
     switch (e.key) {
       case 'Enter':
-        storeSearch(searcher.getValue(), searchName, response => {
+        storeSearch(searcher.getValue(), e.target.value, response => {
           if (response.status === 200) {
             switchViews('ly--content-search-saver', 'ly--content-inner');
             searcher.setValue();
@@ -172,16 +176,8 @@
         switchViews('ly--content-search-saver', 'ly--content-inner');
         searcher.setValue();
         break;
-      default:
-        if (searchName.length > 0) {
-          fetchSearches(searchName, true, function (result) {
-            toggleWarning(
-                result &&
-                result.status === 200 &&
-                JSON.parse(result.response).length);
-          });
-        }
     }
+    if (!isShortcut(e)) e.stopPropagation();
   }
 
   function onSavedSearchClickHandler(e) {
@@ -206,7 +202,7 @@
       a.rel = 'noopener noreferrer';
 
       if (type === 'search') {
-        a.dataset.query = desc;
+        a.dataset.query = notes;
       }
       if (handler) {
         a.addEventListener('click', handler);
@@ -301,8 +297,20 @@
       saver = initInput(saveInput);
       modal = initModal(popup);
 
-      saveInput.addEventListener('keydown', debounce(saveKeyDownHandler, 250));
       saveInput.addEventListener('keyup', stop);
+      saveInput.addEventListener('keydown', saveKeyDownHandler);
+      saveInput.addEventListener('input', debounce(e => {
+        let searchName = e.target.value;
+        if (searchName.length > 0) {
+          fetchSearches(searchName, true, function (result) {
+            toggleWarning(
+                result &&
+                result.status === 200 &&
+                JSON.parse(result.response).length);
+          });
+        }
+      }, 250));
+
       searchInput.addEventListener('keyup', stop);
       searchInput.addEventListener('keydown', searchKeyDownHandler);
       searchInput.addEventListener('input', debounce(e => {
@@ -322,7 +330,7 @@
 
   // register listener for dialog shortcut
   window.addEventListener('keydown', e => {
-    if (e.ctrlKey && e.key === '\\') {
+    if (isShortcut(e)) {
       if (modal.isOpened()) {
         modal.close();
       } else {
