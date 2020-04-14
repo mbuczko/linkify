@@ -118,13 +118,13 @@ impl Vault {
         }
         txn.commit().and(Ok(id)).map_err(Into::into)
     }
-    pub fn add_link(&self, link: &Link, auth: &Option<Authentication>) -> DBResult<i64> {
+    pub fn add_link(&self, auth: &Option<Authentication>, link: &Link) -> DBResult<i64> {
         match self.authenticate_user(auth) {
             Ok(u) => self.store_link(link, &u),
             Err(e) => return Err(e),
         }
     }
-    pub fn del_link(&self, link: &Link, auth: &Option<Authentication>) -> DBResult<i64> {
+    pub fn del_link(&self, auth: &Option<Authentication>, link: &Link) -> DBResult<i64> {
         match self.authenticate_user(auth) {
             Ok(u) => {
                 let link_id = self.get_connection().query_row(
@@ -139,7 +139,7 @@ impl Vault {
             Err(e) => return Err(e),
         }
     }
-    pub fn import_links(&self, links: Vec<Link>, auth: &Option<Authentication>) -> DBResult<u32> {
+    pub fn import_links(&self, auth: &Option<Authentication>, links: Vec<Link>) -> DBResult<u32> {
         let user = match self.authenticate_user(auth) {
             Ok(u) => u,
             Err(e) => return Err(e),
@@ -155,8 +155,8 @@ impl Vault {
     }
     pub fn match_links(
         &self,
-        link: &Link,
         auth: &Option<Authentication>,
+        link: &Link,
         limit: Option<u16>,
         enhanced: bool,
     ) -> DBResult<Vec<Link>> {
@@ -229,8 +229,8 @@ impl Vault {
     }
     pub fn omni_search(
         &self,
-        omni: String,
         auth: &Option<Authentication>,
+        omni: String,
         limit: Option<u16>,
     ) -> DBResult<Vec<Link>> {
         let mut href: Vec<&str> = Vec::new();
@@ -260,21 +260,24 @@ impl Vault {
             Some(&notes.join("%").trim()),
             Some(tags),
         );
-        self.match_links(&link, auth, limit, true)
+        self.match_links(auth, &link, limit, true)
     }
     pub fn recent_tags(
         &self,
         auth: &Option<Authentication>,
+        pattern: Option<&str>,
         limit: Option<u16>,
     ) -> DBResult<Vec<Tag>> {
         let user = match self.authenticate_user(auth) {
             Ok(u) => u,
             Err(e) => return Err(e),
         };
+        let pattern = Query::patternize(pattern.unwrap_or_default());
         let limit = limit.unwrap_or(8);
         let mut query = Query::new_with_initial("SELECT tag FROM tags");
         query
-            .concat_with_param("WHERE user_id = :id", (":id", &user.id))
+            .concat_with_param("WHERE user_id = :id AND", (":id", &user.id))
+            .concat_with_param("tag LIKE :pattern", (":pattern", &pattern))
             .concat_with_param("ORDER BY used_at DESC LIMIT :limit", (":limit", &limit));
 
         let conn = self.get_connection();

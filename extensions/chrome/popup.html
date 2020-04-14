@@ -49,9 +49,13 @@
             color: #1095f9;
             font-size: 13px;
             background: #f0f5f9;
+            border-radius: 3px;
             display: inline-block;
             padding: 0 2px;
-            border-radius: 3px;
+            margin: 0 2px;
+        }
+        .ly--add-link-popup a:hover {
+            background: #e0e5e9;
         }
         .ly--add-link-popup input[type="text"],
         .ly--add-link-popup textarea {
@@ -96,12 +100,12 @@
             </li>
             <li>
                 <label>Tags</label>
-                <input type="text" class="tags" id="ly--tags" value="pitch github"/>
+                <input type="text" class="tags" id="ly--tags"/>
             </li>
             <li class="suggests">
                 <label>Suggest</label>
-                <span class="tags">
-                    <a href="#"> rust </a>
+                <span id="ly--taglist" class="tags">
+                    <!-- list of suggested tags goes here -->
                 </span>
             </li>
         </ul>

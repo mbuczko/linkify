@@ -70,14 +70,14 @@
           switch (message.action) {
             case 'matchLinks':
               asyncRequest({
-                apikey: 'JeAq00iSdr9dJSjdw5GkA1syZ7U0dis4',
+                apikey: 'K5WwERrFYJP6lvNFOWqoEMLVAS626XVi',
                 url: 'http://localhost:8001/links?limit=10&omni=' + message.omnisearch
               }, responder);
               return true;
 
             case 'matchSearches':
               asyncRequest({
-                apikey: 'JeAq00iSdr9dJSjdw5GkA1syZ7U0dis4',
+                apikey: 'K5WwERrFYJP6lvNFOWqoEMLVAS626XVi',
                 url: 'http://localhost:8001/searches?name=' + message.searchname + '&exact=' + message.exact,
                 method: 'GET',
               }, responder);
@@ -85,7 +85,7 @@
 
             case 'storeSearch':
               asyncRequest({
-                apikey: 'JeAq00iSdr9dJSjdw5GkA1syZ7U0dis4',
+                apikey: 'K5WwERrFYJP6lvNFOWqoEMLVAS626XVi',
                 url: 'http://localhost:8001/searches',
                 method: 'POST',
                 data: {
@@ -94,6 +94,15 @@
                 }
               }, responder);
               return true;
+
+            case 'suggestTags':
+              asyncRequest({
+                apikey: 'K5WwERrFYJP6lvNFOWqoEMLVAS626XVi',
+                url: 'http://localhost:8001/tags?name=' + message.name,
+                method: 'GET'
+              }, responder);
+              return true;
+
             case 'openTab':
               chrome.tabs.create({
                 active: true,

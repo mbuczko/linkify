@@ -8,6 +8,7 @@ use failure::Error;
 use miniserde::{json, Serialize};
 use rouille::content_encoding;
 use rouille::{post_input, router, try_or_400, Request, Response, ResponseBody};
+use std::collections::HashMap;
 
 pub type HandlerResult = Result<Response, Error>;
 
@@ -44,14 +45,9 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
         .header("authorization")
         .map_or(None, |header| header.split_whitespace().last());
     let authentication = Authentication::from_token(token);
-    let tags = request.get_param("tags");
-    let omni = request.get_param("omni");
-    let title = request.get_param("title");
-    let notes = request.get_param("notes");
     let limit = request
         .get_param("limit")
         .and_then(|v| v.parse::<u16>().ok());
-
     let resp = router!(request,
         (POST) (/searches) => {
             match post_input!(request, {name: String, query: String}) {
@@ -87,21 +83,28 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
             }
         },
         (GET) (/tags) => {
-            match vault.recent_tags(&authentication, limit) {
-                Ok(tags) => content_encoding::apply(request, jsonize(tags)),
+            let tag_name = request.get_param("name");
+            match vault.recent_tags(&authentication, tag_name.as_deref(), limit) {
+                Ok(tags) => {
+                    let mut result = HashMap::new();
+                    result.insert("tags", tags);
+                    content_encoding::apply(request, jsonize(result))
+                }
                 Err(e) => err_response(e)
             }
         },
         (GET) (/links) => {
+            let omni = request.get_param("omni");
             let result = if omni.is_some() {
-                vault.omni_search(omni.unwrap(), &authentication, limit)
+                vault.omni_search(&authentication, omni.unwrap(), limit)
             } else {
                 vault.match_links(
+                    &authentication,
                     link
-                        .with_title(title)
-                        .with_tags(tags)
-                        .with_notes(notes),
-                    &authentication, limit, false)
+                        .with_title(request.get_param("title"))
+                        .with_tags(request.get_param("tags"))
+                        .with_notes(request.get_param("notes")),
+                    limit, false)
             };
             match result {
                 Ok(links) => content_encoding::apply(request, jsonize(links)),
