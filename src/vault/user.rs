@@ -32,15 +32,10 @@ impl User {
 }
 
 impl Vault {
-    fn find_users(
-        &self,
-        pattern: Option<&str>,
-        lookup_type: DBLookupType,
-    ) -> DBResult<Vec<(User, u32)>> {
-        let input = pattern.unwrap_or("");
+    fn find_users(&self, pattern: &str, lookup_type: DBLookupType) -> DBResult<Vec<(User, u32)>> {
         let login = match lookup_type {
-            Exact => input.to_owned(),
-            Patterned => Query::patternize(input),
+            Exact => pattern.to_owned(),
+            Patterned => Query::patternize(pattern),
         };
         let mut query = Query::new_with_initial(
             "SELECT u.id, login, count(l.id) FROM users u \
@@ -61,34 +56,25 @@ impl Vault {
         })?;
         Result::from_iter(rows).map_err(Into::into)
     }
-    pub fn find_user(&self, login: Option<&str>) -> DBResult<(User, u32)> {
-        if login.is_some() {
-            let users = self.find_users(login, DBLookupType::Exact)?;
-            users
-                .first()
-                .map_or(Err(UnknownUser), |(user, count)| Ok((user.clone(), *count)))
-        } else {
-            Err(UnknownUser)
-        }
+    pub fn find_user(&self, login: &str) -> DBResult<(User, u32)> {
+        let users = self.find_users(login, DBLookupType::Exact)?;
+        users
+            .first()
+            .map_or(Err(UnknownUser), |(user, count)| Ok((user.clone(), *count)))
     }
-    pub fn match_users(&self, pattern: Option<&str>) -> DBResult<Vec<(User, u32)>> {
+    pub fn match_users(&self, pattern: &str) -> DBResult<Vec<(User, u32)>> {
         self.find_users(pattern, DBLookupType::Patterned)
     }
-    pub fn add_user(&self, login: Option<&str>) -> DBResult<User> {
-        match login {
-            Some(l) => {
-                let pass = password(None, Some("Initial password"));
-                let hashed = hash(pass, 10).expect("Couldn't hash a password for some reason.");
-                self.get_connection().execute(
-                    "INSERT INTO users(login, password) VALUES(?1, ?2)",
-                    params![l, hashed],
-                )?;
-                Ok(User::new(self.get_connection().last_insert_rowid(), &l))
-            }
-            _ => Err(UnknownUser),
-        }
+    pub fn add_user(&self, login: &str) -> DBResult<User> {
+        let pass = password(None, Some("Initial password"));
+        let hashed = hash(pass, 10).expect("Couldn't hash a password for some reason.");
+        self.get_connection().execute(
+            "INSERT INTO users(login, password) VALUES(?1, ?2)",
+            params![login, hashed],
+        )?;
+        Ok(User::new(self.get_connection().last_insert_rowid(), login))
     }
-    pub fn del_user(&self, login: Option<&str>) -> DBResult<(User, bool)> {
+    pub fn del_user(&self, login: &str) -> DBResult<(User, bool)> {
         if let Ok((u, c)) = self.find_user(login) {
             if c == 0 || confirm(format!("User {} has {} links. Proceed?", u.login, c).as_ref()) {
                 self.get_connection()
@@ -101,7 +87,7 @@ impl Vault {
             Err(UnknownUser)
         }
     }
-    pub fn passwd_user(&self, login: Option<&str>) -> DBResult<User> {
+    pub fn passwd_user(&self, login: &str) -> DBResult<User> {
         if let Ok((u, _count)) = self.find_user(login) {
             let pass = password(None, Some("New password"));
             let hashed = hash(pass, 10).expect("Couldn't hash a password for some reason");
@@ -114,7 +100,7 @@ impl Vault {
             Err(UnknownUser)
         }
     }
-    pub fn generate_key(&self, login: Option<&str>) -> DBResult<(User, String)> {
+    pub fn generate_key(&self, login: &str) -> DBResult<(User, String)> {
         if let Ok((u, _count)) = self.find_user(login) {
             let key = generate_key(32);
             self.get_connection().execute(

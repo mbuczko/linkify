@@ -39,8 +39,19 @@ fn err_response(err: DBError) -> Response {
     }
 }
 
+fn lookup_type(request: &Request) -> DBLookupType {
+    request
+        .get_param("exact")
+        .map_or(DBLookupType::Patterned, |v| {
+            if v == "true" {
+                DBLookupType::Exact
+            } else {
+                DBLookupType::Patterned
+            }
+        })
+}
+
 pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
-    let mut link = Link::default();
     let token = request
         .header("authorization")
         .map_or(None, |header| header.split_whitespace().last());
@@ -69,15 +80,11 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
             }
         },
         (GET) (/searches) => {
-            let search_name = request.get_param("name");
-            let search_type = request.get_param("exact").map_or(DBLookupType::Patterned, |v| {
-                if v == "true" {
-                    DBLookupType::Exact
-                } else {
-                    DBLookupType::Patterned
-                }
-            });
-            match vault.find_searches(&authentication, search_name.as_deref(), search_type) {
+            match vault.find_searches(
+                &authentication,
+                request.get_param("name").as_deref(),
+                lookup_type(request)
+            ) {
                 Ok(searches) => content_encoding::apply(request, jsonize(searches)),
                 Err(e) => err_response(e)
             }
@@ -98,13 +105,19 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
             let result = if omni.is_some() {
                 vault.omni_search(&authentication, omni.unwrap(), limit)
             } else {
-                vault.match_links(
+                let tags: Option<Vec<String>> = request
+                    .get_param("tags")
+                    .and_then(|t| Some(t.split(",").map(String::from).collect()));
+
+                vault.find_links(
                     &authentication,
-                    link
-                        .with_title(request.get_param("title"))
-                        .with_tags(request.get_param("tags"))
-                        .with_notes(request.get_param("notes")),
-                    limit, false)
+                    &Link::new(
+                        request.get_param("href").unwrap_or_default().as_str(),
+                        request.get_param("title").unwrap_or_default().as_str(),
+                        request.get_param("notes").as_deref(),
+                        tags,
+                    ),
+                    lookup_type(request), limit, false)
             };
             match result {
                 Ok(links) => content_encoding::apply(request, jsonize(links)),

@@ -1,5 +1,6 @@
 use crate::db::query::Query;
-use crate::db::DBResult;
+use crate::db::DBLookupType::{Exact, Patterned};
+use crate::db::{DBLookupType, DBResult};
 use crate::utils::digest;
 use crate::vault::auth::Authentication;
 use crate::vault::user::User;
@@ -15,7 +16,7 @@ use std::rc::Rc;
 
 type Tag = String;
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Clone, Deserialize, Debug)]
 pub struct Link {
     pub href: String,
     pub title: String,
@@ -57,18 +58,6 @@ impl Link {
             matches.value_of("notes"),
             tags,
         )
-    }
-    pub fn with_tags(&mut self, tags: Option<String>) -> &mut Self {
-        self.tags = tags.and_then(|t| Some(t.split(",").map(String::from).collect()));
-        self
-    }
-    pub fn with_notes(&mut self, notes: Option<String>) -> &mut Self {
-        self.notes = notes;
-        self
-    }
-    pub fn with_title(&mut self, title: Option<String>) -> &mut Self {
-        self.title = title.unwrap_or_default();
-        self
     }
 }
 
@@ -153,10 +142,11 @@ impl Vault {
         }
         Ok(imported)
     }
-    pub fn match_links(
+    pub fn find_links(
         &self,
         auth: &Option<Authentication>,
-        link: &Link,
+        pattern: &Link,
+        lookup_type: DBLookupType,
         limit: Option<u16>,
         enhanced: bool,
     ) -> DBResult<Vec<Link>> {
@@ -164,11 +154,14 @@ impl Vault {
             Ok(u) => u,
             Err(e) => return Err(e),
         };
-        let tags = link.tags.to_owned().unwrap_or_default();
-        let href = Query::patternize(&link.href);
-        let title = Query::patternize(&link.title);
+        let tags = pattern.tags.to_owned().unwrap_or_default();
+        let href = match lookup_type {
+            Exact => pattern.href.to_owned(),
+            Patterned => Query::patternize(&pattern.href),
+        };
+        let title = Query::patternize(&pattern.title);
         let limit = limit.unwrap_or(0);
-        let notes = link
+        let notes = pattern
             .notes
             .as_ref()
             .map_or(Default::default(), |v| Query::patternize(v));
@@ -180,12 +173,12 @@ impl Vault {
         );
         query.concat_with_param("WHERE href LIKE :href AND", (":href", &href));
 
-        if !link.title.is_empty() {
+        if !title.is_empty() {
             // if href was not explicitly provided, treat href and title
             // the same in enchanced query mode. this is to make query
             // more accurate, as both href- and title will be scanned.
 
-            if enhanced && link.href.is_empty() {
+            if enhanced && pattern.href.is_empty() {
                 query.concat_with_param(
                     "(title LIKE :title OR href LIKE :title) AND",
                     (":title", &title),
@@ -226,6 +219,15 @@ impl Vault {
             ))
         })?;
         Result::from_iter(rows).map_err(Into::into)
+    }
+    pub fn match_links(
+        &self,
+        auth: &Option<Authentication>,
+        pattern: &Link,
+        limit: Option<u16>,
+        enhanced: bool,
+    ) -> DBResult<Vec<Link>> {
+        self.find_links(auth, pattern, DBLookupType::Patterned, limit, enhanced)
     }
     pub fn omni_search(
         &self,

@@ -1,9 +1,9 @@
 pub mod query;
 
+use failure::Fail;
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::vtab::array;
 use rusqlite::Error as SqliteError;
-use failure::Fail;
 
 #[derive(Debug, Fail)]
 pub enum DBError {

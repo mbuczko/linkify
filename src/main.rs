@@ -114,14 +114,14 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
             }
         }
         ("users", Some(sub_m)) => match sub_m.subcommand() {
-            ("add", Some(sub_m)) => match vault.add_user(sub_m.value_of("login")) {
+            ("add", Some(sub_m)) => match vault.add_user(sub_m.value_of("login").unwrap()) {
                 Ok(u) => println!("Added ({}).", u.login),
                 Err(_) => {
                     eprintln!("Error while adding new user. User might already exist.");
                     exit(1);
                 }
             },
-            ("del", Some(sub_m)) => match vault.del_user(sub_m.value_of("login")) {
+            ("del", Some(sub_m)) => match vault.del_user(sub_m.value_of("login").unwrap()) {
                 Ok((u, is_deleted)) => {
                     if is_deleted {
                         println!("Removed ({}).", u.login)
@@ -134,14 +134,14 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
                     exit(1);
                 }
             },
-            ("passwd", Some(sub_m)) => match vault.passwd_user(sub_m.value_of("login")) {
+            ("passwd", Some(sub_m)) => match vault.passwd_user(sub_m.value_of("login").unwrap()) {
                 Ok(u) => println!("Changed ({}).", u.login),
                 Err(e) => {
                     eprintln!("Error while changing password ({:?}).", e);
                     exit(1);
                 }
             },
-            ("ls", Some(sub_m)) => match vault.match_users(sub_m.value_of("login")) {
+            ("ls", Some(sub_m)) => match vault.match_users(sub_m.value_of("login").unwrap()) {
                 Ok(users) => {
                     for (user, count) in users {
                         println!("{} ({})", user, count);
@@ -152,7 +152,7 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
                     exit(1);
                 }
             },
-            ("gen", Some(sub_m)) => match vault.generate_key(sub_m.value_of("login")) {
+            ("gen", Some(sub_m)) => match vault.generate_key(sub_m.value_of("login").unwrap()) {
                 Ok((_u, k)) => println!(
                     "Generated API key: {}\nSample cURL:\n\n  \
                     curl -H 'Authorization: Bearer {}' \

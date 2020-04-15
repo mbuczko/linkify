@@ -12,16 +12,24 @@
 
                     if (response && response.tags) {
                         taglist.innerHTML = '';
-                        response.tags.forEach((tag, _) => {
-                            let a = document.createElement('a'),
-                                text = document.createTextNode(tag);
+                        if (response.tags.length) {
+                            response.tags.forEach((tag, _) => {
+                                let a = document.createElement('a'),
+                                    text = document.createTextNode(tag);
 
-                            a.href = '#';
-                            a.dataset.tag = tag;
-                            a.addEventListener('click', selectTag);
-                            a.appendChild(text);
-                            taglist.append(a);
-                        })
+                                a.href = '#';
+                                a.dataset.tag = tag;
+                                a.addEventListener('click', selectTag);
+                                a.appendChild(text);
+                                taglist.append(a);
+                            })
+                        } else {
+                            let span = document.createElement('span'),
+                                text = document.createTextNode('nothing to suggest');
+                            span.appendChild(text);
+                            span.classList.add('no-suggests');
+                            taglist.append(span);
+                        }
                     }
                 }
             })
@@ -29,20 +37,44 @@
 
     function isTagUsed(tags, tag) {
         for (let i in tags) {
-            if (tags[i] === tag) return true
+            if (tags[i] === tag) return true;
         }
     }
 
-    function selectTag(e) {
+    function currentTag(input) {
+        let val = input.value,
+            sel = input.selectionStart,
+            end = val.indexOf(' ', sel),
+            tags = val
+                .substring(0, end === -1 ? val.length : end)
+                .split(' ')
+                .filter(t => t.length);
 
-        let tag = e.target.dataset.tag,
-            input = document.getElementById('ly--tags'),
-            tags = input.value.split(' ').filter(t => t.length);
+        return tags[tags.length-1];
+    }
+
+    function selectTag(e) {
+        let input = document.getElementById('ly--tags'),
+            value = input.value,
+            tags = value.split(' ').filter(t => t.length),
+            tag = e.target.dataset.tag,
+            sel = input.selectionStart;
 
         if (!isTagUsed(tags, tag)) {
-            tags.push(tag);
+            // cursor at the end of text?
+            if (sel === value.length && (!sel || value[sel-1] === ' ')) {
+                tags.push(tag);
+            } else {
+                // replace tag under the cursor with selected one
+                for (let c=currentTag(input), i=0; i<tags.length; i++) {
+                    if (tags[i] === c) {
+                        tags[i] = tag;
+                        break;
+                    }
+                }
+            }
+            input.value = tags.join(' ') + ' ';
             input.focus();
-            input.value = tags.join(' ');
         }
     }
 
@@ -52,7 +84,8 @@
             document.getElementById('ly--url').value = activeTab.url;
             document.getElementById('ly--title').value = activeTab.title;
 
-            chrome.tabs.executeScript(activeTab.id, {
+            chrome.tabs.executeScript(activeTab.id,
+                {
                     code: 'Array.from(document.getElementsByTagName("meta"))' +
                         '.map(m => (m.getAttribute("name") || "").endsWith("description") ? m.getAttribute("content") : null)' +
                         '.filter(m => m !== null)'
@@ -67,16 +100,7 @@
         });
 
         document.getElementById('ly--tags').addEventListener('input', e => {
-            let val = e.target.value,
-                start = e.target.selectionStart,
-                end = val.indexOf(' ', start),
-                tags = val
-                    .substring(0, end === -1 ? val.length : end)
-                    .split(' ')
-                    .filter(t => t.length),
-                current = tags[tags.length-1];
-
-            suggestTags(current);
+            suggestTags(currentTag(e.target));
         })
     });
 })();
