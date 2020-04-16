@@ -68,6 +68,13 @@
             });
           };
           switch (message.action) {
+            case 'getLink':
+              asyncRequest({
+                apikey: 'K5WwERrFYJP6lvNFOWqoEMLVAS626XVi',
+                url: 'http://localhost:8001/links?href=' + message.url
+              }, responder);
+              return true;
+
             case 'matchLinks':
               asyncRequest({
                 apikey: 'K5WwERrFYJP6lvNFOWqoEMLVAS626XVi',

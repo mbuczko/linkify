@@ -1,38 +1,78 @@
 (function () {
-    function suggestTags(name) {
-        chrome.extension.sendMessage(
-            {
-                action: 'suggestTags',
-                name: name || ''
-            },
-            result => {
-                if (result.status === 200) {
-                    let response = JSON.parse(result.response),
-                        taglist = document.getElementById('ly--taglist');
 
-                    if (response && response.tags) {
-                        taglist.innerHTML = '';
-                        if (response.tags.length) {
-                            response.tags.forEach((tag, _) => {
-                                let a = document.createElement('a'),
-                                    text = document.createTextNode(tag);
-
-                                a.href = '#';
-                                a.dataset.tag = tag;
-                                a.addEventListener('click', selectTag);
-                                a.appendChild(text);
-                                taglist.append(a);
-                            })
+    function fetchLink(url) {
+        return new Promise(
+            (resolve, reject) => {
+                chrome.extension.sendMessage(
+                    {
+                        action: 'getLink',
+                        url: url
+                    },
+                    result => {
+                        if (result.status === 200) {
+                            resolve(JSON.parse(result.response)[0]);
                         } else {
-                            let span = document.createElement('span'),
-                                text = document.createTextNode('nothing to suggest');
-                            span.appendChild(text);
-                            span.classList.add('no-suggests');
-                            taglist.append(span);
+                            reject(result.status);
                         }
-                    }
-                }
-            })
+                    })
+            }
+        )
+    }
+
+    function suggestTags(name) {
+        return new Promise(
+            (resolve, reject) => {
+                chrome.extension.sendMessage(
+                    {
+                        action: 'suggestTags',
+                        name: name || ''
+                    },
+                    result => {
+                        if (result.status === 200) {
+                            let response = JSON.parse(result.response),
+                                taglist = document.getElementById('ly--taglist');
+
+                            taglist.innerHTML = '';
+                            if (response.tags.length) {
+                                response.tags.forEach((tag, _) => {
+                                    let a = document.createElement('a'),
+                                        text = document.createTextNode(tag);
+
+                                    a.href = '#';
+                                    a.dataset.tag = tag;
+                                    a.addEventListener('click', selectTag);
+                                    a.appendChild(text);
+                                    taglist.append(a);
+                                })
+                            } else {
+                                let span = document.createElement('span'),
+                                    text = document.createTextNode('nothing to suggest');
+                                span.appendChild(text);
+                                span.classList.add('no-suggests');
+                                taglist.append(span);
+                            }
+                            resolve(response.tags);
+                        } else reject(result.status);
+                    })
+            }
+        )
+    }
+
+    function suggestNotes(tabId) {
+        return new Promise(
+            (resolve, reject) => {
+                chrome.tabs.executeScript(tabId,
+                    {
+                        code: 'Array.from(document.getElementsByTagName("meta"))' +
+                            '.map(m => (m.getAttribute("name") || "").endsWith("description") ? m.getAttribute("content") : null)' +
+                            '.filter(m => m !== null)'
+                    },
+                    results => {
+                        let descriptions = results[0];
+                        resolve(descriptions[0] || '');
+                    });
+            }
+        )
     }
 
     function isTagUsed(tags, tag) {
@@ -83,20 +123,15 @@
             let activeTab = tabs[0];
             document.getElementById('ly--url').value = activeTab.url;
             document.getElementById('ly--title').value = activeTab.title;
-
-            chrome.tabs.executeScript(activeTab.id,
-                {
-                    code: 'Array.from(document.getElementsByTagName("meta"))' +
-                        '.map(m => (m.getAttribute("name") || "").endsWith("description") ? m.getAttribute("content") : null)' +
-                        '.filter(m => m !== null)'
-                },
-                results => {
-                    let descriptions = results[0];
-                    if (descriptions) {
-                        document.getElementById('ly--notes').value = descriptions[0] || '';
+            Promise
+                .all([fetchLink(activeTab.url), suggestNotes(activeTab.id), suggestTags()])
+                .then(([link, notes, tags]) => {
+                    document.getElementById('ly--notes').value = notes;
+                    if (link) {
+                        document.getElementById('ly--tags').value = link.tags.join(' ') + ' ';
                     }
-                    suggestTags();
-                });
+
+            })
         });
 
         document.getElementById('ly--tags').addEventListener('input', e => {

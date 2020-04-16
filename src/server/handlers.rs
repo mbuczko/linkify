@@ -102,18 +102,11 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
         (GET) (/links) => {
             let authentication = Authentication::from_token(token);
             let query = request.get_param("q");
+            let href = request.get_param("href").unwrap_or_default();
             let result = if query.is_some() {
                 vault.query(authentication, query.unwrap(), limit)
             } else {
-                vault.find_links(
-                    authentication,
-                    Link::new(
-                        request.get_param("href").unwrap_or_default().as_str(),
-                        "",
-                        None,
-                        None,
-                    ),
-                    DBLookupType::Exact, limit)
+                vault.find_links(authentication, Link::from(href.as_str()), DBLookupType::Exact, limit)
             };
             match result {
                 Ok(links) => content_encoding::apply(request, jsonize(links)),
