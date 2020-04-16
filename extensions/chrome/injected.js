@@ -225,13 +225,13 @@
         searcher.setValue();
     }
 
-    function storeSearch(omnisearch, name, callback) {
-        if (omnisearch.length > 0 && name.length > 0) {
+    function storeSearch(query, name, callback) {
+        if (query.length > 0 && name.length > 0) {
             chrome.extension.sendMessage(
                 {
                     action: 'storeSearch',
-                    omnisearch: omnisearch,
-                    searchname: name
+                    query: query,
+                    name: name
                 },
                 callback)
         }
@@ -262,11 +262,11 @@
             })
     }
 
-    function fetchLinks(omnisearch, callback) {
+    function fetchLinks(query, callback) {
         chrome.extension.sendMessage(
             {
                 action: 'matchLinks',
-                omnisearch: omnisearch
+                query: query
             },
             result => {
                 if (result.status === 200) {

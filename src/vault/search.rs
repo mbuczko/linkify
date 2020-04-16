@@ -21,7 +21,7 @@ impl Search {
 impl Vault {
     pub fn store_search(
         &self,
-        auth: &Option<Authentication>,
+        auth: Option<Authentication>,
         name: String,
         query: String,
     ) -> DBResult<i64> {
@@ -52,7 +52,7 @@ impl Vault {
     }
     pub fn find_searches(
         &self,
-        auth: &Option<Authentication>,
+        auth: Option<Authentication>,
         name: Option<&str>,
         lookup_type: DBLookupType,
     ) -> DBResult<Vec<Search>> {

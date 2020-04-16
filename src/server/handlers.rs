@@ -55,7 +55,6 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
     let token = request
         .header("authorization")
         .map_or(None, |header| header.split_whitespace().last());
-    let authentication = Authentication::from_token(token);
     let limit = request
         .get_param("limit")
         .and_then(|v| v.parse::<u16>().ok());
@@ -63,7 +62,7 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
         (POST) (/searches) => {
             match post_input!(request, {name: String, query: String}) {
                 Ok(t) => {
-                    match vault.store_search(&authentication, t.name, t.query) {
+                    match vault.store_search(Authentication::from_token(token), t.name, t.query) {
                         Ok(id) => Response {
                             status_code: 200,
                             headers: vec![("Location".into(), format!("/searches/{}", id).into())],
@@ -81,7 +80,7 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
         },
         (GET) (/searches) => {
             match vault.find_searches(
-                &authentication,
+                Authentication::from_token(token),
                 request.get_param("name").as_deref(),
                 lookup_type(request)
             ) {
@@ -91,7 +90,7 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
         },
         (GET) (/tags) => {
             let tag_name = request.get_param("name");
-            match vault.recent_tags(&authentication, tag_name.as_deref(), limit) {
+            match vault.recent_tags(Authentication::from_token(token), tag_name.as_deref(), limit) {
                 Ok(tags) => {
                     let mut result = HashMap::new();
                     result.insert("tags", tags);
@@ -101,23 +100,20 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
             }
         },
         (GET) (/links) => {
-            let omni = request.get_param("omni");
-            let result = if omni.is_some() {
-                vault.omni_search(&authentication, omni.unwrap(), limit)
+            let authentication = Authentication::from_token(token);
+            let query = request.get_param("q");
+            let result = if query.is_some() {
+                vault.query(authentication, query.unwrap(), limit)
             } else {
-                let tags: Option<Vec<String>> = request
-                    .get_param("tags")
-                    .and_then(|t| Some(t.split(",").map(String::from).collect()));
-
                 vault.find_links(
-                    &authentication,
-                    &Link::new(
+                    authentication,
+                    Link::new(
                         request.get_param("href").unwrap_or_default().as_str(),
-                        request.get_param("title").unwrap_or_default().as_str(),
-                        request.get_param("notes").as_deref(),
-                        tags,
+                        "",
+                        None,
+                        None,
                     ),
-                    lookup_type(request), limit, false)
+                    DBLookupType::Exact, limit)
             };
             match result {
                 Ok(links) => content_encoding::apply(request, jsonize(links)),

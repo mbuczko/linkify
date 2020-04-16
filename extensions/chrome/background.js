@@ -71,7 +71,7 @@
             case 'matchLinks':
               asyncRequest({
                 apikey: 'K5WwERrFYJP6lvNFOWqoEMLVAS626XVi',
-                url: 'http://localhost:8001/links?limit=10&omni=' + message.omnisearch
+                url: 'http://localhost:8001/links?limit=10&q=' + message.query
               }, responder);
               return true;
 
@@ -89,8 +89,8 @@
                 url: 'http://localhost:8001/searches',
                 method: 'POST',
                 data: {
-                  name: message.searchname,
-                  query: message.omnisearch
+                  name: message.name,
+                  query: message.query
                 }
               }, responder);
               return true;

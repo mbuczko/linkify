@@ -54,8 +54,8 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
     match matches.subcommand() {
         ("add", Some(sub_m)) => {
             match vault.add_link(
-                &Authentication::from_matches(config, sub_m),
-                &Link::from_matches(sub_m),
+                Authentication::from_matches(config, sub_m),
+                Link::from_matches(sub_m),
             ) {
                 Ok(id) => println!("Added (id={})", id),
                 Err(e) => {
@@ -66,8 +66,8 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
         }
         ("del", Some(sub_m)) => {
             match vault.del_link(
-                &Authentication::from_matches(config, sub_m),
-                &Link::from_matches(sub_m),
+                Authentication::from_matches(config, sub_m),
+                Link::from_matches(sub_m),
             ) {
                 Ok(id) => println!("Deleted (id={})", id),
                 Err(e) => {
@@ -78,10 +78,9 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
         }
         ("ls", Some(sub_m)) => {
             match vault.match_links(
-                &Authentication::from_matches(config, sub_m),
-                &Link::from_matches(sub_m),
+                Authentication::from_matches(config, sub_m),
+                Link::from_matches(sub_m),
                 None,
-                false,
             ) {
                 Ok(links) => {
                     let size = ts();
@@ -105,7 +104,7 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
         ("import", Some(sub_m)) => {
             let contents = read_file(sub_m.value_of("file").expect("Cannot read file."));
             let links: Vec<Link> = json::from_str(&contents).expect("Invalid JSON.");
-            match vault.import_links(&Authentication::from_matches(config, sub_m), links) {
+            match vault.import_links(Authentication::from_matches(config, sub_m), links) {
                 Ok(n) => println!("Imported {} links.", n),
                 Err(e) => {
                     eprintln!("Error while importing links ({:?}).", e);

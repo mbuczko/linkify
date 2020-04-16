@@ -62,7 +62,7 @@ impl Link {
 }
 
 impl Vault {
-    fn store_link(&self, link: &Link, user: &User) -> DBResult<i64> {
+    fn store_link(&self, link: Link, user: &User) -> DBResult<Link> {
         let mut conn = self.get_connection();
         let txn = conn.transaction().unwrap();
         txn.execute(
@@ -105,15 +105,15 @@ impl Vault {
                 params![id, Rc::new(values), user.id],
             )?;
         }
-        txn.commit().and(Ok(id)).map_err(Into::into)
+        txn.commit().and(Ok(link)).map_err(Into::into)
     }
-    pub fn add_link(&self, auth: &Option<Authentication>, link: &Link) -> DBResult<i64> {
+    pub fn add_link(&self, auth: Option<Authentication>, link: Link) -> DBResult<Link> {
         match self.authenticate_user(auth) {
             Ok(u) => self.store_link(link, &u),
             Err(e) => return Err(e),
         }
     }
-    pub fn del_link(&self, auth: &Option<Authentication>, link: &Link) -> DBResult<i64> {
+    pub fn del_link(&self, auth: Option<Authentication>, link: Link) -> DBResult<Link> {
         match self.authenticate_user(auth) {
             Ok(u) => {
                 let link_id = self.get_connection().query_row(
@@ -123,32 +123,31 @@ impl Vault {
                 )?;
                 self.get_connection()
                     .execute("DELETE FROM links WHERE id = ?", params![link_id])?;
-                Ok(link_id)
+                Ok(link)
             }
             Err(e) => return Err(e),
         }
     }
-    pub fn import_links(&self, auth: &Option<Authentication>, links: Vec<Link>) -> DBResult<u32> {
+    pub fn import_links(&self, auth: Option<Authentication>, links: Vec<Link>) -> DBResult<u32> {
         let user = match self.authenticate_user(auth) {
             Ok(u) => u,
             Err(e) => return Err(e),
         };
         let mut imported: u32 = 0;
         for link in links {
-            if self.store_link(&link, &user).is_ok() {
+            if let Ok(l) = self.store_link(link, &user) {
                 imported += 1;
-                println!("+ {}", link.href)
+                println!("+ {}", l.href)
             }
         }
         Ok(imported)
     }
     pub fn find_links(
         &self,
-        auth: &Option<Authentication>,
-        pattern: &Link,
+        auth: Option<Authentication>,
+        pattern: Link,
         lookup_type: DBLookupType,
         limit: Option<u16>,
-        enhanced: bool,
     ) -> DBResult<Vec<Link>> {
         let user = match self.authenticate_user(auth) {
             Ok(u) => u,
@@ -169,16 +168,17 @@ impl Vault {
         let mut query = Query::new_with_initial(
             "SELECT href, title, notes, group_concat(tag) FROM links l \
         LEFT JOIN links_tags lt ON l.id = lt.link_id \
-        LEFT JOIN tags t ON lt.tag_id = t.id ",
+        LEFT JOIN tags t ON lt.tag_id = t.id WHERE",
         );
-        query.concat_with_param("WHERE href LIKE :href AND", (":href", &href));
 
+        if !href.is_empty() {
+            query.concat_with_param("href LIKE :href AND", (":href", &href));
+        }
+        if !notes.is_empty() {
+            query.concat_with_param("notes LIKE :notes AND", (":notes", &notes));
+        }
         if !title.is_empty() {
-            // if href was not explicitly provided, treat href and title
-            // the same in enchanced query mode. this is to make query
-            // more accurate, as both href- and title will be scanned.
-
-            if enhanced && pattern.href.is_empty() {
+            if pattern.href.is_empty() {
                 query.concat_with_param(
                     "(title LIKE :title OR href LIKE :title) AND",
                     (":title", &title),
@@ -186,9 +186,6 @@ impl Vault {
             } else {
                 query.concat_with_param("title LIKE :title AND", (":title", &title));
             }
-        }
-        if !notes.is_empty() {
-            query.concat_with_param("notes LIKE :notes AND", (":notes", &notes));
         }
         query.concat_with_param("l.user_id = :id GROUP BY l.id", (":id", &user.id));
 
@@ -222,17 +219,16 @@ impl Vault {
     }
     pub fn match_links(
         &self,
-        auth: &Option<Authentication>,
-        pattern: &Link,
+        auth: Option<Authentication>,
+        pattern: Link,
         limit: Option<u16>,
-        enhanced: bool,
     ) -> DBResult<Vec<Link>> {
-        self.find_links(auth, pattern, DBLookupType::Patterned, limit, enhanced)
+        self.find_links(auth, pattern, DBLookupType::Patterned, limit)
     }
-    pub fn omni_search(
+    pub fn query(
         &self,
-        auth: &Option<Authentication>,
-        omni: String,
+        auth: Option<Authentication>,
+        q: String,
         limit: Option<u16>,
     ) -> DBResult<Vec<Link>> {
         let mut href: Vec<&str> = Vec::new();
@@ -240,7 +236,7 @@ impl Vault {
         let mut notes: Vec<&str> = Vec::new();
         let mut tags: Vec<String> = Vec::new();
 
-        for chunk in omni.split_whitespace() {
+        for chunk in q.split_whitespace() {
             let ch: Vec<_> = chunk.split(':').collect();
             if ch.len() == 2 {
                 match ch[0] {
@@ -262,11 +258,11 @@ impl Vault {
             Some(&notes.join("%").trim()),
             Some(tags),
         );
-        self.match_links(auth, &link, limit, true)
+        self.match_links(auth, link, limit)
     }
     pub fn recent_tags(
         &self,
-        auth: &Option<Authentication>,
+        auth: Option<Authentication>,
         pattern: Option<&str>,
         limit: Option<u16>,
     ) -> DBResult<Vec<Tag>> {

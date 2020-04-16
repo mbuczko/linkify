@@ -92,7 +92,7 @@ impl Vault {
             let pass = password(None, Some("New password"));
             let hashed = hash(pass, 10).expect("Couldn't hash a password for some reason");
             self.get_connection().execute(
-                "UPDATE users SET password=?1 WHERE id=?2",
+                "UPDATE users SET password = ?1 WHERE id = ?2",
                 params![hashed, u.id],
             )?;
             Ok(u)

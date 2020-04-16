@@ -61,7 +61,7 @@ impl Authentication {
 }
 
 impl Vault {
-    pub fn authenticate_user(&self, auth: &Option<Authentication>) -> DBResult<User> {
+    pub fn authenticate_user(&self, auth: Option<Authentication>) -> DBResult<User> {
         auth.as_ref().map_or(Err(Unauthenticated), |a| match a {
             Authentication::User(user_login) => self
                 .get_connection()
