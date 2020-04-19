@@ -97,14 +97,14 @@
         return tags[tags.length-1];
     }
 
-    function toggleUpdatHint(show) {
-        $('ly--update-proto').style.display = show ? 'inline-block' : 'none';
+    function toggleElem(elem, show) {
+        elem.style.display = show ? 'inline-block' : 'none';
     }
+
     function updateProto(input) {
         let value = input.value.split('://', 2);
         if (value.length === 2) {
             input.value = 'https://' + value[1];
-            toggleUpdatHint(false);
         }
     }
 
@@ -134,10 +134,13 @@
     }
 
     document.addEventListener('DOMContentLoaded', function () {
-        let href   = $('ly--url'),
-            tags   = $('ly--tags'),
-            title  = $('ly--title'),
-            update = $('ly--update-proto');
+        let href  = $('ly--url'),
+            tags  = $('ly--tags'),
+            hint  = $('ly--update-proto'),
+            note  = $('ly--notes'),
+            title = $('ly--title'),
+            storeBtn  = document.getElementsByTagName("button")[0],
+            deleteBtn = document.getElementsByTagName("button")[1];
 
         chrome.tabs.query({active: true, lastFocusedWindow: true}, tabs => {
             let activeTab = tabs[0];
@@ -148,27 +151,31 @@
             Promise
                 .all([fetchLink(activeTab.url), suggestNotes(activeTab.id), suggestTags()])
                 .then(([link, notes, _]) => {
-                    document.getElementById('ly--notes').value = notes;
                     if (link) {
                         let currentProto = activeTab.url.split('://')[0];
                         let storedProto = link.href.split('://')[0];
 
                         href.value = link.href;
                         tags.value = link.tags.join(' ') + ' ';
+                        storeBtn.innerHTML = "Update link";
 
                         // protocol update possible?
-                        toggleUpdatHint(currentProto === 'https' && storedProto === 'http');
-                        tags.focus();
+                        toggleElem(hint, currentProto === 'https' && storedProto === 'http');
                     }
-            })
+                    toggleElem(deleteBtn, link);
+                    note.value = notes;
+                    tags.focus();
+                })
         });
 
-        update.addEventListener('click', e => {
+        hint.addEventListener('click', e => {
             updateProto(href);
+            toggleElem(hint, false);
         });
         tags.addEventListener('input', e => {
             suggestTags(currentTag(e.target));
         });
     });
+
 })();
 

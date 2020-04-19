@@ -73,8 +73,33 @@
             border-radius: 2px;
             vertical-align: middle;
         }
+        .ly--button {
+            border: none;
+            padding: 0.6em 1.2em;
+            background: #7684f3;
+            color: #fff;
+            font-size: 1em;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            cursor: pointer;
+            display: inline-block;
+            margin: 8px 0 8px 8px;
+            border-radius: 2px;
+            float: right;
+        }
+        .ly--danger {
+            background: #c0392b;
+            display: none;
+        }
+        button:hover {
+            background: #3e51eb;
+        }
+        button.ly--danger:hover {
+            background: #b0291b;
+        }
         #ly--update-proto {
             width: auto;
+            display: none;
             margin-left: 68px;
             font-size: 0.8em;
             margin-bottom: 6px;
@@ -88,7 +113,7 @@
             <li>
                 <label>URL</label>
                 <input id="ly--url" type="text">
-                <a href="#" id="ly--update-proto"> Update the link to HTTPS (recommended)</a>
+                <a href="#" id="ly--update-proto"> Update the URL to HTTPS (recommended)</a>
             </li>
             <li>
                 <label>Title</label>
@@ -122,6 +147,9 @@
             </li>
         </ul>
     </form>
+    <button class="ly--button"> Save link </button>
+    <button class="ly--button ly--danger"> Remove </button>
+
     <script src="popup.js"></script>
 </body>
 </html>
