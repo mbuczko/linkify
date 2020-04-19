@@ -146,7 +146,6 @@
             let activeTab = tabs[0];
 
             href.value = activeTab.url;
-            title.value = activeTab.title;
 
             Promise
                 .all([fetchLink(activeTab.url), suggestNotes(activeTab.id), suggestTags()])
@@ -157,13 +156,18 @@
 
                         href.value = link.href;
                         tags.value = link.tags.join(' ') + ' ';
+                        note.value = link.notes;
+                        title.value = link.title;
+
                         storeBtn.innerHTML = "Update link";
 
                         // protocol update possible?
                         toggleElem(hint, currentProto === 'https' && storedProto === 'http');
+                        toggleElem(deleteBtn, true);
+                    } else {
+                        title.value = activeTab.title;
+                        note.value = notes;
                     }
-                    toggleElem(deleteBtn, link);
-                    note.value = notes;
                     tags.focus();
                 })
         });
@@ -190,7 +194,24 @@
                 })
         })
         storeBtn.addEventListener('click', e => {
+            chrome.extension.sendMessage(
+                {
+                    action: 'storeLink',
+                    url:   href.value,
+                    tags:  tags.value.split(' '),
+                    title: title.value,
+                    notes: note.value,
+                    flags: Array.from(document.getElementsByTagName('input'))
+                        .filter(e=>e.type === 'checkbox' && e.checked)
+                        .map(e=>e.value)
+                },
+                result => {
+                    if (result.status === 204) {
+                        window.close();
+                    } else {
 
+                    }
+                })
         })
     });
 

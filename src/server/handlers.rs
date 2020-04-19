@@ -5,6 +5,7 @@ use crate::vault::link::Link;
 use crate::vault::Vault;
 
 use failure::Error;
+use log::debug;
 use miniserde::{json, Serialize};
 use rouille::content_encoding;
 use rouille::{post_input, router, try_or_400, Request, Response, ResponseBody};
@@ -111,6 +112,36 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
             match result {
                 Ok(links) => content_encoding::apply(request, jsonize(links)),
                 Err(e) => err_response(e)
+            }
+        },
+        (POST) (/links) => {
+            match post_input!(request, {href: String, title: String, notes: String, tags: String, flags: String}) {
+                Ok(t) => {
+                    debug!("{:?}", t);
+                    let tags: Vec<_> = t.tags.split(',').into_iter()
+                        .map(|v| v.trim().to_string())
+                        .filter(|v| !v.is_empty())
+                        .collect();
+                    let notes = t.notes.trim();
+                    let link = Link::new(
+                        &t.href,
+                        &t.title,
+                        if notes.is_empty() { None } else { Some(notes) },
+                        if tags.is_empty() { None } else { Some(tags) }
+                    );
+                    let result = vault.add_link(Authentication::from_token(token), link);
+                    match result {
+                        Ok(_) =>  Response::empty_204(),
+                        Err(e) => {
+                            debug!("{:?}", e);
+                            err_response(e)
+                        }
+                    }
+                }
+                Err(e) => {
+                    let json = try_or_400::ErrJson::from_err(&e);
+                    Response::json(&json).with_status_code(400)
+                }
             }
         },
         (DELETE) (/links) => {

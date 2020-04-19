@@ -78,24 +78,24 @@ impl Vault {
         )?;
 
         // note that last_insert_rowid returns 0 for already existing URLs
-        let id = match txn.last_insert_rowid() {
-            0 => txn
-                .query_row(
-                    "SELECT id FROM links WHERE href = ?1 AND user_id = ?2",
-                    params![link.href, user.id],
-                    |row| row.get(0),
-                )
-                .unwrap(),
-            n => n,
-        };
+        let link_id: i64 = txn
+            .query_row(
+                "SELECT id FROM links WHERE href = ?1 AND user_id = ?2",
+                params![link.href, user.id],
+                |row| row.get(0),
+            )
+            .unwrap();
 
         // remove associations with tags assigned to given link so far
-        txn.execute("DELETE FROM links_tags WHERE link_id = ?1", params![id])?;
+        txn.execute(
+            "DELETE FROM links_tags WHERE link_id = ?1",
+            params![link_id],
+        )?;
 
         // join link with its tags (if provided)
-        if let Some(tv) = &link.tags {
+        if let Some(vt) = &link.tags {
             let mut values: Vec<SqlValue> = Vec::new();
-            for tag in tv {
+            for tag in vt {
                 txn.execute(
                     "INSERT INTO tags(tag, user_id) VALUES(?1, ?2) \
             ON CONFLICT(tag, user_id) \
@@ -107,7 +107,7 @@ impl Vault {
             txn.execute(
                 "INSERT INTO links_tags(link_id, tag_id) \
             SELECT ?1, id FROM tags WHERE tag IN rarray(?2) AND user_id = ?3",
-                params![id, Rc::new(values), user.id],
+                params![link_id, Rc::new(values), user.id],
             )?;
         }
         txn.commit().and(Ok(link)).map_err(Into::into)
@@ -219,7 +219,9 @@ impl Vault {
                 &row.get_unwrap::<_, String>(1),
                 row.get::<_, String>(2).ok().as_deref(),
                 row.get::<_, String>(3)
-                    .map_or(None, |t| Some(t.split(',').map(String::from).collect())),
+                    .map_or(Some(Default::default()), |t| {
+                        Some(t.split(',').map(String::from).collect())
+                    }),
             ))
         })?;
         Result::from_iter(rows).map_err(Into::into)

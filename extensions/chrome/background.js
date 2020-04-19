@@ -86,6 +86,21 @@
               }, responder);
               return true;
 
+            case 'storeLink':
+              asyncRequest({
+                method: 'POST',
+                apikey: 'qFyNzKAh6ETuf4OjLXG5Ko5vU4Zy3Xok',
+                url: 'http://localhost:8001/links',
+                data: {
+                  href: message.url,
+                  tags: message.tags,
+                  flags: message.flags,
+                  title: message.title,
+                  notes: message.notes
+                }
+              }, responder);
+              return true;
+
             case 'matchLinks':
               asyncRequest({
                 apikey: 'qFyNzKAh6ETuf4OjLXG5Ko5vU4Zy3Xok',
