@@ -1,7 +1,7 @@
 use crate::db::query::Query;
 use crate::db::DBLookupType::{Exact, Patterned};
 use crate::db::{DBLookupType, DBResult};
-use crate::utils::digest;
+use crate::utils::{digest, path};
 use crate::vault::auth::Authentication;
 use crate::vault::tags::Tag;
 use crate::vault::user::User;
@@ -159,10 +159,7 @@ impl Vault {
             Err(e) => return Err(e),
         };
         let tags = pattern.tags.to_owned().unwrap_or_default();
-        let href = match lookup_type {
-            Exact => pattern.href.to_owned(),
-            Patterned => Query::patternize(&pattern.href),
-        };
+        let path = path(pattern.href);
         let title = Query::patternize(&pattern.title);
         let limit = limit.unwrap_or(0);
         let notes = pattern
@@ -175,15 +172,8 @@ impl Vault {
         LEFT JOIN links_tags lt ON l.id = lt.link_id \
         LEFT JOIN tags t ON lt.tag_id = t.id WHERE",
         );
-
-        if !href.is_empty() {
-            query.concat_with_param("href LIKE :href AND", (":href", &href));
-        }
-        if !notes.is_empty() {
-            query.concat_with_param("notes LIKE :notes AND", (":notes", &notes));
-        }
         if !title.is_empty() {
-            if pattern.href.is_empty() {
+            if path.is_empty() {
                 query.concat_with_param(
                     "(title LIKE :title OR href LIKE :title) AND",
                     (":title", &title),
@@ -191,6 +181,16 @@ impl Vault {
             } else {
                 query.concat_with_param("title LIKE :title AND", (":title", &title));
             }
+        }
+        if !notes.is_empty() {
+            query.concat_with_param("notes LIKE :notes AND", (":notes", &notes));
+        }
+        let href = match lookup_type {
+            Exact => path,
+            Patterned => Query::patternize(&path),
+        };
+        if !href.is_empty() {
+            query.concat_with_param("path(href) LIKE :href AND", (":href", &href));
         }
         query.concat_with_param("l.user_id = :id GROUP BY l.id", (":id", &user.id));
 

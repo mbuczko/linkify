@@ -1,8 +1,8 @@
+use rand::Rng;
 use rpassword::read_password;
 use sha1::Sha1;
 use std::fs::File;
 use std::io::{stdout, BufReader, Read, Write as IoWrite};
-use rand::Rng;
 
 const KEY_CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ\
                              abcdefghijklmnopqrstuvwxyz\
@@ -81,4 +81,9 @@ pub fn truncate(input: &str, len: i16) -> &str {
         }
     }
     &input[..byte_end]
+}
+
+pub fn path(url: String) -> String {
+    let parts = url.splitn(2, "://").collect::<Vec<_>>();
+    parts.last().map_or(String::default(), |v| v.to_string())
 }

@@ -116,7 +116,7 @@ Move your links straight into linkify-managed db:
 - do =jq= magic to adjust json to our needs:
 
 #+begin_src
-jq 'map(.tags |= split(" "))|map(.shared |= test("yes"))|map(.toread |= test("yes"))' pinboard_export.json > linkify.json  
+jq '[.[] | .["title"] = .description | .["notes"] = .extended | del(.description, .extended)] | map(.tags |= split(" "))|map(.shared |= test("yes"))|map(.toread |= test("yes"))' pinboard_export.json > linkify.json
 #+end_src
 
 - import linkify.json to linkify:

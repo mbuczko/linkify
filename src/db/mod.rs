@@ -1,5 +1,6 @@
 pub mod query;
 
+use crate::utils::path;
 use failure::Fail;
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::vtab::array;
@@ -35,13 +36,12 @@ impl From<SqliteError> for DBError {
 
 fn add_path_function(conn: &Connection) -> Result<(), DBError> {
     conn.create_scalar_function("path", 1, true, move |ctx| {
-        let url: String = ctx.get::<String>(0)?;
-        let parts = url.split("://").collect::<Vec<_>>();
-        let path = parts.last().map_or(String::default(), |v| v.to_string());
-        Ok(path)
+        let url = ctx.get::<String>(0)?;
+        Ok(path(url))
     })?;
     Ok(())
 }
+
 pub fn conn_manager(db: &str) -> SqliteConnectionManager {
     SqliteConnectionManager::file(db).with_init(|c| {
         add_path_function(c).expect("Cannot initialize SQLite function");
