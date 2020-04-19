@@ -1,5 +1,9 @@
 (function () {
 
+    function $(id) {
+        return document.getElementById(id);
+    }
+
     function fetchLink(url) {
         return new Promise(
             (resolve, reject) => {
@@ -93,6 +97,17 @@
         return tags[tags.length-1];
     }
 
+    function toggleUpdatHint(show) {
+        $('ly--update-proto').style.display = show ? 'inline-block' : 'none';
+    }
+    function updateProto(input) {
+        let value = input.value.split('://', 2);
+        if (value.length === 2) {
+            input.value = 'https://' + value[1];
+            toggleUpdatHint(false);
+        }
+    }
+
     function selectTag(e) {
         let input = document.getElementById('ly--tags'),
             value = input.value,
@@ -119,24 +134,41 @@
     }
 
     document.addEventListener('DOMContentLoaded', function () {
+        let href   = $('ly--url'),
+            tags   = $('ly--tags'),
+            title  = $('ly--title'),
+            update = $('ly--update-proto');
+
         chrome.tabs.query({active: true, lastFocusedWindow: true}, tabs => {
             let activeTab = tabs[0];
-            document.getElementById('ly--url').value = activeTab.url;
-            document.getElementById('ly--title').value = activeTab.title;
+
+            href.value = activeTab.url;
+            title.value = activeTab.title;
+
             Promise
                 .all([fetchLink(activeTab.url), suggestNotes(activeTab.id), suggestTags()])
-                .then(([link, notes, tags]) => {
+                .then(([link, notes, _]) => {
                     document.getElementById('ly--notes').value = notes;
                     if (link) {
-                        document.getElementById('ly--tags').value = link.tags.join(' ') + ' ';
-                    }
+                        let currentProto = activeTab.url.split('://')[0];
+                        let storedProto = link.href.split('://')[0];
 
+                        href.value = link.href;
+                        tags.value = link.tags.join(' ') + ' ';
+
+                        // protocol update possible?
+                        toggleUpdatHint(currentProto === 'https' && storedProto === 'http');
+                        tags.focus();
+                    }
             })
         });
 
-        document.getElementById('ly--tags').addEventListener('input', e => {
+        update.addEventListener('click', e => {
+            updateProto(href);
+        });
+        tags.addEventListener('input', e => {
             suggestTags(currentTag(e.target));
-        })
+        });
     });
 })();
 
