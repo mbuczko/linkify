@@ -151,7 +151,7 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
                     exit(1);
                 }
             },
-            ("gen", Some(sub_m)) => match vault.generate_key(sub_m.value_of("login").unwrap()) {
+            ("token", Some(sub_m)) => match vault.generate_key(sub_m.value_of("login").unwrap()) {
                 Ok((_u, k)) => println!(
                     "Generated API key: {}\nSample cURL:\n\n  \
                     curl -H 'Authorization: Bearer {}' \

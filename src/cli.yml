@@ -114,7 +114,7 @@ subcommands:
             args:
               - login:
                   help: user's identifier (or part of it) to list
-        - gen:
+        - token:
             about: Generate API key
             args:
               - login:
