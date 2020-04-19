@@ -175,6 +175,23 @@
         tags.addEventListener('input', e => {
             suggestTags(currentTag(e.target));
         });
+        deleteBtn.addEventListener('click', e => {
+            chrome.extension.sendMessage(
+                {
+                    action: 'delLink',
+                    url: href.value
+                },
+                result => {
+                    if (result.status === 204) {
+                        window.close();
+                    } else {
+
+                    }
+                })
+        })
+        storeBtn.addEventListener('click', e => {
+
+        })
     });
 
 })();

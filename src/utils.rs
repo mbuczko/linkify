@@ -83,7 +83,7 @@ pub fn truncate(input: &str, len: i16) -> &str {
     &input[..byte_end]
 }
 
-pub fn path(url: String) -> String {
+pub fn path(url: &str) -> String {
     let parts = url.splitn(2, "://").collect::<Vec<_>>();
     parts.last().map_or(String::default(), |v| v.to_string())
 }

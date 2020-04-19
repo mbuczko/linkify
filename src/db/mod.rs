@@ -37,7 +37,7 @@ impl From<SqliteError> for DBError {
 fn add_path_function(conn: &Connection) -> Result<(), DBError> {
     conn.create_scalar_function("path", 1, true, move |ctx| {
         let url = ctx.get::<String>(0)?;
-        Ok(path(url))
+        Ok(path(url.as_str()))
     })?;
     Ok(())
 }

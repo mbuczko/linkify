@@ -15,7 +15,7 @@
     if (config.apikey) {
       xhr.setRequestHeader('Authorization', 'Bearer ' + config.apikey);
     }
-    if (config.method === 'POST') {
+    if (config.method === 'POST' || config.method === 'DELETE') {
       xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
     }
     if (config.async && config.callback) {
@@ -70,21 +70,32 @@
           switch (message.action) {
             case 'getLink':
               asyncRequest({
-                apikey: 'K5WwERrFYJP6lvNFOWqoEMLVAS626XVi',
+                apikey: 'qFyNzKAh6ETuf4OjLXG5Ko5vU4Zy3Xok',
                 url: 'http://localhost:8001/links?href=' + message.url
+              }, responder);
+              return true;
+
+            case 'delLink':
+              asyncRequest({
+                method: 'DELETE',
+                apikey: 'qFyNzKAh6ETuf4OjLXG5Ko5vU4Zy3Xok',
+                url: 'http://localhost:8001/links',
+                data: {
+                  url: message.url
+                }
               }, responder);
               return true;
 
             case 'matchLinks':
               asyncRequest({
-                apikey: 'K5WwERrFYJP6lvNFOWqoEMLVAS626XVi',
+                apikey: 'qFyNzKAh6ETuf4OjLXG5Ko5vU4Zy3Xok',
                 url: 'http://localhost:8001/links?limit=10&q=' + message.query
               }, responder);
               return true;
 
             case 'matchSearches':
               asyncRequest({
-                apikey: 'K5WwERrFYJP6lvNFOWqoEMLVAS626XVi',
+                apikey: 'qFyNzKAh6ETuf4OjLXG5Ko5vU4Zy3Xok',
                 url: 'http://localhost:8001/searches?name=' + message.searchname + '&exact=' + message.exact,
                 method: 'GET',
               }, responder);
@@ -92,7 +103,7 @@
 
             case 'storeSearch':
               asyncRequest({
-                apikey: 'K5WwERrFYJP6lvNFOWqoEMLVAS626XVi',
+                apikey: 'qFyNzKAh6ETuf4OjLXG5Ko5vU4Zy3Xok',
                 url: 'http://localhost:8001/searches',
                 method: 'POST',
                 data: {
@@ -104,7 +115,7 @@
 
             case 'suggestTags':
               asyncRequest({
-                apikey: 'K5WwERrFYJP6lvNFOWqoEMLVAS626XVi',
+                apikey: 'qFyNzKAh6ETuf4OjLXG5Ko5vU4Zy3Xok',
                 url: 'http://localhost:8001/tags?name=' + message.name,
                 method: 'GET'
               }, responder);

@@ -113,6 +113,21 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
                 Err(e) => err_response(e)
             }
         },
+        (DELETE) (/links) => {
+            match post_input!(request, {url: String}) {
+                Ok(t) => {
+                    let result = vault.del_link(Authentication::from_token(token), Link::from(t.url.as_str()));
+                    match result {
+                        Ok(_) =>  Response::empty_204(),
+                        Err(e) => err_response(e)
+                    }
+                }
+                Err(e) => {
+                    let json = try_or_400::ErrJson::from_err(&e);
+                    Response::json(&json).with_status_code(400)
+                }
+            }
+        },
         _ => {
            Response::empty_404()
         }

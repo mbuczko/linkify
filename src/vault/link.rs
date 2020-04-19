@@ -119,18 +119,19 @@ impl Vault {
         }
     }
     pub fn del_link(&self, auth: Option<Authentication>, link: Link) -> DBResult<Link> {
+        let path = path(link.href.as_str());
         match self.authenticate_user(auth) {
             Ok(u) => {
                 let link_id = self.get_connection().query_row(
-                    "SELECT id FROM LINKS WHERE href = ? AND user_id = ?",
-                    params![&link.href, u.id],
+                    "SELECT id FROM links WHERE path(href) = ?1 AND user_id = ?2",
+                    params![&path, u.id],
                     |row| row.get::<_, i64>(0),
                 )?;
                 self.get_connection()
                     .execute("DELETE FROM links WHERE id = ?", params![link_id])?;
                 Ok(link)
             }
-            Err(e) => return Err(e),
+            Err(e) => Err(e),
         }
     }
     pub fn import_links(&self, auth: Option<Authentication>, links: Vec<Link>) -> DBResult<u32> {
@@ -159,7 +160,7 @@ impl Vault {
             Err(e) => return Err(e),
         };
         let tags = pattern.tags.to_owned().unwrap_or_default();
-        let path = path(pattern.href);
+        let path = path(pattern.href.as_str());
         let title = Query::patternize(&pattern.title);
         let limit = limit.unwrap_or(0);
         let notes = pattern
@@ -185,6 +186,7 @@ impl Vault {
         if !notes.is_empty() {
             query.concat_with_param("notes LIKE :notes AND", (":notes", &notes));
         }
+
         let href = match lookup_type {
             Exact => path,
             Patterned => Query::patternize(&path),
