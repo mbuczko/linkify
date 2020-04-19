@@ -3,11 +3,11 @@ pub mod query;
 use failure::Fail;
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::vtab::array;
-use rusqlite::Error as SqliteError;
+use rusqlite::{Connection, Error as SqliteError};
 
 #[derive(Debug, Fail)]
 pub enum DBError {
-    #[fail(display = "Database error")]
+    #[fail(display = "Database internal error")]
     Sqlite(SqliteError),
 
     #[fail(display = "Unauthenticated request")]
@@ -33,8 +33,18 @@ impl From<SqliteError> for DBError {
     }
 }
 
+fn add_path_function(conn: &Connection) -> Result<(), DBError> {
+    conn.create_scalar_function("path", 1, true, move |ctx| {
+        let url: String = ctx.get::<String>(0)?;
+        let parts = url.split("://").collect::<Vec<_>>();
+        let path = parts.last().map_or(String::default(), |v| v.to_string());
+        Ok(path)
+    })?;
+    Ok(())
+}
 pub fn conn_manager(db: &str) -> SqliteConnectionManager {
     SqliteConnectionManager::file(db).with_init(|c| {
+        add_path_function(c).expect("Cannot initialize SQLite function");
         array::load_module(c).unwrap();
         c.execute_batch("PRAGMA foreign_keys=1;")
     })
