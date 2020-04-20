@@ -71,7 +71,7 @@
             case 'getLink':
               asyncRequest({
                 apikey: 'qFyNzKAh6ETuf4OjLXG5Ko5vU4Zy3Xok',
-                url: 'http://localhost:8001/links?href=' + message.url
+                url: 'http://localhost:8001/links?href=' + encodeURIComponent(message.url)
               }, responder);
               return true;
 

@@ -5,7 +5,7 @@ use crate::vault::link::Link;
 use crate::vault::Vault;
 
 use failure::Error;
-use log::debug;
+use log::error;
 use miniserde::{json, Serialize};
 use rouille::content_encoding;
 use rouille::{post_input, router, try_or_400, Request, Response, ResponseBody};
@@ -70,7 +70,10 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
                             data: ResponseBody::empty(),
                             upgrade: None,
                         },
-                        Err(e) => err_response(e)
+                        Err(e) => {
+                            error!("{:?}", e);
+                            err_response(e)
+                        }
                     }
                 }
                 Err(e) => {
@@ -97,7 +100,10 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
                     result.insert("tags", tags);
                     content_encoding::apply(request, jsonize(result))
                 }
-                Err(e) => err_response(e)
+                Err(e) => {
+                    error!("{:?}", e);
+                    err_response(e)
+                }
             }
         },
         (GET) (/links) => {
@@ -111,7 +117,10 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
             };
             match result {
                 Ok(links) => content_encoding::apply(request, jsonize(links)),
-                Err(e) => err_response(e)
+                Err(e) => {
+                    error!("{:?}", e);
+                    err_response(e)
+                }
             }
         },
         (POST) (/links) => {
@@ -133,7 +142,7 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
                     match result {
                         Ok(_) =>  Response::empty_204(),
                         Err(e) => {
-                            debug!("{:?}", e);
+                            error!("{:?}", e);
                             err_response(e)
                         }
                     }
@@ -150,7 +159,10 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
                     let result = vault.del_link(Authentication::from_token(token), Link::from(t.url.as_str()));
                     match result {
                         Ok(_) =>  Response::empty_204(),
-                        Err(e) => err_response(e)
+                        Err(e) => {
+                            error!("{:?}", e);
+                            err_response(e)
+                        }
                     }
                 }
                 Err(e) => {

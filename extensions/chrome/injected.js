@@ -301,7 +301,7 @@
             saveInput.addEventListener('input', debounce(e => {
                 let searchName = e.target.value;
                 if (searchName.length > 0) {
-                    fetchSearches(searchName, true, function (result) {
+                    fetchSearches(searchName, true, result => {
                         toggleWarning(
                             result &&
                             result.status === 200 &&
@@ -324,6 +324,8 @@
                     });
                 }
             }, 250));
+
+            document.querySelector('.ly--overlay').addEventListener('click', modal.close)
         });
 
 
