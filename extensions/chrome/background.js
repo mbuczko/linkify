@@ -56,8 +56,8 @@
         })
         ],
         actions: [new chrome.declarativeContent.ShowPageAction()]
-      }]);
-    });
+      }])
+    })
 
     chrome.extension.onMessage.addListener(
         function(message, sender, reply) {
@@ -136,6 +136,31 @@
               }, responder);
               return true;
 
+            case 'setIcon':
+              chrome.pageAction.setIcon({
+                path: message.iconPath,
+                tabId: message.tabId
+              });
+              break;
+
+            case 'updateIcon':
+              chrome.tabs.query({active: true, lastFocusedWindow: true}, tabs => {
+                let activeTab = tabs[0];
+
+                asyncRequest({
+                  apikey: 'qFyNzKAh6ETuf4OjLXG5Ko5vU4Zy3Xok',
+                  url: 'http://localhost:8001/links?href=' + encodeURIComponent(activeTab.url)
+                }, result => {
+                  if (result && result.status === 200 && JSON.parse(result.response).length) {
+                    chrome.pageAction.setIcon({
+                      path: 'icon128_full.png',
+                      tabId: activeTab.id
+                    });
+                  }
+                })
+              })
+              return true;
+
             case 'openTab':
               chrome.tabs.create({
                 active: true,
@@ -147,4 +172,3 @@
   }
   window.addEventListener('load', backgroundInit)
 })();
-

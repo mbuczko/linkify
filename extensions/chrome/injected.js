@@ -325,7 +325,7 @@
                 }
             }, 250));
 
-            document.querySelector('.ly--overlay').addEventListener('click', modal.close)
+            document.querySelector('.ly--overlay').addEventListener('click', modal.close);
         });
 
 
@@ -340,6 +340,9 @@
             }
         }
     }, false);
+
+    // update the icon based on the response from /links endpoint
+    chrome.extension.sendMessage({ action: 'updateIcon' })
 })();
 
 

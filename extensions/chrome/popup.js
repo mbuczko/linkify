@@ -79,6 +79,14 @@
         )
     }
 
+    function setIcon(path) {
+        chrome.extension.sendMessage(
+            {
+                action: 'setIcon',
+                iconPath: path
+            })
+    }
+
     function isTagUsed(tags, tag) {
         for (let i in tags) {
             if (tags[i] === tag) return true;
