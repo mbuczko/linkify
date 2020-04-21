@@ -126,7 +126,6 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
         (POST) (/links) => {
             match post_input!(request, {href: String, title: String, notes: String, tags: String, flags: String}) {
                 Ok(t) => {
-                    debug!("{:?}", t);
                     let tags: Vec<_> = t.tags.split(',').into_iter()
                         .map(|v| v.trim().to_string())
                         .filter(|v| !v.is_empty())

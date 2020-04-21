@@ -209,7 +209,7 @@
             a.appendChild(hreftext);
             span.appendChild(desctext);
             node.appendChild(a);
-            if (tags) {
+            if (tags && tags.length) {
                 let span = document.createElement('span'),
                     tagsnode = document.createTextNode(tags.join(' '));
 
