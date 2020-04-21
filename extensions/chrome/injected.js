@@ -227,8 +227,7 @@
 
     function storeSearch(query, name, callback) {
         if (query.length > 0 && name.length > 0) {
-            chrome.extension.sendMessage(
-                {
+            chrome.extension.sendMessage({
                     action: 'storeSearch',
                     query: query,
                     name: name
@@ -238,8 +237,7 @@
     }
 
     function fetchSearches(name, exact, callback) {
-        chrome.extension.sendMessage(
-            {
+        chrome.extension.sendMessage({
                 action: 'matchSearches',
                 searchname: name,
                 exact: exact
@@ -263,8 +261,7 @@
     }
 
     function fetchLinks(query, callback) {
-        chrome.extension.sendMessage(
-            {
+        chrome.extension.sendMessage({
                 action: 'matchLinks',
                 query: query
             },
