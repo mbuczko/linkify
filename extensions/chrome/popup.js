@@ -79,12 +79,8 @@
         )
     }
 
-    function setIcon(path) {
-        chrome.extension.sendMessage(
-            {
-                action: 'setIcon',
-                iconPath: path
-            })
+    function updateIcon() {
+        chrome.extension.sendMessage({ action: 'updateIcon' })
     }
 
     function isTagUsed(tags, tag) {
@@ -195,6 +191,7 @@
                 },
                 result => {
                     if (result.status === 204) {
+                        updateIcon();
                         window.close();
                     } else {
 
@@ -215,6 +212,7 @@
                 },
                 result => {
                     if (result.status === 204) {
+                        updateIcon();
                         window.close();
                     } else {
 

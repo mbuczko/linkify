@@ -151,12 +151,12 @@
                   apikey: 'qFyNzKAh6ETuf4OjLXG5Ko5vU4Zy3Xok',
                   url: 'http://localhost:8001/links?href=' + encodeURIComponent(activeTab.url)
                 }, result => {
-                  if (result && result.status === 200 && JSON.parse(result.response).length) {
-                    chrome.pageAction.setIcon({
-                      path: 'icon128_full.png',
-                      tabId: activeTab.id
-                    });
-                  }
+                  chrome.pageAction.setIcon({
+                    tabId: activeTab.id,
+                    path: (result && result.status === 200 && JSON.parse(result.response).length) ?
+                        'icon128_full.png' :
+                        'icon128.png'
+                  });
                 })
               })
               return true;
