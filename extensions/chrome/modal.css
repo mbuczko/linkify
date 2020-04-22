@@ -93,8 +93,6 @@
   position: absolute;
   top: 32px;
   right: 10px;
-  background: #eee;
-  border-radius: 3px;
   color: #aaa;
   font-size: 10px;
   padding: 0 4px;
@@ -115,6 +113,7 @@
   line-height: 16px;
   font-family: 'Input Mono Condensed', 'Droid Sans Mono', Monaco, monospace;
   font-weight: 400;
+  text-decoration: none;
   padding: 0;
   margin: 0;
 }
@@ -122,6 +121,7 @@
 #ly--content-links a:hover {
   color: #1c99db !important;
   opacity: 1;
+  text-decoration: underline;
 }
 
 #ly--content-links span {
@@ -154,10 +154,6 @@
   background: #eee;
 }
 
-#ly--content-links li.selected a {
-  color: #393939;
-}
-
 #ly--content-search-saver {
   display: none;
   padding: 60px;
@@ -167,6 +163,17 @@
   display: none;
   color: red;
   font-size: 12px;
+}
+
+#ly--no-results {
+  text-align: center;
+  display: none;
+}
+
+#ly--no-results span {
+  font-size: 0.9em;
+  display: inline-block;
+  margin-top: 2px;
 }
 
 #ly--content-spinner {

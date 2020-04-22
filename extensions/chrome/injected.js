@@ -222,6 +222,8 @@
             node.appendChild(div);
             ul.appendChild(node);
         });
+        toggle($('ly--no-results'), items.length === 0);
+
         if (callback) callback();
         searcher.setValue();
     }
