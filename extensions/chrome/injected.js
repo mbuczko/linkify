@@ -193,8 +193,7 @@
                 a = document.createElement('a'),
                 span = document.createElement('span'),
                 div = document.createElement('div'),
-                hreftext = document.createTextNode(title),
-                desctext = document.createTextNode(notes);
+                txt = document.createTextNode(title);
 
             a.href = link;
             a.dataset.type = type;
@@ -206,8 +205,7 @@
             if (handler) {
                 a.addEventListener('click', handler);
             }
-            a.appendChild(hreftext);
-            span.appendChild(desctext);
+            a.appendChild(txt);
             node.appendChild(a);
             if (tags && tags.length) {
                 let span = document.createElement('span'),
@@ -217,7 +215,10 @@
                 span.appendChild(tagsnode);
                 div.appendChild(span);
             }
-            div.appendChild(span);
+            if (notes && notes.length) {
+                span.appendChild(document.createTextNode(notes));
+                div.appendChild(span);
+            }
             node.appendChild(div);
             ul.appendChild(node);
         });

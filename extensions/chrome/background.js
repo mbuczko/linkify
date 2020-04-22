@@ -102,9 +102,10 @@
               return true;
 
             case 'matchLinks':
+              let q = message.query.trim();
               asyncRequest({
                 apikey: 'qFyNzKAh6ETuf4OjLXG5Ko5vU4Zy3Xok',
-                url: 'http://localhost:8001/links?limit=10&q=' + message.query
+                url: 'http://localhost:8001/links?limit=10' + (q && q.length ? '&q='+q : '')
               }, responder);
               return true;
 

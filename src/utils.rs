@@ -85,5 +85,11 @@ pub fn truncate(input: &str, len: i16) -> &str {
 
 pub fn path(url: &str) -> String {
     let parts = url.splitn(2, "://").collect::<Vec<_>>();
-    parts.last().map_or(String::default(), |v| v.to_string())
+    parts.last().map_or(String::default(), |v| {
+        let mut result = v.to_string();
+        if result.ends_with('/') {
+            result.pop();
+        }
+        result
+    })
 }
