@@ -342,7 +342,14 @@
     }, false);
 
     // update the icon based on the response from /links endpoint
-    chrome.extension.sendMessage({ action: 'updateIcon' })
+    chrome.storage.sync.get(['token', 'server'], settings => {
+        if (settings && settings.token && settings.server) {
+            chrome.extension.sendMessage({
+                action: 'updateIcon',
+                settings: settings
+            })
+        }
+    });
 })();
 
 

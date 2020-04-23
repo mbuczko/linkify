@@ -87,14 +87,22 @@
             border-radius: 2px;
             float: right;
         }
-        .ly--danger {
+        .ly--uninitialized,
+        .ly--connection-error {
+            display: none;
+        }
+        .ly--remove,
+        .ly--init {
             background: #c0392b;
             display: none;
+        }
+        .ly--init {
         }
         button:hover {
             background: #3e51eb;
         }
-        button.ly--danger:hover {
+        button.ly--remove:hover,
+        button.ly--init:hover {
             background: #b0291b;
         }
         #ly--update-proto {
@@ -109,46 +117,83 @@
 </head>
 <body>
     <form class="ly--add-link-popup">
-        <ul>
-            <li>
-                <label>URL</label>
-                <input id="ly--url" type="text">
-                <a href="#" id="ly--update-proto"> Update the URL to HTTPS (recommended)</a>
-            </li>
-            <li>
-                <label>Title</label>
-                <input id="ly--title" type="text">
-            </li>
-            <li>
-                <label>Notes</label>
-                <textarea id="ly--notes" rows="5"></textarea>
-            </li>
-            <li class="flags">
-                <label></label>
-                <label class="flag">
-                    <input type="checkbox" value="public">public
-                </label>
-                <label class="flag">
-                    <input type="checkbox" value="toread">read later
-                </label>
-                <label class="flag">
-                    <input type="checkbox" value="favourite">favourite
-                </label>
-            </li>
-            <li>
-                <label>Tags</label>
-                <input type="text" class="tags" id="ly--tags"/>
-            </li>
-            <li class="suggests">
-                <label>Suggest</label>
-                <span id="ly--taglist" class="tags">
-                    <!-- list of suggested tags goes here -->
+        <div class="ly--connection-error ly--panel">
+            <pre>
+Oops, seems like Linkify server is down :(
+
+Start the server running Linkify in server-mode:
+
+                linkify <strong>server</strong>
+
+For more information hop on the project<a href="https://github.com/mbuczko/linkify">github</a> page.
+            </pre>
+        </div>
+        <div class="ly--uninitialized ly--panel">
+            <pre>
+Uh, oh... Seems like you didn't configure the plugin yet.
+To get a token, run linkify from a command-line as follows:
+
+                linkify users <strong>token</strong> &lt;username&gt;
+
+and be sure to run Linkify in server mode afterwards:
+
+                linkify <strong>server</strong>
+
+For more information hop on the project<a href="https://github.com/mbuczko/linkify">github</a> page.
+            </pre>
+            <ul>
+                <li>
+                    <label>API token</label>
+                    <input id="ly--token" type="text" autofocus>
+                </li>
+                <li>
+                    <label>Linkify</label>
+                    <input id="ly--server" type="text" value="http://127.0.0.1:8001">
+                </li>
+            </ul>
+        </div>
+        <div class="ly--initialized ly--panel">
+            <ul>
+                <li>
+                    <label>URL</label>
+                    <input id="ly--url" type="text">
+                    <a href="#" id="ly--update-proto"> Update the URL to HTTPS (recommended)</a>
+                </li>
+                <li>
+                    <label>Title</label>
+                    <input id="ly--title" type="text">
+                </li>
+                <li>
+                    <label>Notes</label>
+                    <textarea id="ly--notes" rows="5"></textarea>
+                </li>
+                <li class="flags">
+                    <label></label>
+                    <label class="flag">
+                        <input type="checkbox" value="public">public
+                    </label>
+                    <label class="flag">
+                        <input type="checkbox" value="toread">read later
+                    </label>
+                    <label class="flag">
+                        <input type="checkbox" value="favourite">favourite
+                    </label>
+                </li>
+                <li>
+                    <label>Tags</label>
+                    <input type="text" class="tags" id="ly--tags"/>
+                </li>
+                <li class="suggests">
+                    <label>Suggest</label>
+                    <span id="ly--taglist" class="tags">
                 </span>
-            </li>
-        </ul>
+                </li>
+            </ul>
+        </div>
     </form>
     <button class="ly--button"> Save link </button>
-    <button class="ly--button ly--danger"> Remove </button>
+    <button class="ly--button ly--remove"> Remove </button>
+    <button class="ly--button ly--init"> Save settings </button>
 
     <script src="popup.js"></script>
 </body>

@@ -3,12 +3,68 @@ function $(id) {
     return document.getElementById(id);
 }
 
-function fetchLink(url) {
+function showPanel(clazz, buttonz) {
+    document
+        .querySelectorAll('form .ly--panel')
+        .forEach(e => {
+            e.style.display = 'none';
+        })
+    document
+        .querySelectorAll('button')
+        .forEach(e => {
+            e.style.display = 'none';
+        })
+    document
+        .querySelector('form .ly--panel' + clazz).style.display = 'block';
+
+    buttonz && buttonz.forEach(b => {
+        document.querySelector('button' + b).style.display = 'block';
+    })
+}
+
+function storeSettings(token, server) {
+    return new Promise(
+        (resolve, _) => {
+            chrome.storage.sync.set({
+                token: token,
+                server: server
+            }, resolve)
+        })
+}
+
+function fetchSettings() {
+    return new Promise(
+        (resolve, reject) => {
+            chrome.storage.sync.get(['token', 'server'], settings => {
+                if (settings.token && settings.server) {
+                    resolve(settings)
+                } else {
+                    reject()
+                }
+            })
+        })
+}
+
+function fetchTabs(settings) {
+    return new Promise(
+        (resolve, _) => {
+            chrome.tabs.query({active: true, lastFocusedWindow: true}, tabs => {
+                resolve({
+                    settings: settings,
+                    tabs: tabs
+                });
+            })
+        }
+    )
+}
+
+function fetchLink(settings, url) {
     return new Promise(
         (resolve, reject) => {
             chrome.extension.sendMessage({
                     action: 'getLink',
-                    url: url
+                    settings: settings,
+                    url: url,
                 },
                 result => {
                     if (result.status === 200) {
@@ -21,45 +77,67 @@ function fetchLink(url) {
     )
 }
 
-function suggestTags(name) {
+function storeLink(settings, url, title, notes, tags, flags) {
     return new Promise(
         (resolve, reject) => {
             chrome.extension.sendMessage({
-                    action: 'suggestTags',
-                    name: name || ''
+                    action: 'storeLink',
+                    settings: settings,
+                    url:   url,
+                    tags:  tags,
+                    title: title,
+                    notes: notes,
+                    flags: flags
                 },
                 result => {
-                    if (result.status === 200) {
-                        let response = JSON.parse(result.response),
-                            taglist = document.getElementById('ly--taglist');
+                    if (result.status === 204) {
+                        resolve(settings)
+                    } else {
+                        reject(result.status)
+                    }
+            })
+        })
+}
 
-                        taglist.innerHTML = '';
-                        if (response.tags.length) {
-                            response.tags.forEach((tag, _) => {
-                                let a = document.createElement('a'),
-                                    text = document.createTextNode(tag);
-
-                                a.href = '#';
-                                a.dataset.tag = tag;
-                                a.addEventListener('click', selectTag);
-                                a.appendChild(text);
-                                taglist.append(a);
-                            })
-                        } else {
-                            let span = document.createElement('span'),
-                                text = document.createTextNode('nothing to suggest');
-                            span.appendChild(text);
-                            span.classList.add('no-suggests');
-                            taglist.append(span);
-                        }
-                        resolve(response.tags);
-                    } else reject(result.status);
+function removeLink(settings, url) {
+    return new Promise(
+        (resolve, reject) => {
+            chrome.extension.sendMessage({
+                    action: 'removeLink',
+                    settings: settings,
+                    url: url
+                },
+                result => {
+                    if (result.status === 204) {
+                        resolve(settings)
+                    } else {
+                        reject(result.status)
+                    }
                 })
         }
     )
 }
 
-function suggestNotes(tabId) {
+function suggestTags(settings, name) {
+    return new Promise(
+        (resolve, reject) => {
+            chrome.extension.sendMessage({
+                    action: 'suggestTags',
+                    settings: settings,
+                    name: name || ''
+                },
+                result => {
+                    if (result.status === 200) {
+                        resolve(JSON.parse(result.response).tags);
+                    } else {
+                        reject(result.status);
+                    }
+                })
+        }
+    )
+}
+
+function suggestNotes(settings, tabId) {
     return new Promise(
         (resolve, reject) => {
             chrome.tabs.executeScript(tabId,
@@ -69,15 +147,17 @@ function suggestNotes(tabId) {
                         '.filter(m => m !== null)'
                 },
                 results => {
-                    let descriptions = results[0];
-                    resolve(descriptions[0] || '');
+                    resolve(results[0][0] || '');
                 });
         }
     )
 }
 
-function updateIcon() {
-    chrome.extension.sendMessage({ action: 'updateIcon' })
+function updateIcon(settings) {
+    chrome.extension.sendMessage({
+        action: 'updateIcon',
+        settings: settings
+    })
 }
 
 function isTagUsed(tags, tag) {
@@ -100,6 +180,30 @@ function currentTag(input) {
 
 function toggleElem(elem, show) {
     elem.style.display = show ? 'inline-block' : 'none';
+}
+
+function renderTags(tags) {
+    let taglist = document.getElementById('ly--taglist');
+
+    taglist.innerHTML = '';
+    if (tags.length) {
+        tags.forEach((tag, _) => {
+            let a = document.createElement('a'),
+                text = document.createTextNode(tag);
+
+            a.href = '#';
+            a.dataset.tag = tag;
+            a.addEventListener('click', selectTag);
+            a.appendChild(text);
+            taglist.append(a);
+        })
+    } else {
+        let span = document.createElement('span'),
+            text = document.createTextNode('nothing to suggest');
+        span.appendChild(text);
+        span.classList.add('no-suggests');
+        taglist.append(span);
+    }
 }
 
 function updateProto(input) {
@@ -140,38 +244,47 @@ document.addEventListener('DOMContentLoaded', function () {
         hint  = $('ly--update-proto'),
         note  = $('ly--notes'),
         title = $('ly--title'),
-        storeBtn  = document.getElementsByTagName("button")[0],
-        deleteBtn = document.getElementsByTagName("button")[1];
+        buttons = document.getElementsByTagName("button"),
+        storeBtn = buttons[0], removeBtn = buttons[1], initBtn = buttons[2];
 
-    chrome.tabs.query({active: true, lastFocusedWindow: true}, tabs => {
-        let activeTab = tabs[0];
+    fetchSettings()
+        .then(fetchTabs)
+        .then(({settings, tabs}) => {
+            let activeTab = tabs[0];
+            Promise
+                .all([
+                    fetchLink(settings, activeTab.url),
+                    suggestNotes(settings, activeTab.id),
+                    suggestTags(settings)
+                ])
+                .then(([link, notes, tagz]) => {
+                    if (link) {
+                        let currentProto = activeTab.url.split('://')[0];
+                        let storedProto = link.href.split('://')[0];
 
-        href.value = activeTab.url;
+                        href.value = link.href;
+                        tags.value = link.tags.join(' ') + ' ';
+                        note.value = link.notes;
+                        title.value = link.title;
 
-        Promise
-            .all([fetchLink(activeTab.url), suggestNotes(activeTab.id), suggestTags()])
-            .then(([link, notes, _]) => {
-                if (link) {
-                    let currentProto = activeTab.url.split('://')[0];
-                    let storedProto = link.href.split('://')[0];
+                        storeBtn.innerHTML = "Update link";
 
-                    href.value = link.href;
-                    tags.value = link.tags.join(' ') + ' ';
-                    note.value = link.notes;
-                    title.value = link.title;
+                        // protocol update possible?
+                        toggleElem(hint, currentProto === 'https' && storedProto === 'http');
+                        toggleElem(removeBtn, true);
+                    } else {
+                        href.value  = activeTab.url;
+                        title.value = activeTab.title;
+                        note.value  = notes;
+                    }
+                    renderTags(tagz);
+                    tags.focus();
+                })
+                .catch(() => showPanel('.ly--connection-error'))
+        })
+        .catch(() => showPanel('.ly--uninitialized', ['.ly--init']))
 
-                    storeBtn.innerHTML = "Update link";
-
-                    // protocol update possible?
-                    toggleElem(hint, currentProto === 'https' && storedProto === 'http');
-                    toggleElem(deleteBtn, true);
-                } else {
-                    title.value = activeTab.title;
-                    note.value = notes;
-                }
-                tags.focus();
-            })
-    });
+    // event handlers
 
     hint.addEventListener('click', e => {
         updateProto(href);
@@ -182,39 +295,36 @@ document.addEventListener('DOMContentLoaded', function () {
         suggestTags(currentTag(e.target));
     });
 
-    deleteBtn.addEventListener('click', e => {
-        chrome.extension.sendMessage({
-                action: 'delLink',
-                url: href.value
-            },
-            result => {
-                if (result.status === 204) {
-                    updateIcon();
-                    window.close();
-                } else {
-
-                }
-            })
-    })
     storeBtn.addEventListener('click', e => {
-        chrome.extension.sendMessage({
-                action: 'storeLink',
-                url:   href.value,
-                tags:  tags.value.split(' '),
-                title: title.value,
-                notes: note.value,
-                flags: Array.from(document.getElementsByTagName('input'))
+        fetchSettings()
+            .then(settings => storeLink(
+                settings,
+                href.value,
+                title.value,
+                note.value,
+                tags.value.split(' '),
+                Array.from(document.getElementsByTagName('input'))
                     .filter(e=>e.type === 'checkbox' && e.checked)
                     .map(e=>e.value)
-            },
-            result => {
-                if (result.status === 204) {
-                    updateIcon();
-                    window.close();
-                } else {
-
-                }
+            ))
+            .then(settings => {
+                updateIcon(settings);
+                window.close();
             })
+    })
+
+    removeBtn.addEventListener('click', e => {
+        fetchSettings()
+            .then(settings => removeLink(settings, href.value))
+            .then(settings => {
+                updateIcon(settings);
+                window.close();
+            })
+    })
+
+    initBtn.addEventListener('click', e => {
+        storeSettings($('ly--token').value, $('ly--server').value || 'http://127.0.0.1:8001')
+            .then(() => window.close())
     })
 });
 

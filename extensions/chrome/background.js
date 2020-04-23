@@ -1,14 +1,5 @@
 (function() {
 
-  // chrome.storage.sync.set({key: value}, function() {
-  //   console.log('Value is set to ' + value);
-  // });
-
-
-  function getOption(opt, callback) {
-    chrome.storage.sync.get([opt], callback);
-  }
-
   function request(config) {
     let xhr = new XMLHttpRequest(), postData = '';
     xhr.open(config.method, config.url, config.async);
@@ -26,8 +17,7 @@
       if (config.data) {
         for (let key in config.data) {
           if (config.data.hasOwnProperty(key)) {
-            postData += encodeURIComponent(key) + '=' + encodeURIComponent(
-                config.data[key]) + '&';
+            postData += encodeURIComponent(key) + '=' + encodeURIComponent(config.data[key]) + '&';
           }
         }
       }
@@ -53,8 +43,7 @@
       chrome.declarativeContent.onPageChanged.addRules([{
         conditions: [new chrome.declarativeContent.PageStateMatcher({
           pageUrl: { schemes: ['http', 'https'] },
-        })
-        ],
+        })],
         actions: [new chrome.declarativeContent.ShowPageAction()]
       }])
     })
@@ -70,16 +59,16 @@
           switch (message.action) {
             case 'getLink':
               asyncRequest({
-                apikey: 'qFyNzKAh6ETuf4OjLXG5Ko5vU4Zy3Xok',
-                url: 'http://localhost:8001/links?href=' + encodeURIComponent(message.url)
+                apikey: message.settings.token,
+                url: message.settings.server + '/links?href=' + encodeURIComponent(message.url)
               }, responder);
               return true;
 
-            case 'delLink':
+            case 'removeLink':
               asyncRequest({
                 method: 'DELETE',
-                apikey: 'qFyNzKAh6ETuf4OjLXG5Ko5vU4Zy3Xok',
-                url: 'http://localhost:8001/links',
+                apikey: message.settings.token,
+                url: message.settings.server + '/links',
                 data: {
                   url: message.url
                 }
@@ -89,8 +78,8 @@
             case 'storeLink':
               asyncRequest({
                 method: 'POST',
-                apikey: 'qFyNzKAh6ETuf4OjLXG5Ko5vU4Zy3Xok',
-                url: 'http://localhost:8001/links',
+                apikey: message.settings.token,
+                url: message.settings.server + '/links',
                 data: {
                   href: message.url,
                   tags: message.tags,
@@ -131,26 +120,19 @@
 
             case 'suggestTags':
               asyncRequest({
-                apikey: 'qFyNzKAh6ETuf4OjLXG5Ko5vU4Zy3Xok',
-                url: 'http://localhost:8001/tags?name=' + message.name,
+                apikey: message.settings.token,
+                url: message.settings.server + '/tags?name=' + message.name,
                 method: 'GET'
               }, responder);
               return true;
-
-            case 'setIcon':
-              chrome.pageAction.setIcon({
-                path: message.iconPath,
-                tabId: message.tabId
-              });
-              break;
 
             case 'updateIcon':
               chrome.tabs.query({active: true, lastFocusedWindow: true}, tabs => {
                 let activeTab = tabs[0];
 
                 asyncRequest({
-                  apikey: 'qFyNzKAh6ETuf4OjLXG5Ko5vU4Zy3Xok',
-                  url: 'http://localhost:8001/links?href=' + encodeURIComponent(activeTab.url)
+                  apikey: message.settings.token,
+                  url: message.settings.server + '/links?href=' + encodeURIComponent(activeTab.url)
                 }, result => {
                   chrome.pageAction.setIcon({
                     tabId: activeTab.id,
@@ -161,6 +143,13 @@
                 })
               })
               return true;
+
+            case 'setIcon':
+              chrome.pageAction.setIcon({
+                path: message.iconPath,
+                tabId: message.tabId
+              });
+              break;
 
             case 'openTab':
               chrome.tabs.create({
