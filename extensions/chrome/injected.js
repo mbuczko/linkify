@@ -228,58 +228,81 @@
         searcher.setValue();
     }
 
+    function fetchSettings() {
+        return new Promise(
+            (resolve, reject) => {
+                chrome.storage.sync.get(['token', 'server'], settings => {
+                    if (settings.token && settings.server) {
+                        resolve(settings)
+                    } else {
+                        reject()
+                    }
+                })
+            })
+    }
+
     function storeSearch(query, name, callback) {
         if (query.length > 0 && name.length > 0) {
-            chrome.extension.sendMessage({
-                    action: 'storeSearch',
-                    query: query,
-                    name: name
-                },
-                callback)
+            fetchSettings().then(settings => {
+                chrome.extension.sendMessage({
+                        action: 'storeSearch',
+                        settings: settings,
+                        query: query,
+                        name: name
+                    },
+                    callback)
+            })
+
         }
     }
 
     function fetchSearches(name, exact, callback) {
-        chrome.extension.sendMessage({
-                action: 'matchSearches',
-                searchname: name,
-                exact: exact
-            },
-            result => {
-                if (result.status === 200) {
-                    if (exact) {
-                        callback(result)
-                    } else {
-                        let items = JSON.parse(result.response).map(({name, query}) => ({
-                            link: name,
-                            title: name,
-                            notes: query,
-                            type: 'search',
-                            handler: onSavedSearchClickHandler
-                        }));
-                        renderItems(items, () => callback(result));
+        fetchSettings().then(settings => {
+            chrome.extension.sendMessage({
+                    action: 'matchSearches',
+                    settings: settings,
+                    searchname: name,
+                    exact: exact
+                },
+                result => {
+                    if (result.status === 200) {
+                        if (exact) {
+                            callback(result)
+                        } else {
+                            let items = JSON.parse(result.response).map(({name, query}) => ({
+                                link: name,
+                                title: name,
+                                notes: query,
+                                type: 'search',
+                                handler: onSavedSearchClickHandler
+                            }));
+                            renderItems(items, () => callback(result));
+                        }
                     }
-                }
-            })
+                })
+        })
     }
 
     function fetchLinks(query, callback) {
-        chrome.extension.sendMessage({
-                action: 'matchLinks',
-                query: query
-            },
-            result => {
-                if (result.status === 200) {
-                    let items = JSON.parse(result.response).map(({href, title, notes, tags}) => ({
-                        link: href,
-                        title: title,
-                        notes: notes,
-                        tags: tags,
-                        type: 'link'
-                    }));
-                    renderItems(items, callback);
-                }
-            })
+        fetchSettings().then(settings => {
+            chrome.extension.sendMessage({
+                    action: 'matchLinks',
+                    settings: settings,
+                    query: query
+                },
+                result => {
+                    if (result.status === 200) {
+                        let items = JSON.parse(result.response).map(({href, title, notes, tags}) => ({
+                            link: href,
+                            title: title,
+                            notes: notes,
+                            tags: tags,
+                            type: 'link'
+                        }));
+                        renderItems(items, callback);
+                    }
+                })
+        })
     }
 
     // inject dialog into DOM
