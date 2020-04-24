@@ -1,6 +1,6 @@
 pub mod query;
 
-use crate::utils::path;
+use crate::utils::{every, path, some};
 use failure::Fail;
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::vtab::array;
@@ -37,7 +37,17 @@ impl From<SqliteError> for DBError {
 fn add_path_function(conn: &Connection) -> Result<(), DBError> {
     conn.create_scalar_function("path", 1, true, move |ctx| {
         let url = ctx.get::<String>(0)?;
-        Ok(path(url.as_str()))
+        Ok(path(&url))
+    })?;
+    conn.create_scalar_function("every", 2, true, move |ctx| {
+        let elements = ctx.get::<String>(0)?;
+        let expected = ctx.get::<String>(1)?;
+        Ok(every(&elements, &expected))
+    })?;
+    conn.create_scalar_function("some", 2, true, move |ctx| {
+        let elements = ctx.get::<String>(0)?;
+        let expected = ctx.get::<String>(1)?;
+        Ok(some(&elements, &expected))
     })?;
     Ok(())
 }

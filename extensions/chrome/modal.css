@@ -57,7 +57,7 @@
   font-family: 'Input Sans Condensed', 'Droid Sans', 'Arial', sans-serif;
 }
 
-#ly--modal-selector input {
+#ly--modal-selector .ly--borderless {
   background: #fff;
   border: none;
   box-shadow: none;
@@ -75,8 +75,13 @@
   -moz-box-sizing: border-box;
 }
 
-#ly--modal-selector input::placeholder {
+#ly--modal-selector .ly--borderless::placeholder {
   color: #bbb;
+}
+
+#ly--modal-selector .ly--borderless:focus {
+  border: none !important;
+  box-shadow: none !important;
 }
 
 #ly--modal-selector label {

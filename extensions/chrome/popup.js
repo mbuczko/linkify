@@ -3,23 +3,20 @@ function $(id) {
     return document.getElementById(id);
 }
 
+function toggleElem(elem, show) {
+    elem.style.display = show ? 'block' : 'none';
+}
+
 function showPanel(clazz, buttonz) {
     document
         .querySelectorAll('form .ly--panel')
-        .forEach(e => {
-            e.style.display = 'none';
-        })
+        .forEach(e => toggleElem(e))
     document
         .querySelectorAll('button')
-        .forEach(e => {
-            e.style.display = 'none';
-        })
-    document
-        .querySelector('form .ly--panel' + clazz).style.display = 'block';
+        .forEach(e => toggleElem(e))
 
-    buttonz && buttonz.forEach(b => {
-        document.querySelector('button' + b).style.display = 'block';
-    })
+    toggleElem(document.querySelector('form .ly--panel' + clazz), true)
+    buttonz && buttonz.forEach(b => toggleElem(document.querySelector('button' + b), true));
 }
 
 function storeSettings(token, server) {
@@ -176,10 +173,6 @@ function currentTag(input) {
             .filter(t => t.length);
 
     return tags[tags.length-1];
-}
-
-function toggleElem(elem, show) {
-    elem.style.display = show ? 'inline-block' : 'none';
 }
 
 function renderTags(tags) {

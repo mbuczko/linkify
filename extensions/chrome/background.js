@@ -96,7 +96,7 @@
                         let q = message.query.trim();
                         asyncRequest({
                             apikey: message.settings.token,
-                            url: message.settings.server + '/links?limit=10' + (q && q.length ? '&q=' + q : '')
+                            url: message.settings.server + '/links?limit=10' + (q && q.length ? '&q=' + encodeURIComponent(q) : '')
                         }, responder);
                         return true;
 

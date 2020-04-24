@@ -1,7 +1,7 @@
 use crate::db::query::Query;
 use crate::db::DBLookupType::{Exact, Patterned};
 use crate::db::{DBLookupType, DBResult};
-use crate::utils::{digest, path};
+use crate::utils::{digest, path, remove_first};
 use crate::vault::auth::Authentication;
 use crate::vault::tags::Tag;
 use crate::vault::user::User;
@@ -40,9 +40,9 @@ impl Link {
             href: href.to_string(),
             title: title.to_string(),
             notes: notes.map(Into::into),
-            hash: digest(href, &notes, &tags),
             shared: false,
             toread: false,
+            hash: digest(href, notes, &tags),
             tags,
         }
     }
@@ -67,6 +67,26 @@ impl From<&str> for Link {
 }
 
 impl Vault {
+    fn classify_tags(tags: Vec<Tag>) -> (Vec<Tag>, Vec<Tag>, Vec<Tag>) {
+        let mut optional = Vec::new();
+        let mut required = Vec::new();
+        let mut excluded = Vec::new();
+
+        for t in tags {
+            if t.starts_with('+') {
+                if let Some(s) = remove_first(t.as_str()) {
+                    required.push(s.to_string());
+                }
+            } else if t.starts_with('-') {
+                if let Some(s) = remove_first(t.as_str()) {
+                    excluded.push(s.to_string());
+                }
+            } else {
+                optional.push(t);
+            }
+        }
+        (optional, required, excluded)
+    }
     fn store_link(&self, link: Link, user: &User) -> DBResult<Link> {
         let mut conn = self.get_connection();
         let txn = conn.transaction().unwrap();
@@ -159,32 +179,31 @@ impl Vault {
             Ok(u) => u,
             Err(e) => return Err(e),
         };
+
+        let mut query = Query::new_with_initial(
+            "SELECT href, title, notes, group_concat(tag) AS tagz FROM links l \
+        LEFT JOIN links_tags lt ON l.id = lt.link_id \
+        LEFT JOIN tags t ON lt.tag_id = t.id WHERE",
+        );
+
         let tags = pattern.tags.to_owned().unwrap_or_default();
         let path = path(pattern.href.as_str());
         let title = Query::patternize(&pattern.title);
         let limit = limit.unwrap_or(0);
-        let notes = pattern
-            .notes
-            .as_ref()
-            .map_or(Default::default(), |v| Query::patternize(v));
+        let (optional, required, excluded) = Vault::classify_tags(tags);
 
-        let mut query = Query::new_with_initial(
-            "SELECT href, title, notes, group_concat(tag) FROM links l \
-        LEFT JOIN links_tags lt ON l.id = lt.link_id \
-        LEFT JOIN tags t ON lt.tag_id = t.id WHERE",
-        );
         if !title.is_empty() {
             if path.is_empty() {
                 query.concat_with_param(
-                    "(title LIKE :title OR href LIKE :title) AND",
+                    "(title LIKE :title OR href LIKE :title OR notes LIKE :title) AND",
                     (":title", &title),
                 );
             } else {
-                query.concat_with_param("title LIKE :title AND", (":title", &title));
+                query.concat_with_param(
+                    "(title LIKE :title OR notes LIKE :title) AND",
+                    (":title", &title),
+                );
             }
-        }
-        if !notes.is_empty() {
-            query.concat_with_param("notes LIKE :notes AND", (":notes", &notes));
         }
 
         let href = match lookup_type {
@@ -196,21 +215,48 @@ impl Vault {
         }
         query.concat_with_param("l.user_id = :id GROUP BY l.id", (":id", &user.id));
 
-        let has_tags = !tags.is_empty();
-        let ptr = Rc::new(tags.into_iter().map(SqlValue::from).collect());
+        // tags can be classified as: optional, +required and -excluded.
 
-        if has_tags {
-            query.concat_with_param(
-                "HAVING l.id IN \
-            (SELECT link_id FROM links_tags lt2 \
-            JOIN tags t2 ON lt2.tag_id = t2.id AND t2.tag IN rarray(:tags))",
-                (":tags", &ptr),
-            );
+        let has_optional = !optional.is_empty();
+        let has_required = !required.is_empty();
+        let has_excluded = !excluded.is_empty();
+
+        let excluded = excluded.join(",");
+        let required = required.join(",");
+
+        let optional_ptr = Rc::new(optional.into_iter().map(SqlValue::from).collect());
+
+        if has_optional || has_required || has_excluded {
+            query.concat("HAVING");
+
+            if has_optional {
+                query.concat_with_param(
+                    "l.id IN (\
+            SELECT link_id FROM links_tags lt2 \
+            JOIN tags t2 ON lt2.tag_id = t2.id AND t2.tag IN rarray(:tags)) AND",
+                    (":tags", &optional_ptr),
+                );
+            }
+            if has_required {
+                query.concat_with_param(
+                    "LENGTH(tagz) > 0 AND every(tagz, :reqs) AND",
+                    (":reqs", &required),
+                );
+            }
+            if has_excluded {
+                query.concat_with_param(
+                    "LENGTH(tagz) > 0 AND some(tagz, :excls) = FALSE AND",
+                    (":excls", &excluded),
+                );
+            }
+            query.concat("1=1");
         }
         query.concat("ORDER BY l.created_at DESC");
+
         if limit > 0 {
             query.concat_with_param("LIMIT :limit", (":limit", &limit));
         }
+
         let conn = self.get_connection();
         let mut stmt = conn.prepare(query.to_string().as_str())?;
         let rows = stmt.query_map_named(query.named_params(), |row| {

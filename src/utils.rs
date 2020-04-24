@@ -18,7 +18,7 @@ pub fn generate_key(len: u8) -> String {
         .collect()
 }
 
-pub fn digest(url: &str, notes: &Option<&str>, tags: &Option<Vec<String>>) -> String {
+pub fn digest(url: &str, notes: Option<&str>, tags: &Option<Vec<String>>) -> String {
     let mut hasher = Sha1::new();
 
     hasher.update(url.as_bytes());
@@ -83,6 +83,10 @@ pub fn truncate(input: &str, len: i16) -> &str {
     &input[..byte_end]
 }
 
+pub fn remove_first(s: &str) -> Option<&str> {
+    s.chars().next().map(|c| &s[c.len_utf8()..])
+}
+
 pub fn path(url: &str) -> String {
     let parts = url.splitn(2, "://").collect::<Vec<_>>();
     parts.last().map_or(String::default(), |v| {
@@ -92,4 +96,24 @@ pub fn path(url: &str) -> String {
         }
         result
     })
+}
+
+pub fn every(elements: &str, expected: &str) -> bool {
+    let v: Vec<&str> = elements.split(',').collect();
+    for e in expected.split(',') {
+        if !v.iter().find(|&v| v == &e).is_some() {
+            return false;
+        }
+    }
+    true
+}
+
+pub fn some(elements: &str, expected: &str) -> bool {
+    let v: Vec<&str> = elements.split(',').collect();
+    for e in expected.split(',') {
+        if v.iter().find(|&v| v == &e).is_some() {
+            return true;
+        }
+    }
+    false
 }
