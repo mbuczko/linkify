@@ -123,7 +123,7 @@
                     case 'suggestTags':
                         asyncRequest({
                             apikey: message.settings.token,
-                            url: message.settings.server + '/tags?name=' + message.name,
+                            url: message.settings.server + '/tags?name=' + encodeURIComponent(message.name),
                             method: 'GET'
                         }, responder);
                         return true;

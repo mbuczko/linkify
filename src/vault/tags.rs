@@ -3,11 +3,32 @@ use crate::db::DBResult;
 use crate::vault::auth::Authentication;
 use crate::vault::Vault;
 
+use crate::utils::remove_first;
 use std::iter::FromIterator;
 
 pub type Tag = String;
 
 impl Vault {
+    pub fn classify_tags(tags: Vec<Tag>) -> (Vec<Tag>, Vec<Tag>, Vec<Tag>) {
+        let mut optional = Vec::new();
+        let mut required = Vec::new();
+        let mut excluded = Vec::new();
+
+        for t in tags {
+            if t.starts_with('+') {
+                if let Some(s) = remove_first(t.as_str()) {
+                    required.push(s.to_string());
+                }
+            } else if t.starts_with('-') {
+                if let Some(s) = remove_first(t.as_str()) {
+                    excluded.push(s.to_string());
+                }
+            } else {
+                optional.push(t);
+            }
+        }
+        (optional, required, excluded)
+    }
     pub fn recent_tags(
         &self,
         auth: Option<Authentication>,

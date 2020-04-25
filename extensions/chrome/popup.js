@@ -285,7 +285,9 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     tags.addEventListener('input', e => {
-        suggestTags(currentTag(e.target));
+        fetchSettings()
+            .then(settings => suggestTags(settings, currentTag(e.target)))
+            .then(tags => renderTags(tags))
     });
 
     storeBtn.addEventListener('click', e => {

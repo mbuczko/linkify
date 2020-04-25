@@ -1,7 +1,7 @@
 use crate::db::query::Query;
 use crate::db::DBLookupType::{Exact, Patterned};
 use crate::db::{DBLookupType, DBResult};
-use crate::utils::{digest, path, remove_first};
+use crate::utils::{digest, path};
 use crate::vault::auth::Authentication;
 use crate::vault::tags::Tag;
 use crate::vault::user::User;
@@ -67,26 +67,6 @@ impl From<&str> for Link {
 }
 
 impl Vault {
-    fn classify_tags(tags: Vec<Tag>) -> (Vec<Tag>, Vec<Tag>, Vec<Tag>) {
-        let mut optional = Vec::new();
-        let mut required = Vec::new();
-        let mut excluded = Vec::new();
-
-        for t in tags {
-            if t.starts_with('+') {
-                if let Some(s) = remove_first(t.as_str()) {
-                    required.push(s.to_string());
-                }
-            } else if t.starts_with('-') {
-                if let Some(s) = remove_first(t.as_str()) {
-                    excluded.push(s.to_string());
-                }
-            } else {
-                optional.push(t);
-            }
-        }
-        (optional, required, excluded)
-    }
     fn store_link(&self, link: Link, user: &User) -> DBResult<Link> {
         let mut conn = self.get_connection();
         let txn = conn.transaction().unwrap();
@@ -179,7 +159,6 @@ impl Vault {
             Ok(u) => u,
             Err(e) => return Err(e),
         };
-
         let mut query = Query::new_with_initial(
             "SELECT href, title, notes, group_concat(tag) AS tagz FROM links l \
         LEFT JOIN links_tags lt ON l.id = lt.link_id \
@@ -190,7 +169,10 @@ impl Vault {
         let path = path(pattern.href.as_str());
         let title = Query::patternize(&pattern.title);
         let limit = limit.unwrap_or(0);
-        let (optional, required, excluded) = Vault::classify_tags(tags);
+
+        // Searching by title and notes is equivalent. Also, when href was not not explicitly
+        // provided it's equivalent to title. This is to easily find a link by either a title
+        // or some part of url.
 
         if !title.is_empty() {
             if path.is_empty() {
@@ -205,7 +187,6 @@ impl Vault {
                 );
             }
         }
-
         let href = match lookup_type {
             Exact => path,
             Patterned => Query::patternize(&path),
@@ -215,7 +196,21 @@ impl Vault {
         }
         query.concat_with_param("l.user_id = :id GROUP BY l.id", (":id", &user.id));
 
-        // tags can be classified as: optional, +required and -excluded.
+        // Tags are classified as: optional, +required and -excluded.
+        //
+        // Each classification follows different rule to decide whether to include or exclude
+        // link from results. And so, for any given link with tags attached, to add link to
+        // final results:
+        //
+        // - at least one of optional tags needs to attached to the link
+        // - all of required tags need to be attached to the link
+        // - all of excluded tags need to be missing
+        //
+        // Rules can be combined together when tags of different classification are used in a query,
+        // eg. "tags:rust,programming,-hyper,+server" means that all links tagged either with "rust"
+        // or "programming", having no "hyper" tag and having "server" tag should be returned.
+
+        let (optional, required, excluded) = Vault::classify_tags(tags);
 
         let has_optional = !optional.is_empty();
         let has_required = !required.is_empty();
@@ -225,7 +220,6 @@ impl Vault {
         let required = required.join(",");
 
         let optional_ptr = Rc::new(optional.into_iter().map(SqlValue::from).collect());
-
         if has_optional || has_required || has_excluded {
             query.concat("HAVING");
 
@@ -252,6 +246,9 @@ impl Vault {
             query.concat("1=1");
         }
         query.concat("ORDER BY l.created_at DESC");
+
+        // Finally the limit. It's not the best idea to return all the links if no constraints
+        // were provided. Let's limit result to 10 links by default.
 
         if limit > 0 {
             query.concat_with_param("LIMIT :limit", (":limit", &limit));
