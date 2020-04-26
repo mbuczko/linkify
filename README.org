@@ -136,3 +136,5 @@ bind \ch 'begin; set url (linkify ls|fzf -e -0 --print0); if string length -q --
 #+end_src
 
 Control-h invokes here linkify and passes result to fzf. Select the link and boom - browser opens automagically (at least in [[https://iterm2.com/][iTerm]]).
+
+Pin icon by Amit Jakhu (http://demo.amitjakhu.com/dripicons/)

@@ -237,6 +237,7 @@ document.addEventListener('DOMContentLoaded', function () {
         hint  = $('ly--update-proto'),
         note  = $('ly--notes'),
         title = $('ly--title'),
+        cog   = $('ly--settings'),
         buttons = document.getElementsByTagName("button"),
         storeBtn = buttons[0], removeBtn = buttons[1], initBtn = buttons[2];
 
@@ -320,6 +321,10 @@ document.addEventListener('DOMContentLoaded', function () {
     initBtn.addEventListener('click', e => {
         storeSettings($('ly--token').value, $('ly--server').value || 'http://127.0.0.1:8001')
             .then(() => window.close())
+    })
+
+    cog.addEventListener('click', e => {
+        showPanel('.ly--uninitialized', ['.ly--init']);
     })
 });
 

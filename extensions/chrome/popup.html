@@ -13,7 +13,6 @@
 
         }
         .ly--add-link-popup .tags {
-            font-family: 'Droid Sans Mono', monospace;
             font-weight: 500;
             font-size: 0.9em;
         }
@@ -113,6 +112,16 @@
             margin-bottom: 6px;
             color: red;
         }
+        #ly--settings {
+            font-size: 26px;
+            text-decoration: none;
+            display: inline-block;
+            margin-top: 6px;
+            color: #666;
+        }
+        #ly--settings:hover {
+            color: blue;
+        }
     </style>
 </head>
 <body>
@@ -125,12 +134,16 @@ Start the server running Linkify in server-mode:
 
                 linkify <strong>server</strong>
 
+If the server is up and running and you still see this
+screen, it means either your API token or server location
+is misconfigured. Click the cog button and adjust your
+configuration. Good luck!
+
 For more information hop on the project<a href="https://github.com/mbuczko/linkify">github</a> page.
             </pre>
         </div>
         <div class="ly--uninitialized ly--panel">
             <pre>
-Uh, oh... Seems like you didn't configure the plugin yet.
 To get a token, run linkify from a command-line as follows:
 
                 linkify users <strong>token</strong> &lt;username&gt;
@@ -191,6 +204,7 @@ For more information hop on the project<a href="https://github.com/mbuczko/linki
             </ul>
         </div>
     </form>
+    <a href="#" id="ly--settings">&#9881;</a>
     <button class="ly--button"> Save link </button>
     <button class="ly--button ly--remove"> Remove </button>
     <button class="ly--button ly--init"> Save settings </button>

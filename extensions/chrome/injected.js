@@ -97,10 +97,10 @@
 
     function selectNode(current, target) {
         if (current) {
-            current.classList.remove('selected');
+            current.classList.remove('ly--selected');
         }
         if (target) {
-            target.classList.add('selected');
+            target.classList.add('ly--selected');
         }
     }
 
@@ -108,7 +108,7 @@
         let nodes = $('ly--content-links');
         return {
             nodes: nodes,
-            selected: nodes.getElementsByClassName('selected')[0]
+            selected: nodes.getElementsByClassName('ly--selected')[0]
         }
     }
 

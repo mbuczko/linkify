@@ -54,69 +54,70 @@
 }
 
 #ly--modal-selector * {
-  font-family: 'Input Sans Condensed', 'Droid Sans', 'Arial', sans-serif;
+  font-family: 'Droid Sans', 'Arial', sans-serif;
 }
 
-#ly--modal-selector .ly--borderless {
+#ly--modal-selector input {
   background: #fff;
   border: none;
-  box-shadow: none;
-  outline: none;
   border-bottom: 1px solid #ccc;
+  box-shadow: none;
+  box-sizing: border-box;
   color: #333 !important;
   display: block;
   float: none;
   font-size: 14px;
-  width: 100%;
-  padding: 4px;
+  line-height: 26px;
+  outline: none;
+  padding: 0;
   margin: 14px 0 14px;
-  box-sizing: border-box;
+  width: 100%;
   -webkit-box-sizing: border-box;
   -moz-box-sizing: border-box;
 }
 
-#ly--modal-selector .ly--borderless::placeholder {
+#ly--modal-selector input::placeholder {
   color: #bbb;
 }
 
-#ly--modal-selector .ly--borderless:focus {
-  border: none !important;
+#ly--modal-selector input:focus {
+  border-bottom: 1px solid #ccc !important;
   box-shadow: none !important;
 }
 
 #ly--modal-selector label {
-  font-size: 15px;
+  font-size: 1em;
   font-weight: normal;
 }
 
 #ly--content-inner {
   display: none;
-  padding: 10px;
+  margin: 10px 0;
+  padding: 0 10px;
 }
 
 #ly--searcher-hint {
   position: absolute;
-  top: 32px;
+  top: 24px;
   right: 10px;
   color: #aaa;
   font-size: 10px;
   padding: 0 4px;
   display: none;
-  line-height: 13px;
+  line-height: 0.8em;
   margin: 0 4px 0 0;
 }
 
 #ly--content-links {
   overflow: hidden;
   padding: 0;
-  margin: 0 4px;
+  margin: 0;
 }
 
 #ly--content-links a {
   color: #1095f9;
   font-size: 13px;
   line-height: 16px;
-  font-family: 'Input Mono Condensed', 'Droid Sans Mono', Monaco, monospace;
   font-weight: 400;
   text-decoration: none;
   padding: 0;
@@ -154,14 +155,18 @@
   padding: 2px 0 0;
   text-align: left;
 }
-
-#ly--content-links li.selected {
+#ly--content-links li > div {
+  margin: 0;
+  padding: 0;
+}
+#ly--content-links li.ly--selected {
   background: #eee;
 }
 
 #ly--content-search-saver {
   display: none;
   padding: 60px;
+  margin: 0;
 }
 
 #ly--content-search-saver-warning {
