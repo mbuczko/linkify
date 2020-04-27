@@ -352,27 +352,30 @@
         });
 
 
-    // register listener for dialog shortcut
-    window.addEventListener('keydown', e => {
-        if (isShortcut(e)) {
-            if (modal.isOpened()) {
-                modal.close();
-            } else {
-                modal.open();
-                searcher.setValue('');
-            }
-        }
-    }, false);
+    setTimeout(() => {
 
-    // update the icon based on the response from /links endpoint
-    chrome.storage.sync.get(['token', 'server'], settings => {
-        if (settings && settings.token && settings.server) {
-            chrome.extension.sendMessage({
-                action: 'updateIcon',
-                settings: settings
-            })
-        }
-    });
+        // register listener for dialog shortcut
+        window.addEventListener('keydown', e => {
+            if (isShortcut(e)) {
+                if (modal.isOpened()) {
+                    modal.close();
+                } else {
+                    modal.open();
+                    searcher.setValue('');
+                }
+            }
+        }, false);
+
+        // update the icon based on the response from /links endpoint
+        chrome.storage.sync.get(['token', 'server'], settings => {
+            if (settings && settings.token && settings.server) {
+                chrome.extension.sendMessage({
+                    action: 'updateIcon',
+                    settings: settings
+                })
+            }
+        });
+    }, 500);
 })();
 
 

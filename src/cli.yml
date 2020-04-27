@@ -28,7 +28,7 @@ args:
       global: true
 subcommands:
   - server:
-      about: Run a server
+      about: Runs a server
   - add:
       about: Adds a new link
       args:
@@ -59,13 +59,13 @@ subcommands:
             help: link to delete from database
             required: true
   - import:
-      about: Import links from JSON file
+      about: Imports links from JSON file
       args:
         - file:
             help: JSON file to import
             required: true
   - ls:
-      about: List matching links
+      about: Lists matching links
       args:
         - url:
             help: link or its part to match
@@ -86,7 +86,7 @@ subcommands:
             takes_value: true
             use_delimiter: true
   - users:
-      about: Manage with users
+      about: Manages with users
       subcommands:
         - add:
             about: Add a new user
