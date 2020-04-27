@@ -110,7 +110,7 @@ Sometimes it's tempting to import data already stored somewhere else. Linkify im
 [{
     "href": "https://developer.airly.eu/docs",
     "title": "Airly for Developers",
-    "notes": "Making air quality information available for all"
+    "notes": "Making air quality information available for all",
     "shared": true,
     "toread": false,
     "tags": [
@@ -148,7 +148,9 @@ linkify import linkify.json
 
 Use [[https://github.com/junegunn/fzf][fzf]] to search links like a pro:
 
+#+begin_src
 linkify ls | fzf -e -0 --print0
+#+end_src
 
 ...or go even one step further and integrate it with your shell to have all the links under single key press. Here is how it could be done with [[https://fishshell.com/][fish]] shell:
 
@@ -158,7 +160,7 @@ bind \ch 'begin; set url (linkify ls|fzf -e -0 --print0); if string length -q --
 
 Now, control-h invokes linkify, which passes result straight to fzf. Selected link is automagically opened in default browser (at least in [[https://iterm2.com/][iTerm]]).
 
-![](linkify-cli.gif)
+![linkify in command line](https://https://github.com/mbuczko/linkify/blob/master/linikify-cli.gif)
 
 ** HTTP server
 
