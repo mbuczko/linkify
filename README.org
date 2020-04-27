@@ -1,10 +1,12 @@
 * Make your own Pinboard
 
-Linkify is a CLI tool and HTTP server in one binary, which lets you store links in local databases (SQLite powered).
+Linkify is a CLI tool and HTTP server in one binary, which lets you store links in local database (SQLite powered) and query for results either from command-line or with fancy browser extension. A simple user/password (or alternatively - api-token) authorization makes it ideal match for multiple browser profiles - one can divide links between personal and work accounts or even make certain links common (shared) across defined profiles.
+
+No additional database installation required. Linkify works straight out of the box.
 
 #+begin_src
 linkify 0.1.3
-Saves your precious links into a local vault
+Saves your precious links into local vault
 
 USAGE:
     linkify [OPTIONS] [SUBCOMMAND]
@@ -23,41 +25,37 @@ SUBCOMMANDS:
     add       Adds a new link
     del       Deletes already stored link
     help      Prints this message or the help of the given subcommand(s)
-    import    Import links from JSON file
-    ls        List matching links
-    server    Run a server
-    users     Manage with users
+    import    Imports links from JSON file
+    ls        Lists matching links
+    server    Runs a server
+    users     Manages with users
 #+end_src
 
-Linkify in CLI mode works pretty much like a git command - exposes a few subcommands to deal with links (obviously), with users, and some additional features like importing links from separate file.
+** command-line
 
-** build the command
+Linkify in CLI mode works pretty much like a git command - exposes a few subcommands to deal with links (obviously), with users and adds some helpful features like importing links from json file.
 
-#+begin_src
-https://github.com/mbuczko/linkify.git
-cd linkify
-cargo build --release
-#+end_src
-
-No cargo installed? [[https://doc.rust-lang.org/cargo/getting-started/installation.html][Installation Guide]].
-
-** linkify as shell command
-
-First things first - to store links we need a database file. Linkify opens one, given by =--db= parameter, or creates it if provided database does not exists yet. Following command creates a database and first user:
+First things first - to store a link we need to specify database location. Linkify opens one, given by =--db= parameter, or creates it at given location if provided database does not exists yet. Following command creates a database and add first user:
 
 #+begin_src
   linkify --db /tmp/links.db users add foo
 #+end_src
 
-Having a database with user & password (given while adding a user) we are ready now to store our first precious link:
+Having a database and user created, time for second (final!) step - adding a link:
 
 #+begin_src
-  linkify add --db /tmp/links.db --user foo -d "My social stuff" -t social,reddit http://reddit.com
+  linkify add --db /tmp/links.db --user foo -e "My social stuff" -t social,reddit http://reddit.com
 #+end_src
 
--d (or --desc) stands for "description", -t (or --tags) is a comma-separated list of assigned tags. Tags and description are useful when searching for a link, so it's worth to spend a few seconds to think them over a bit.
+A word of explanation about required and optional attributes attached to the link:
 
-Mentioning =--db= and =--user= every time might be really boring, so sometimes it's better to move this info into environmental variables:
+- title (`-e` or `--title` flag) - required parameter describing link in a human readable way
+- optional notes (`-n` or `--notes`) - additional chunk of text, to make link easier to find
+- optional tags (`-t` or `--tags`) - a comma-separated list of keywords
+
+Tags together with title and notes provide a powerful way to find desired links. It's worth to spend a few seconds to think them over a bit when adding new link to database.
+
+All the examples above specify =--db= and =--user= every time, which might be frustrating in practice, so to save us from typing it's better to move this information into environmental variables:
 
 #+begin_src
   export LINKIFY_DB_PATH=/tmp/links.db
@@ -65,7 +63,7 @@ Mentioning =--db= and =--user= every time might be really boring, so sometimes i
   export LINKIFY_PASSWORD=secret
 #+end_src
 
-That can be simplified even further by providing API key instead of user/password pair, but more on this later.
+That can be simplified (secured?) even further by providing API key instead of user/password pair, but more on this later.
 
 Let's see our links now:
 
@@ -74,20 +72,45 @@ Let's see our links now:
 http://reddit.com » My social stuff
 #+end_src
 
-Yup, it's there. Storing the same link with different description or tags simply overrides this data:
+Yup, it's there. Storing the same URL with different title or tags simply overrides existing data:
 
 #+begin_src
-# linkify add --db /tmp/links.db -d "Time waster" http://reddit.com
+# linkify add -e "Time waster" http://reddit.com
 # linkify ls
 http://reddit.com » Time waster
 #+end_src
+
+*** Tags
+
+Searching by title or notes is nothing exciting. Searching by tags however, brings a real joy. Tags in a query are classified as _optional_, _+required_ and _-excluded_ which allows to make query more concrete. Say, we have a bunch of links tagged with "rust", "programming" and "doc" keywords. Searching by "rust,programming" tags:
+
+#+begin_src
+# linkify ls -t "rust,programming"
+#+end_src
+
+returns all results which are tagged EITHER with "rust" OR "programming". This is in fact how "optional" tags work - link is returned if it has AT LEAST one optional tag attached. But this way we also get in result links tagged with "rust,doc" or "programming,doc" since they all have an optional "programming" tag attached. Not interested in documentation? Let's modify query by introducing _excluded_ tag:
+
+#+begin_src
+# linkify ls -t "rust,programming,-doc"
+#+end_src
+
+All the "doc"-tagged results should disappear immediately. And yes, same for _required_ tags. Once enforced, only links containing ALL of required tags will be returned, eg:
+
+#+begin_src
+# linkify ls -t "rust,programming,+doc"
+#+end_src
+
+returns all the links having "rust" OR "programming" tag AND required "doc" one.
+
+*** Importing
 
 Sometimes it's tempting to import data already stored somewhere else. Linkify imports everything you wish, provided as following json:
 
 #+begin_src json
 [{
     "href": "https://developer.airly.eu/docs",
-    "description": "Airly for Developers",
+    "title": "Airly for Developers",
+    "notes": "Making air quality information available for all"
     "shared": true,
     "toread": false,
     "tags": [
@@ -105,36 +128,53 @@ Sometimes it's tempting to import data already stored somewhere else. Linkify im
 }]  
 #+end_src
 
-** Linkify as a server
+Have Pinboard account?
 
-TBD.
-
-** Tips & tricks
-*** Have Pinboard account?
-Move your links straight into linkify-managed db:
-- export your Pinboard links into some pinboard_export.json file
-- do =jq= magic to adjust json to our needs:
+You can import your Pinboard links straight into Linkify in 3 simple steps:
+- export your Pinboard links into some pinboard_export.json file (Settings » backup » JSON)
+- do =jq= magic to adjust json to required format:
 
 #+begin_src
 jq '[.[] | .["title"] = .description | .["notes"] = .extended | del(.description, .extended)] | map(.tags |= split(" "))|map(.shared |= test("yes"))|map(.toread |= test("yes"))' pinboard_export.json > linkify.json
 #+end_src
 
-- import linkify.json to linkify:
+- import linkify.json:
 
 #+begin_src
 linkify import linkify.json
 #+end_src
-*** Love fzf?
-Use [[https://github.com/junegunn/fzf][fzf]] to search a link like a pro :)
+
+*** Integration with fzf
+
+Use [[https://github.com/junegunn/fzf][fzf]] to search links like a pro:
 
 linkify ls | fzf -e -0 --print0
 
-or even better - bind it to some shortcut in your shell configuration. Here is how it could be done with [[https://fishshell.com/][fish]] shell:
+...or go even one step further and integrate it with your shell to have all the links under single key press. Here is how it could be done with [[https://fishshell.com/][fish]] shell:
 
 #+begin_src shell
-bind \ch 'begin; set url (linkify ls|fzf -e -0 --print0); if string length -q -- $url; open $url; end; end'  
+bind \ch 'begin; set url (linkify ls|fzf -e -0 --print0); if string length -q -- $url; open (echo $url | cut -d "»" -f1 | awk \'{$1=$1};1\'); end; end'
 #+end_src
 
-Control-h invokes here linkify and passes result to fzf. Select the link and boom - browser opens automagically (at least in [[https://iterm2.com/][iTerm]]).
+Now, control-h invokes linkify, which passes result straight to fzf. Selected link is automagically opened in default browser (at least in [[https://iterm2.com/][iTerm]]).
+
+![](linkify-cli.gif)
+
+** HTTP server
+
+TBD.
+
+* Build
+
+#+begin_src
+https://github.com/mbuczko/linkify.git
+cd linkify
+cargo build --release
+#+end_src
+
+No cargo installed? [[https://doc.rust-lang.org/cargo/getting-started/installation.html][Installation Guide]].
+
+* Acknowledgment
 
 Pin icon by Amit Jakhu (http://demo.amitjakhu.com/dripicons/)
+
