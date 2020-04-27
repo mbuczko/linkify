@@ -86,7 +86,7 @@
 }
 
 #ly--modal-selector label {
-  font-size: 1em;
+  font-size: 14px;
   font-weight: normal;
 }
 
@@ -98,13 +98,12 @@
 
 #ly--searcher-hint {
   position: absolute;
-  top: 24px;
+  top: 20px;
   right: 10px;
   color: #aaa;
   font-size: 10px;
   padding: 0 4px;
   display: none;
-  line-height: 0.8em;
   margin: 0 4px 0 0;
 }
 
@@ -147,6 +146,10 @@
   opacity: 0.8;
 }
 
+#ly--content-links span.ly--readlater {
+  background: #ddff00;
+}
+
 #ly--content-links li {
   border-bottom: 1px dotted #eee;
   font-size: 13px;
@@ -176,6 +179,7 @@
 }
 
 #ly--no-results {
+  font-size: 14px;
   text-align: center;
   display: none;
 }
@@ -189,9 +193,9 @@
 }
 
 #ly--no-results span {
-  font-size: 0.9em;
+  font-size: 12px;
   display: inline-block;
-  margin-top: 8px;
+  margin-top: 4px;
 }
 
 #ly--content-spinner {

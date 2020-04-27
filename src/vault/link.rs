@@ -24,6 +24,7 @@ pub struct Link {
     pub hash: String,
     pub shared: bool,
     pub toread: bool,
+    pub favourite: bool,
 }
 
 impl fmt::Display for Link {
@@ -42,6 +43,7 @@ impl Link {
             notes: notes.map(Into::into),
             shared: false,
             toread: false,
+            favourite: false,
             hash: digest(href, notes, &tags),
             tags,
         }
@@ -58,6 +60,18 @@ impl Link {
             tags,
         )
     }
+    pub fn set_toread(mut self, toread: bool) -> Self {
+        self.toread = toread;
+        self
+    }
+    pub fn set_shared(mut self, shared: bool) -> Self {
+        self.shared = shared;
+        self
+    }
+    pub fn set_favourite(mut self, favourite: bool) -> Self {
+        self.favourite = favourite;
+        self
+    }
 }
 
 impl From<&str> for Link {
@@ -71,10 +85,11 @@ impl Vault {
         let mut conn = self.get_connection();
         let txn = conn.transaction().unwrap();
         txn.execute(
-            "INSERT INTO links(href, title, notes, hash, user_id) VALUES(?1, ?2, ?3, ?4, ?5) \
+            "INSERT INTO links(href, title, notes, hash, is_toread, is_shared, is_favourite, user_id) \
+            VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8) \
             ON CONFLICT(path(href), user_id) \
-            DO UPDATE SET href = ?1, title = ?2, notes = ?3, hash = ?4",
-            params![link.href, link.title, link.notes, link.hash, user.id],
+            DO UPDATE SET href = ?1, title = ?2, notes = ?3, hash = ?4, is_toread = ?5, is_shared = ?6, is_favourite = ?7",
+            params![link.href, link.title, link.notes, link.hash, link.toread, link.shared, link.favourite, user.id],
         )?;
 
         // note that last_insert_rowid returns 0 for already existing URLs
@@ -160,7 +175,8 @@ impl Vault {
             Err(e) => return Err(e),
         };
         let mut query = Query::new_with_initial(
-            "SELECT href, title, notes, group_concat(tag) AS tagz FROM links l \
+            "SELECT href, title, notes, group_concat(tag) AS tagz, is_toread, is_shared, is_favourite \
+            FROM links l \
         LEFT JOIN links_tags lt ON l.id = lt.link_id \
         LEFT JOIN tags t ON lt.tag_id = t.id WHERE",
         );
@@ -265,7 +281,10 @@ impl Vault {
                     .map_or(Some(Default::default()), |t| {
                         Some(t.split(',').map(String::from).collect())
                     }),
-            ))
+            )
+            .set_toread(row.get_unwrap::<_, bool>(4))
+            .set_shared(row.get_unwrap::<_, bool>(5))
+            .set_favourite(row.get_unwrap::<_, bool>(6)))
         })?;
         Result::from_iter(rows).map_err(Into::into)
     }

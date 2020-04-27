@@ -261,6 +261,10 @@ document.addEventListener('DOMContentLoaded', function () {
                         note.value = link.notes;
                         title.value = link.title;
 
+                        ['toread', 'shared', 'favourite'].forEach((v,i) => {
+                            document.querySelector('.flags input[name='+v+']').checked = link[v];
+                        });
+
                         storeBtn.innerHTML = "Update link";
 
                         // protocol update possible?

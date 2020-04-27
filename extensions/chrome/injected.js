@@ -185,19 +185,30 @@
         muteEvent(e);
     }
 
+    function createTagNode(tags, clazz) {
+        let span = document.createElement('span'),
+            tagsnode = document.createTextNode(tags);
+        span.classList.add('ly--tags');
+        span.appendChild(tagsnode);
+        if (clazz) {
+            span.classList.add(clazz);
+        }
+        return span;
+    }
+
     function renderItems(items, callback) {
         let ul = $('ly--content-links');
         ul.innerHTML = '';
-        items.slice(0, 10).forEach(({link, title, notes, tags, type, handler}) => {
+        items.slice(0, 10).forEach(({link, title, notes, tags, type, handler, toread, shared, favourite}) => {
             let node = document.createElement('li'),
                 a = document.createElement('a'),
                 span = document.createElement('span'),
-                div = document.createElement('div'),
-                txt = document.createTextNode(title);
+                div = document.createElement('div');
 
             a.href = link;
             a.dataset.type = type;
             a.rel = 'noopener noreferrer';
+            a.appendChild(document.createTextNode(title));
 
             if (type === 'search') {
                 a.dataset.query = notes;
@@ -205,20 +216,17 @@
             if (handler) {
                 a.addEventListener('click', handler);
             }
-            a.appendChild(txt);
-            node.appendChild(a);
+            if (toread) {
+                div.appendChild(createTagNode('read later', 'ly--readlater'));
+            }
             if (tags && tags.length) {
-                let span = document.createElement('span'),
-                    tagsnode = document.createTextNode(tags.join(' '));
-
-                span.classList.add('ly--tags');
-                span.appendChild(tagsnode);
-                div.appendChild(span);
+                div.appendChild(createTagNode(tags.join(' ')));
             }
             if (notes && notes.length) {
                 span.appendChild(document.createTextNode(notes));
                 div.appendChild(span);
             }
+            node.appendChild(a);
             node.appendChild(div);
             ul.appendChild(node);
         });
@@ -292,11 +300,14 @@
                 },
                 result => {
                     if (result.status === 200) {
-                        let items = JSON.parse(result.response).map(({href, title, notes, tags}) => ({
+                        let items = JSON.parse(result.response).map(({href, title, notes, tags, toread, shared, favourite}) => ({
                             link: href,
                             title: title,
                             notes: notes,
                             tags: tags,
+                            toread: toread,
+                            shared: shared,
+                            favourite: favourite,
                             type: 'link'
                         }));
                         renderItems(items, callback);

@@ -136,7 +136,10 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
                         &t.title,
                         if notes.is_empty() { None } else { Some(notes) },
                         if tags.is_empty() { None } else { Some(tags) }
-                    );
+                    )
+                    .set_toread(t.flags.contains("toread"))
+                    .set_shared(t.flags.contains("shared"))
+                    .set_favourite(t.flags.contains("favourite"));
                     let result = vault.add_link(Authentication::from_token(token), link);
                     match result {
                         Ok(_) =>  Response::empty_204(),
