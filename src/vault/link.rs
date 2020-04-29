@@ -17,6 +17,7 @@ use std::rc::Rc;
 
 #[derive(Serialize, Clone, Deserialize, Debug)]
 pub struct Link {
+    pub id: Option<i64>,
     pub href: String,
     pub title: String,
     pub notes: Option<String>,
@@ -36,8 +37,15 @@ impl fmt::Display for Link {
 }
 
 impl Link {
-    pub fn new(href: &str, title: &str, notes: Option<&str>, tags: Option<Vec<Tag>>) -> Link {
+    pub fn new(
+        id: Option<i64>,
+        href: &str,
+        title: &str,
+        notes: Option<&str>,
+        tags: Option<Vec<Tag>>,
+    ) -> Link {
         Link {
+            id,
             href: href.to_string(),
             title: title.to_string(),
             notes: notes.map(Into::into),
@@ -54,6 +62,7 @@ impl Link {
             .and_then(|t| Some(t.map(String::from).collect::<Vec<String>>()));
 
         Link::new(
+            None,
             matches.value_of("url").unwrap_or_default(),
             matches.value_of("title").unwrap_or_default(),
             matches.value_of("notes"),
@@ -74,12 +83,6 @@ impl Link {
     }
 }
 
-impl From<&str> for Link {
-    fn from(href: &str) -> Link {
-        Link::new(href, "", None, None)
-    }
-}
-
 impl Vault {
     fn store_link(&self, link: Link, user: &User) -> DBResult<Link> {
         let mut conn = self.get_connection();
@@ -91,8 +94,6 @@ impl Vault {
             DO UPDATE SET href = ?1, title = ?2, notes = ?3, hash = ?4, is_toread = ?5, is_shared = ?6, is_favourite = ?7",
             params![link.href, link.title, link.notes, link.hash, link.toread, link.shared, link.favourite, user.id],
         )?;
-
-        // note that last_insert_rowid returns 0 for already existing URLs
         let link_id: i64 = txn
             .query_row(
                 "SELECT id FROM links WHERE href = ?1 AND user_id = ?2",
@@ -133,22 +134,6 @@ impl Vault {
             Err(e) => return Err(e),
         }
     }
-    pub fn del_link(&self, auth: Option<Authentication>, link: Link) -> DBResult<Link> {
-        let path = path(link.href.as_str());
-        match self.authenticate_user(auth) {
-            Ok(u) => {
-                let link_id = self.get_connection().query_row(
-                    "SELECT id FROM links WHERE path(href) = ?1 AND user_id = ?2",
-                    params![&path, u.id],
-                    |row| row.get::<_, i64>(0),
-                )?;
-                self.get_connection()
-                    .execute("DELETE FROM links WHERE id = ?", params![link_id])?;
-                Ok(link)
-            }
-            Err(e) => Err(e),
-        }
-    }
     pub fn import_links(&self, auth: Option<Authentication>, links: Vec<Link>) -> DBResult<u32> {
         let user = match self.authenticate_user(auth) {
             Ok(u) => u,
@@ -175,10 +160,10 @@ impl Vault {
             Err(e) => return Err(e),
         };
         let mut query = Query::new_with_initial(
-            "SELECT href, title, notes, group_concat(tag) AS tagz, is_toread, is_shared, is_favourite \
+            "SELECT l.id, href, title, notes, group_concat(tag) AS tagz, is_toread, is_shared, is_favourite \
             FROM links l \
-        LEFT JOIN links_tags lt ON l.id = lt.link_id \
-        LEFT JOIN tags t ON lt.tag_id = t.id WHERE",
+            LEFT JOIN links_tags lt ON l.id = lt.link_id \
+            LEFT JOIN tags t ON lt.tag_id = t.id WHERE",
         );
 
         let tags = pattern.tags.to_owned().unwrap_or_default();
@@ -274,19 +259,48 @@ impl Vault {
         let mut stmt = conn.prepare(query.to_string().as_str())?;
         let rows = stmt.query_map_named(query.named_params(), |row| {
             Ok(Link::new(
-                &row.get_unwrap::<_, String>(0),
+                Some(row.get_unwrap(0)),
                 &row.get_unwrap::<_, String>(1),
-                row.get::<_, String>(2).ok().as_deref(),
-                row.get::<_, String>(3)
+                &row.get_unwrap::<_, String>(2),
+                row.get::<_, String>(3).ok().as_deref(),
+                row.get::<_, String>(4)
                     .map_or(Some(Default::default()), |t| {
                         Some(t.split(',').map(String::from).collect())
                     }),
             )
-            .set_toread(row.get_unwrap::<_, bool>(4))
-            .set_shared(row.get_unwrap::<_, bool>(5))
-            .set_favourite(row.get_unwrap::<_, bool>(6)))
+            .set_toread(row.get_unwrap::<_, bool>(5))
+            .set_shared(row.get_unwrap::<_, bool>(6))
+            .set_favourite(row.get_unwrap::<_, bool>(7)))
         })?;
         Result::from_iter(rows).map_err(Into::into)
+    }
+    pub fn get_href(&self, auth: Option<Authentication>, link_id: i64) -> DBResult<String> {
+        let user = match self.authenticate_user(auth) {
+            Ok(u) => u,
+            Err(e) => return Err(e),
+        };
+        let href = self.get_connection().query_row(
+            "SELECT href FROM links WHERE id = ?1 AND user_id = ?2",
+            params![link_id, user.id],
+            |row| row.get::<_, String>(0),
+        )?;
+        Ok(href)
+    }
+    pub fn get_link(&self, auth: Option<Authentication>, href: &str) -> DBResult<Option<Link>> {
+        let pattern = Link::new(None, &href, "", None, None);
+        self.find_links(auth, pattern, DBLookupType::Exact, Some(1))
+            .and_then(|v| Ok(v.first().cloned()))
+    }
+    pub fn del_link(&self, auth: Option<Authentication>, href: &str) -> DBResult<Option<Link>> {
+        match self.get_link(auth, &href) {
+            Ok(Some(link)) => {
+                self.get_connection()
+                    .execute("DELETE FROM links WHERE id = ?", params![link.id])?;
+                Ok(Some(link))
+            }
+            Ok(None) => Ok(None),
+            Err(e) => Err(e),
+        }
     }
     pub fn match_links(
         &self,
@@ -324,6 +338,7 @@ impl Vault {
             }
         }
         let link = Link::new(
+            None,
             href.last().map_or("", |v| v.trim()),
             title.join("%").trim(),
             Some(&notes.join("%").trim()),

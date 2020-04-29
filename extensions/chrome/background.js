@@ -70,10 +70,7 @@
                         asyncRequest({
                             method: 'DELETE',
                             apikey: message.settings.token,
-                            url: message.settings.server + '/links',
-                            data: {
-                                url: message.url
-                            }
+                            url: message.settings.server + '/links/' + message.linkId
                         }, responder);
                         return true;
 

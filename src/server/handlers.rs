@@ -5,7 +5,7 @@ use crate::vault::link::Link;
 use crate::vault::Vault;
 
 use failure::Error;
-use log::error;
+use log::{debug, error};
 use miniserde::{json, Serialize};
 use rouille::content_encoding;
 use rouille::{post_input, router, try_or_400, Request, Response, ResponseBody};
@@ -113,7 +113,8 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
             let result = if query.is_some() {
                 vault.query(authentication, query.unwrap(), limit)
             } else {
-                vault.find_links(authentication, Link::from(href.as_str()), DBLookupType::Exact, limit)
+                let pattern = Link::new(None, href.as_str(), "", None, None);
+                vault.find_links(authentication, pattern, DBLookupType::Exact, limit)
             };
             match result {
                 Ok(links) => content_encoding::apply(request, jsonize(links)),
@@ -132,6 +133,7 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
                         .collect();
                     let notes = t.notes.trim();
                     let link = Link::new(
+                        None,
                         &t.href,
                         &t.title,
                         if notes.is_empty() { None } else { Some(notes) },
@@ -155,10 +157,11 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
                 }
             }
         },
-        (DELETE) (/links) => {
-            match post_input!(request, {url: String}) {
-                Ok(t) => {
-                    let result = vault.del_link(Authentication::from_token(token), Link::from(t.url.as_str()));
+        (DELETE) (/links/{id: i64}) => {
+            match vault.get_href(Authentication::from_token(token), id) {
+                Ok(href) => {
+                    debug!("Removing link: {}", href);
+                    let result = vault.del_link(Authentication::from_token(token), &href);
                     match result {
                         Ok(_) =>  Response::empty_204(),
                         Err(e) => {
@@ -167,11 +170,9 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
                         }
                     }
                 }
-                Err(e) => {
-                    let json = try_or_400::ErrJson::from_err(&e);
-                    Response::json(&json).with_status_code(400)
-                }
+                _ => Response::empty_404()
             }
+
         },
         _ => {
            Response::empty_404()

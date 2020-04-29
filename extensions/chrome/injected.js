@@ -188,8 +188,8 @@
     function createTagNode(tags, clazz) {
         let span = document.createElement('span'),
             tagsnode = document.createTextNode(tags);
-        span.classList.add('ly--tags');
         span.appendChild(tagsnode);
+        span.classList.add('ly--tags');
         if (clazz) {
             span.classList.add(clazz);
         }
@@ -199,14 +199,15 @@
     function renderItems(items, callback) {
         let ul = $('ly--content-links');
         ul.innerHTML = '';
-        items.slice(0, 10).forEach(({link, title, notes, tags, type, handler, toread, shared, favourite}) => {
+        items.slice(0, 10).forEach(({url, title, notes, tags, type, handler, toread, shared, favourite, id}) => {
             let node = document.createElement('li'),
                 a = document.createElement('a'),
                 span = document.createElement('span'),
                 div = document.createElement('div');
 
-            a.href = link;
+            a.href = url;
             a.dataset.type = type;
+            a.dataset.id = id;
             a.rel = 'noopener noreferrer';
             a.appendChild(document.createTextNode(title));
 
@@ -278,7 +279,7 @@
                             callback(result)
                         } else {
                             let items = JSON.parse(result.response).map(({name, query}) => ({
-                                link: name,
+                                url: name,
                                 title: name,
                                 notes: query,
                                 type: 'search',
@@ -300,8 +301,9 @@
                 },
                 result => {
                     if (result.status === 200) {
-                        let items = JSON.parse(result.response).map(({href, title, notes, tags, toread, shared, favourite}) => ({
-                            link: href,
+                        let items = JSON.parse(result.response).map(({id, href, title, notes, tags, toread, shared, favourite}) => ({
+                            id: id,
+                            url: href,
                             title: title,
                             notes: notes,
                             tags: tags,

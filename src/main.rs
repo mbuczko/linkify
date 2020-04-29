@@ -67,9 +67,13 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
         ("del", Some(sub_m)) => {
             match vault.del_link(
                 Authentication::from_matches(config, sub_m),
-                Link::from_matches(sub_m),
+                matches.value_of("url").unwrap_or("<unknown>"),
             ) {
-                Ok(id) => println!("Deleted (id={})", id),
+                Ok(Some(link)) => println!("Deleted (id={})", link.id.unwrap()),
+                Ok(None) => {
+                    eprintln!("No such a link found");
+                    exit(1);
+                }
                 Err(e) => {
                     eprintln!("Error while deleting a link ({:?})", e);
                     exit(1);

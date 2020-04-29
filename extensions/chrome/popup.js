@@ -96,13 +96,13 @@ function storeLink(settings, url, title, notes, tags, flags) {
         })
 }
 
-function removeLink(settings, url) {
+function removeLink(settings, linkId) {
     return new Promise(
         (resolve, reject) => {
             chrome.extension.sendMessage({
                     action: 'removeLink',
                     settings: settings,
-                    url: url
+                    linkId: linkId
                 },
                 result => {
                     if (result.status === 204) {
@@ -236,6 +236,7 @@ document.addEventListener('DOMContentLoaded', function () {
         tags  = $('ly--tags'),
         hint  = $('ly--update-proto'),
         note  = $('ly--notes'),
+        ident = $('ly--ident'),
         title = $('ly--title'),
         cog   = $('ly--settings'),
         buttons = document.getElementsByTagName("button"),
@@ -259,6 +260,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         href.value = link.href;
                         tags.value = link.tags.join(' ') + ' ';
                         note.value = link.notes;
+                        ident.value = link.id;
                         title.value = link.title;
 
                         ['toread', 'shared', 'favourite'].forEach((v,i) => {
@@ -271,8 +273,9 @@ document.addEventListener('DOMContentLoaded', function () {
                         toggleElem(hint, currentProto === 'https' && storedProto === 'http');
                         toggleElem(removeBtn, true);
                     } else {
-                        href.value  = activeTab.url;
+                        ident.value = "";
                         title.value = activeTab.title;
+                        href.value  = activeTab.url;
                         note.value  = notes;
                     }
                     renderTags(tagz);
@@ -315,7 +318,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     removeBtn.addEventListener('click', e => {
         fetchSettings()
-            .then(settings => removeLink(settings, href.value))
+            .then(settings => removeLink(settings, ident.value))
             .then(settings => {
                 updateIcon(settings);
                 window.close();
