@@ -174,6 +174,23 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
             }
 
         },
+        (POST) (/links/{id: i64}/read) => {
+            match vault.get_href(Authentication::from_token(token), id) {
+                Ok(href) => {
+                    debug!("Marking link as read: {}", href);
+                    let result = vault.read_link(Authentication::from_token(token), &href);
+                    match result {
+                        Ok(_) =>  Response::empty_204(),
+                        Err(e) => {
+                            error!("{:?}", e);
+                            err_response(e)
+                        }
+                    }
+                }
+                _ => Response::empty_404()
+            }
+
+        },
         _ => {
            Response::empty_404()
         }

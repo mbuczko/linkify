@@ -152,9 +152,10 @@
                             chrome.extension.sendMessage({
                                 action: 'openTab',
                                 url: link.href
-                            });
+                            }, result => readLink(link.dataset.id));
                         } else {
                             window.location = link.href;
+                            readLink(link.dataset.id);
                         }
                     }
                 }
@@ -250,6 +251,42 @@
             })
     }
 
+    function readLink(linkId) {
+        fetchSettings().then(settings => {
+            chrome.extension.sendMessage({
+                action: 'readLink',
+                settings: settings,
+                linkId: linkId
+            });
+        })
+    }
+
+    function fetchLinks(query, callback) {
+        fetchSettings().then(settings => {
+            chrome.extension.sendMessage({
+                    action: 'matchLinks',
+                    settings: settings,
+                    query: query
+                },
+                result => {
+                    if (result.status === 200) {
+                        let items = JSON.parse(result.response).map(({id, href, title, notes, tags, toread, shared, favourite}) => ({
+                            id: id,
+                            url: href,
+                            title: title,
+                            notes: notes,
+                            tags: tags,
+                            toread: toread,
+                            shared: shared,
+                            favourite: favourite,
+                            type: 'link'
+                        }));
+                        renderItems(items, callback);
+                    }
+                })
+        })
+    }
+
     function storeSearch(query, name, callback) {
         if (query.length > 0 && name.length > 0) {
             fetchSettings().then(settings => {
@@ -287,32 +324,6 @@
                             }));
                             renderItems(items, () => callback(result));
                         }
-                    }
-                })
-        })
-    }
-
-    function fetchLinks(query, callback) {
-        fetchSettings().then(settings => {
-            chrome.extension.sendMessage({
-                    action: 'matchLinks',
-                    settings: settings,
-                    query: query
-                },
-                result => {
-                    if (result.status === 200) {
-                        let items = JSON.parse(result.response).map(({id, href, title, notes, tags, toread, shared, favourite}) => ({
-                            id: id,
-                            url: href,
-                            title: title,
-                            notes: notes,
-                            tags: tags,
-                            toread: toread,
-                            shared: shared,
-                            favourite: favourite,
-                            type: 'link'
-                        }));
-                        renderItems(items, callback);
                     }
                 })
         })
@@ -361,6 +372,7 @@
                 }
             }, 250));
 
+            // allow for closing the dialog by clicking on overlay
             document.querySelector('.ly--overlay').addEventListener('click', modal.close);
         });
 

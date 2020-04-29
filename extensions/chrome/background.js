@@ -74,6 +74,14 @@
                         }, responder);
                         return true;
 
+                    case 'readLink':
+                        asyncRequest({
+                            method: 'POST',
+                            apikey: message.settings.token,
+                            url: message.settings.server + '/links/' + message.linkId + '/read'
+                        }, responder);
+                        return true;
+
                     case 'storeLink':
                         asyncRequest({
                             method: 'POST',

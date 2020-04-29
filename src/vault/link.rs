@@ -91,7 +91,7 @@ impl Vault {
             "INSERT INTO links(href, title, notes, hash, is_toread, is_shared, is_favourite, user_id) \
             VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8) \
             ON CONFLICT(path(href), user_id) \
-            DO UPDATE SET href = ?1, title = ?2, notes = ?3, hash = ?4, is_toread = ?5, is_shared = ?6, is_favourite = ?7",
+            DO UPDATE SET href = ?1, title = ?2, notes = ?3, hash = ?4, is_toread = ?5, is_shared = ?6, is_favourite = ?7, updated_at = CURRENT_TIMESTAMP",
             params![link.href, link.title, link.notes, link.hash, link.toread, link.shared, link.favourite, user.id],
         )?;
         let link_id: i64 = txn
@@ -296,6 +296,19 @@ impl Vault {
             Ok(Some(link)) => {
                 self.get_connection()
                     .execute("DELETE FROM links WHERE id = ?", params![link.id])?;
+                Ok(Some(link))
+            }
+            Ok(None) => Ok(None),
+            Err(e) => Err(e),
+        }
+    }
+    pub fn read_link(&self, auth: Option<Authentication>, href: &str) -> DBResult<Option<Link>> {
+        match self.get_link(auth, &href) {
+            Ok(Some(link)) => {
+                self.get_connection().execute(
+                    "UPDATE links SET is_toread = FALSE, read_at = CURRENT_TIMESTAMP WHERE id = ?",
+                    params![link.id],
+                )?;
                 Ok(Some(link))
             }
             Ok(None) => Ok(None),
