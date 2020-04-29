@@ -195,6 +195,9 @@ impl Vault {
         if !href.is_empty() {
             query.concat_with_param("path(href) LIKE :href AND", (":href", &href));
         }
+        if pattern.toread {
+            query.concat("l.is_toread = TRUE AND");
+        }
         query.concat_with_param("l.user_id = :id GROUP BY l.id", (":id", &user.id));
 
         // Tags are classified as: optional, +required and -excluded.
@@ -333,6 +336,7 @@ impl Vault {
         let mut title: Vec<&str> = Vec::new();
         let mut notes: Vec<&str> = Vec::new();
         let mut tags: Vec<String> = Vec::new();
+        let mut to_read = false;
 
         for chunk in q.split_whitespace() {
             let ch: Vec<_> = chunk.split(':').collect();
@@ -341,6 +345,9 @@ impl Vault {
                     "tags" => {
                         let more_tags = ch[1].split(',').map(String::from).collect::<Vec<String>>();
                         tags.extend(more_tags);
+                    }
+                    "flags" => {
+                        to_read = ch[1].contains("toread");
                     }
                     "href" => href.push(ch[1]),
                     "notes" => notes.push(ch[1]),
@@ -356,7 +363,8 @@ impl Vault {
             title.join("%").trim(),
             Some(&notes.join("%").trim()),
             Some(tags),
-        );
+        )
+        .set_toread(to_read);
         self.match_links(auth, link, limit)
     }
 }
