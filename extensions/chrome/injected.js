@@ -200,7 +200,7 @@
     function renderItems(items, callback) {
         let ul = $('ly--content-links');
         ul.innerHTML = '';
-        items.slice(0, 10).forEach(({url, title, notes, tags, type, handler, toread, shared, favourite, id}) => {
+        items.slice(0, 10).forEach(({url, title, notes, tags, type, handler, toread, favourite, id}) => {
             let node = document.createElement('li'),
                 a = document.createElement('a'),
                 span = document.createElement('span'),
@@ -227,6 +227,12 @@
             if (notes && notes.length) {
                 span.appendChild(document.createTextNode(notes));
                 div.appendChild(span);
+            }
+            if (favourite) {
+                let star = document.createElement('span');
+                star.classList.add('ly--favourite');
+                star.appendChild(document.createTextNode("★"));
+                node.append(star);
             }
             node.appendChild(a);
             node.appendChild(div);

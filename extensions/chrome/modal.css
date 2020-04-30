@@ -149,6 +149,11 @@
   opacity: 0.8;
 }
 
+#ly--content-links span.ly--favourite {
+  color: orange;
+  padding-right: 4px;
+}
+
 #ly--content-links span.ly--readlater {
   background: #ddff00;
 }
@@ -186,6 +191,7 @@
   text-align: center;
   display: none;
 }
+
 #ly--no-results pre {
   background: none;
   border: none;

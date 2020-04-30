@@ -195,9 +195,15 @@ impl Vault {
         if !href.is_empty() {
             query.concat_with_param("path(href) LIKE :href AND", (":href", &href));
         }
+
+        // 2 special flags to be handled here: toread and favourite:
         if pattern.toread {
             query.concat("l.is_toread = TRUE AND");
         }
+        if pattern.favourite {
+            query.concat("l.is_favourite = TRUE AND");
+        }
+
         query.concat_with_param("l.user_id = :id GROUP BY l.id", (":id", &user.id));
 
         // Tags are classified as: optional, +required and -excluded.
@@ -336,7 +342,9 @@ impl Vault {
         let mut title: Vec<&str> = Vec::new();
         let mut notes: Vec<&str> = Vec::new();
         let mut tags: Vec<String> = Vec::new();
-        let mut to_read = false;
+        let mut toread = false;
+        let mut shared = false;
+        let mut favourite = false;
 
         for chunk in q.split_whitespace() {
             let ch: Vec<_> = chunk.split(':').collect();
@@ -347,7 +355,9 @@ impl Vault {
                         tags.extend(more_tags);
                     }
                     "flags" => {
-                        to_read = ch[1].contains("toread");
+                        toread = ch[1].contains("toread");
+                        shared = ch[1].contains("shared");
+                        favourite = ch[1].contains("favourite");
                     }
                     "href" => href.push(ch[1]),
                     "notes" => notes.push(ch[1]),
@@ -364,7 +374,10 @@ impl Vault {
             Some(&notes.join("%").trim()),
             Some(tags),
         )
-        .set_toread(to_read);
+        .set_toread(toread)
+        .set_shared(shared)
+        .set_favourite(favourite);
+
         self.match_links(auth, link, limit)
     }
 }
