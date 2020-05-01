@@ -204,7 +204,10 @@ impl Vault {
             query.concat("l.is_favourite = TRUE AND");
         }
 
-        query.concat_with_param("l.user_id = :id GROUP BY l.id", (":id", &user.id));
+        query.concat_with_param(
+            "(l.user_id = :id OR l.is_shared) GROUP BY l.id",
+            (":id", &user.id),
+        );
 
         // Tags are classified as: optional, +required and -excluded.
         //
