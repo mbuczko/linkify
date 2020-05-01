@@ -166,12 +166,18 @@ Now, control-h invokes linkify, which passes result straight to fzf. Selected li
 
 TBD.
 
-* Build
+* Installation
+** Homebrew
+#+begin_src
+brew tap mbuczko/linkify
+brew install linkify
+#+end_src
 
+** From sources
 #+begin_src
 https://github.com/mbuczko/linkify.git
 cd linkify
-cargo build --release
+cargo install --locked --root /usr/local/
 #+end_src
 
 No cargo installed? [[https://doc.rust-lang.org/cargo/getting-started/installation.html][Installation Guide]].
