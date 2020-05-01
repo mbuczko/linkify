@@ -141,7 +141,9 @@
                     hide($('ly--content-search-saver-warning'));
                     saver.setValue('');
                 } else {
-                    let link = selectedNode().selected.firstChild,
+                    let link = Array
+                            .from(selectedNode().selected.children)
+                            .filter(e => e.tagName === 'A')[0],
                         type = link.dataset.type;
 
                     if (type === 'search') {
@@ -152,7 +154,7 @@
                             chrome.extension.sendMessage({
                                 action: 'openTab',
                                 url: link.href
-                            }, result => readLink(link.dataset.id));
+                            }, _ => readLink(link.dataset.id));
                         } else {
                             window.location = link.href;
                             readLink(link.dataset.id);
