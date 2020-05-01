@@ -41,7 +41,9 @@
 
     function muteEvent(event) {
         event.stopPropagation();
-        event.preventDefault();
+        if (event.type !== 'keypress') {
+            event.preventDefault();
+        }
     }
 
     function debounce(func, wait, immediate) {
@@ -180,7 +182,7 @@
                 searcher.setValue();
                 break;
         }
-        if (!isShortcut(e)) e.stopPropagation();
+        if (!isShortcut(e)) muteEvent(e);
     }
 
     function onSavedSearchClickHandler(e) {
@@ -367,6 +369,7 @@
 
             searchInput.addEventListener('keydown', searchKeyDownHandler);
             searchInput.addEventListener('keyup', muteEvent);
+            searchInput.addEventListener('keypress', muteEvent);
             searchInput.addEventListener('input', debounce(e => {
                 let query = e.target.value, saved = query.startsWith('@');
                 toggle($('ly--searcher-hint'), !saved);
