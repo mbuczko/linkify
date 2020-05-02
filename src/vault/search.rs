@@ -1,23 +1,34 @@
-use crate::db::{DBLookupType, DBResult};
+use crate::db::{get_query_results, DBLookupType, DBResult};
 use crate::vault::auth::Authentication;
 use crate::vault::Vault;
 
 use crate::db::query::Query;
 use miniserde::{Deserialize, Serialize};
-use rusqlite::params;
-use std::iter::FromIterator;
+use rusqlite::{params, OptionalExtension, Row};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Search {
+    pub id: Option<i64>,
     pub name: String,
     pub query: String,
 }
 
 impl Search {
-    pub fn new(name: String, query: String) -> Self {
-        Search { name, query }
+    pub fn new(id: Option<i64>, name: String, query: String) -> Self {
+        Search { id, name, query }
     }
 }
+
+impl From<&Row<'_>> for Search {
+    fn from(row: &Row) -> Self {
+        Search::new(
+            Some(row.get_unwrap(0)),
+            row.get_unwrap::<_, String>(1),
+            row.get_unwrap::<_, String>(2),
+        )
+    }
+}
+
 impl Vault {
     pub fn store_search(
         &self,
@@ -65,7 +76,7 @@ impl Vault {
             DBLookupType::Patterned => Query::patternize(v),
         });
         let mut query = Query::new_with_initial(
-            "SELECT name, query FROM searches s INNER JOIN users u ON s.user_id = u.id WHERE",
+            "SELECT s.id, name, query FROM searches s INNER JOIN users u ON s.user_id = u.id WHERE",
         );
         query
             .concat_with_param("u.id = :id AND", (":id", &user.id))
@@ -73,15 +84,44 @@ impl Vault {
                 "name LIKE :name  ORDER BY s.created_at DESC",
                 (":name", &name),
             );
+        get_query_results(self.get_connection(), query)
+    }
+    pub fn get_search(
+        &self,
+        auth: Option<Authentication>,
+        search_id: i64,
+    ) -> DBResult<Option<Search>> {
+        let user = match self.authenticate_user(auth) {
+            Ok(u) => u,
+            Err(e) => return Err(e),
+        };
+        let mut query = Query::new_with_initial(
+            "SELECT s.id, name, query FROM searches s INNER JOIN users u ON s.user_id = u.id WHERE",
+        );
+        query
+            .concat_with_param("s.id = :sid AND", (":sid", &search_id))
+            .concat_with_param("u.id = :uid", (":uid", &user.id));
 
-        let conn = self.get_connection();
-        let mut stmt = conn.prepare(query.to_string().as_str())?;
-        let rows = stmt.query_map_named(query.named_params(), |row| {
-            Ok(Search::new(
-                row.get_unwrap::<_, String>(0),
-                row.get_unwrap::<_, String>(1),
-            ))
-        })?;
-        Result::from_iter(rows).map_err(Into::into)
+        self.get_connection()
+            .query_row_named(query.to_string().as_str(), query.named_params(), |r| {
+                Ok(Search::from(r))
+            })
+            .optional()
+            .map_err(Into::into)
+    }
+    pub fn del_search(
+        &self,
+        auth: Option<Authentication>,
+        search_id: i64,
+    ) -> DBResult<Option<Search>> {
+        match self.get_search(auth, search_id) {
+            Ok(Some(search)) => {
+                self.get_connection()
+                    .execute("DELETE FROM searches WHERE id = ?", params![search.id])?;
+                Ok(Some(search))
+            }
+            Ok(None) => Ok(None),
+            Err(e) => Err(e),
+        }
     }
 }

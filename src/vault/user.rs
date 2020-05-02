@@ -1,6 +1,6 @@
 use crate::db::DBError::UnknownUser;
 use crate::db::DBLookupType::{Exact, Patterned};
-use crate::db::{DBLookupType, DBResult};
+use crate::db::{get_query_results_f, DBLookupType, DBResult};
 use crate::utils::{confirm, generate_key, password};
 use crate::vault::Vault;
 
@@ -8,7 +8,6 @@ use crate::db::query::Query;
 use bcrypt::hash;
 use rusqlite::params;
 use std::fmt;
-use std::iter::FromIterator;
 
 #[derive(Clone, Debug)]
 pub struct User {
@@ -42,19 +41,15 @@ impl Vault {
             LEFT JOIN links l ON l.user_id = u.id",
         );
         query.concat_with_param("WHERE login LIKE :login GROUP BY login", (":login", &login));
-
-        let conn = self.get_connection();
-        let mut stmt = conn.prepare(query.to_string().as_str())?;
-        let rows = stmt.query_map_named(query.named_params(), |row| {
-            Ok((
+        get_query_results_f(self.get_connection(), query, |row| {
+            (
                 User {
                     id: row.get(0).unwrap(),
                     login: row.get(1).unwrap(),
                 },
                 row.get_unwrap(2),
-            ))
-        })?;
-        Result::from_iter(rows).map_err(Into::into)
+            )
+        })
     }
     pub fn find_user(&self, login: &str) -> DBResult<(User, u32)> {
         let users = self.find_users(login, DBLookupType::Exact)?;

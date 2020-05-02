@@ -1,10 +1,9 @@
 use crate::db::query::Query;
-use crate::db::DBResult;
+use crate::db::{get_query_results_f, DBResult};
 use crate::vault::auth::Authentication;
 use crate::vault::Vault;
 
 use crate::utils::remove_first;
-use std::iter::FromIterator;
 
 pub type Tag = String;
 
@@ -47,11 +46,8 @@ impl Vault {
             .concat_with_param("tag LIKE :pattern", (":pattern", &pattern))
             .concat_with_param("ORDER BY used_at DESC LIMIT :limit", (":limit", &limit));
 
-        let conn = self.get_connection();
-        let mut stmt = conn.prepare(query.to_string().as_str())?;
-        let rows =
-            stmt.query_map_named(query.named_params(), |row| Ok(row.get_unwrap::<_, Tag>(0)))?;
-
-        Result::from_iter(rows).map_err(Into::into)
+        get_query_results_f(self.get_connection(), query, |row| {
+            row.get_unwrap::<_, Tag>(0)
+        })
     }
 }

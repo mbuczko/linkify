@@ -1,6 +1,6 @@
 use crate::db::query::Query;
 use crate::db::DBLookupType::{Exact, Patterned};
-use crate::db::{DBLookupType, DBResult};
+use crate::db::{get_query_results, DBLookupType, DBResult};
 use crate::utils::{digest, path};
 use crate::vault::auth::Authentication;
 use crate::vault::tags::Tag;
@@ -9,10 +9,9 @@ use crate::vault::Vault;
 
 use clap::ArgMatches;
 use miniserde::{Deserialize, Serialize};
-use rusqlite::params;
 use rusqlite::types::Value as SqlValue;
+use rusqlite::{params, Row};
 use std::fmt;
-use std::iter::FromIterator;
 use std::rc::Rc;
 
 #[derive(Serialize, Clone, Deserialize, Debug)]
@@ -33,6 +32,24 @@ impl fmt::Display for Link {
         let _tags = self.tags.as_ref().map_or(None, |t| Some(t.join(" ")));
         let s = vec![self.href.as_str()];
         write!(f, "{}", s.join("\n"))
+    }
+}
+
+impl From<&Row<'_>> for Link {
+    fn from(row: &Row) -> Self {
+        Link::new(
+            Some(row.get_unwrap(0)),
+            &row.get_unwrap::<_, String>(1),
+            &row.get_unwrap::<_, String>(2),
+            row.get::<_, String>(3).ok().as_deref(),
+            row.get::<_, String>(4)
+                .map_or(Some(Default::default()), |t| {
+                    Some(t.split(',').map(String::from).collect())
+                }),
+        )
+        .set_toread(row.get_unwrap::<_, bool>(5))
+        .set_shared(row.get_unwrap::<_, bool>(6))
+        .set_favourite(row.get_unwrap::<_, bool>(7))
     }
 }
 
@@ -266,25 +283,7 @@ impl Vault {
         if limit > 0 {
             query.concat_with_param("LIMIT :limit", (":limit", &limit));
         }
-
-        let conn = self.get_connection();
-        let mut stmt = conn.prepare(query.to_string().as_str())?;
-        let rows = stmt.query_map_named(query.named_params(), |row| {
-            Ok(Link::new(
-                Some(row.get_unwrap(0)),
-                &row.get_unwrap::<_, String>(1),
-                &row.get_unwrap::<_, String>(2),
-                row.get::<_, String>(3).ok().as_deref(),
-                row.get::<_, String>(4)
-                    .map_or(Some(Default::default()), |t| {
-                        Some(t.split(',').map(String::from).collect())
-                    }),
-            )
-            .set_toread(row.get_unwrap::<_, bool>(5))
-            .set_shared(row.get_unwrap::<_, bool>(6))
-            .set_favourite(row.get_unwrap::<_, bool>(7)))
-        })?;
-        Result::from_iter(rows).map_err(Into::into)
+        get_query_results(self.get_connection(), query)
     }
     pub fn get_href(&self, auth: Option<Authentication>, link_id: i64) -> DBResult<String> {
         let user = match self.authenticate_user(auth) {
