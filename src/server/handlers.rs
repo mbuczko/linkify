@@ -92,6 +92,16 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
                 Err(e) => err_response(e)
             }
         },
+        (DELETE) (/searches/{id: i64}) => {
+            let result = vault.del_search(Authentication::from_token(token), id);
+            match result {
+                Ok(_) =>  Response::empty_204(),
+                Err(e) => {
+                    error!("{:?}", e);
+                    err_response(e)
+                }
+            }
+        },
         (GET) (/tags) => {
             let tag_name = request.get_param("name");
             match vault.recent_tags(Authentication::from_token(token), tag_name.as_deref(), limit) {
