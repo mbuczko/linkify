@@ -44,16 +44,16 @@ First things first - to store a link we need to specify database location. Linki
 Having a database and user created, time for second (final!) step - adding a link:
 
 #+begin_src
-  linkify add --db /tmp/links.db --user foo -e "My social stuff" -t social,reddit http://reddit.com
+  linkify add --db /tmp/links.db --user foo -n "My social stuff" -t social,reddit http://reddit.com
 #+end_src
 
-A word of explanation about required and optional attributes attached to the link:
+A word of explanation of what required and optional attributes attached to the link really are:
 
-- title (`-e` or `--title` flag) - required parameter describing link in a human readable way
-- optional notes (`-n` or `--notes`) - additional chunk of text, to make link easier to find
+- name (`-n` or `--name` flag) - required human readable link name (a title)
+- optional description (`-d` or `--description`) - additional chunk of text, to make link easier to find
 - optional tags (`-t` or `--tags`) - a comma-separated list of keywords
 
-Tags together with title and notes provide a powerful way to find desired links. It's worth to spend a few seconds to think them over a bit when adding new link to database.
+Tags together with name and description provide a powerful way to find desired links. It's worth to spend a few seconds to think them over a bit when adding new link to database.
 
 All the examples above specify =--db= and =--user= every time, which might be frustrating in practice, so to save us from typing it's better to move this information into environmental variables:
 
@@ -72,17 +72,17 @@ Let's see our links now:
 http://reddit.com » My social stuff
 #+end_src
 
-Yup, it's there. Storing the same URL with different title or tags simply overrides existing data:
+Yup, it's there. Storing the same URL with different name or tags simply overrides existing data:
 
 #+begin_src
-# linkify add -e "Time waster" http://reddit.com
+# linkify add -n "Time waster" http://reddit.com
 # linkify ls
 http://reddit.com » Time waster
 #+end_src
 
 *** Tags
 
-Searching by title or notes is nothing exciting. Searching by tags however, brings a real joy. Tags in a query are classified as _optional_, _+required_ and _-excluded_ which allows to make query more concrete. Say, we have a bunch of links tagged with "rust", "programming" and "doc" keywords. Searching by "rust,programming" tags:
+Searching by name or description is nothing exciting. Searching by tags however brings a real joy. Tags in a query are classified as _optional_, _+required_ and _-excluded_ which allows to make query more concrete. Say, we have a bunch of links tagged with "rust", "programming" and "doc" keywords. Searching by "rust,programming" tags:
 
 #+begin_src
 # linkify ls -t "rust,programming"
@@ -109,8 +109,8 @@ Sometimes it's tempting to import data already stored somewhere else. Linkify im
 #+begin_src json
 [{
     "href": "https://developer.airly.eu/docs",
-    "title": "Airly for Developers",
-    "notes": "Making air quality information available for all",
+    "name": "Airly for Developers",
+    "description": "Making air quality information available for all",
     "shared": true,
     "toread": false,
     "tags": [
@@ -119,7 +119,7 @@ Sometimes it's tempting to import data already stored somewhere else. Linkify im
 },
 {
     "href": "https://registry.hub.docker.com/",
-    "description": "Docker Hub Registry - Repositories of Docker Images",
+    "name": "Docker Hub Registry - Repositories of Docker Images",
     "shared": true,
     "toread": false,
     "tags": [
@@ -135,7 +135,7 @@ You can import your Pinboard links straight into Linkify in 3 simple steps:
 - do =jq= magic to adjust json to required format:
 
 #+begin_src
-jq '[.[] | .["title"] = .description | .["notes"] = .extended | del(.description, .extended)] | map(.tags |= split(" "))|map(.shared |= test("yes"))|map(.toread |= test("yes"))' pinboard_export.json > linkify.json
+jq '[.[] | .["name"] = .description | .["description"] = .extended | del(.extended)] | map(.tags |= split(" "))|map(.shared |= test("yes"))|map(.toread |= test("yes"))' pinboard_export.json > linkify.json
 #+end_src
 
 - import linkify.json:

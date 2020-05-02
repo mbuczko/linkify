@@ -74,16 +74,16 @@ function fetchLink(settings, url) {
     )
 }
 
-function storeLink(settings, url, title, notes, tags, flags) {
+function storeLink(settings, url, name, description, tags, flags) {
     return new Promise(
         (resolve, reject) => {
             chrome.extension.sendMessage({
                     action: 'storeLink',
                     settings: settings,
-                    url:   url,
-                    tags:  tags,
-                    title: title,
-                    notes: notes,
+                    url:  url,
+                    name: name,
+                    tags: tags,
+                    description: description,
                     flags: flags
                 },
                 result => {
@@ -134,7 +134,7 @@ function suggestTags(settings, name) {
     )
 }
 
-function suggestNotes(settings, tabId) {
+function suggestDescription(settings, tabId) {
     return new Promise(
         (resolve, reject) => {
             chrome.tabs.executeScript(tabId,
@@ -235,9 +235,9 @@ document.addEventListener('DOMContentLoaded', function () {
     let href  = $('ly--url'),
         tags  = $('ly--tags'),
         hint  = $('ly--update-proto'),
-        note  = $('ly--notes'),
+        name  = $('ly--name'),
+        desc  = $('ly--desc'),
         ident = $('ly--ident'),
-        title = $('ly--title'),
         cog   = $('ly--settings'),
         buttons = document.getElementsByTagName("button"),
         storeBtn = buttons[0], removeBtn = buttons[1], initBtn = buttons[2];
@@ -249,19 +249,19 @@ document.addEventListener('DOMContentLoaded', function () {
             Promise
                 .all([
                     fetchLink(settings, activeTab.url),
-                    suggestNotes(settings, activeTab.id),
+                    suggestDescription(settings, activeTab.id),
                     suggestTags(settings)
                 ])
-                .then(([link, notes, tagz]) => {
+                .then(([link, description, tagz]) => {
                     if (link) {
                         let currentProto = activeTab.url.split('://')[0];
                         let storedProto = link.href.split('://')[0];
 
                         href.value = link.href;
                         tags.value = link.tags.join(' ') + ' ';
-                        note.value = link.notes;
+                        desc.value = link.description;
                         ident.value = link.id;
-                        title.value = link.title;
+                        name.value = link.name;
 
                         ['toread', 'shared', 'favourite'].forEach((v,i) => {
                             document.querySelector('.flags input[name='+v+']').checked = link[v];
@@ -274,9 +274,9 @@ document.addEventListener('DOMContentLoaded', function () {
                         toggleElem(removeBtn, true);
                     } else {
                         ident.value = "";
-                        title.value = activeTab.title;
+                        name.value  = activeTab.title;
                         href.value  = activeTab.url;
-                        note.value  = notes;
+                        desc.value  = description;
                     }
                     renderTags(tagz);
                     tags.focus();
@@ -303,8 +303,8 @@ document.addEventListener('DOMContentLoaded', function () {
             .then(settings => storeLink(
                 settings,
                 href.value,
-                title.value,
-                note.value,
+                name.value,
+                desc.value,
                 tags.value.split(' '),
                 Array.from(document.getElementsByTagName('input'))
                     .filter(e=>e.type === 'checkbox' && e.checked)

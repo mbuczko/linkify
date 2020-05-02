@@ -89,10 +89,10 @@
                             url: message.settings.server + '/links',
                             data: {
                                 href: message.url,
+                                name: message.name,
                                 tags: message.tags,
                                 flags: message.flags,
-                                title: message.title,
-                                notes: message.notes
+                                description: message.description
                             }
                         }, responder);
                         return true;

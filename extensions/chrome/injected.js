@@ -164,7 +164,6 @@
                     }
                 }
         }
-        if (!isShortcut(e)) e.stopPropagation();
     }
 
     function saveKeyDownHandler(e) {
@@ -182,7 +181,6 @@
                 searcher.setValue();
                 break;
         }
-        if (!isShortcut(e)) muteEvent(e);
     }
 
     function onSavedSearchClickHandler(e) {
@@ -204,7 +202,7 @@
     function renderItems(items, callback) {
         let ul = $('ly--content-links');
         ul.innerHTML = '';
-        items.slice(0, 10).forEach(({url, title, notes, tags, type, handler, toread, favourite, id}) => {
+        items.slice(0, 10).forEach(({url, name, description, tags, type, handler, toread, favourite, id}) => {
             let node = document.createElement('li'),
                 a = document.createElement('a'),
                 span = document.createElement('span'),
@@ -214,10 +212,10 @@
             a.dataset.type = type;
             a.dataset.id = id;
             a.rel = 'noopener noreferrer';
-            a.appendChild(document.createTextNode(title));
+            a.appendChild(document.createTextNode(name));
 
             if (type === 'search') {
-                a.dataset.query = notes;
+                a.dataset.query = description;
             }
             if (handler) {
                 a.addEventListener('click', handler);
@@ -228,8 +226,8 @@
             if (tags && tags.length) {
                 div.appendChild(createTagNode(tags.join(' ')));
             }
-            if (notes && notes.length) {
-                span.appendChild(document.createTextNode(notes));
+            if (description && description.length) {
+                span.appendChild(document.createTextNode(description));
                 div.appendChild(span);
             }
             if (favourite) {
@@ -280,12 +278,12 @@
                 },
                 result => {
                     if (result.status === 200) {
-                        let items = JSON.parse(result.response).map(({id, href, title, notes, tags, toread, shared, favourite}) => ({
+                        let items = JSON.parse(result.response).map(({id, href, name, description, tags, toread, shared, favourite}) => ({
                             id: id,
                             url: href,
-                            title: title,
-                            notes: notes,
+                            name: name,
                             tags: tags,
+                            description: description,
                             toread: toread,
                             shared: shared,
                             favourite: favourite,
@@ -327,8 +325,8 @@
                         } else {
                             let items = JSON.parse(result.response).map(({name, query}) => ({
                                 url: name,
-                                title: name,
-                                notes: query,
+                                name: name,
+                                description: query,
                                 type: 'search',
                                 handler: onSavedSearchClickHandler
                             }));
@@ -355,6 +353,7 @@
 
             saveInput.addEventListener('keydown', saveKeyDownHandler);
             saveInput.addEventListener('keyup', muteEvent);
+            saveInput.addEventListener('keypress', muteEvent);
             saveInput.addEventListener('input', debounce(e => {
                 let searchName = e.target.value;
                 if (searchName.length > 0) {

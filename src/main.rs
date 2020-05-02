@@ -96,7 +96,7 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
                     for link in links {
                         let href_len = link.href.chars().count() as i16;
                         let desc_len = tw - href_len - 3;
-                        println!("{} » {}", link.href, truncate(&link.title, desc_len).blue())
+                        println!("{} » {}", link.href, truncate(&link.name, desc_len).blue())
                     }
                 }
                 Err(e) => {
@@ -159,7 +159,7 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
                 Ok((_u, k)) => println!(
                     "Generated API key: {}\nSample cURL:\n\n  \
                     curl -H 'Authorization: Bearer {}' \
-                    \'http://localhost:8001?tags=rust&notes=programming\'\n",
+                    \'http://localhost:8001/links?q=tags:rust\'\n",
                     k, k
                 ),
                 Err(e) => {

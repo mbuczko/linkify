@@ -5,7 +5,7 @@ use crate::vault::link::Link;
 use crate::vault::Vault;
 
 use failure::Error;
-use log::{debug, error};
+use log::error;
 use miniserde::{json, Serialize};
 use rouille::content_encoding;
 use rouille::{post_input, router, try_or_400, Request, Response, ResponseBody};
@@ -125,18 +125,18 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
             }
         },
         (POST) (/links) => {
-            match post_input!(request, {href: String, title: String, notes: String, tags: String, flags: String}) {
+            match post_input!(request, {href: String, name: String, description: String, tags: String, flags: String}) {
                 Ok(t) => {
                     let tags: Vec<_> = t.tags.split(',').into_iter()
                         .map(|v| v.trim().to_string())
                         .filter(|v| !v.is_empty())
                         .collect();
-                    let notes = t.notes.trim();
+                    let desc = t.description.trim();
                     let link = Link::new(
                         None,
                         &t.href,
-                        &t.title,
-                        if notes.is_empty() { None } else { Some(notes) },
+                        &t.name,
+                        if desc.is_empty() { None } else { Some(desc) },
                         if tags.is_empty() { None } else { Some(tags) }
                     )
                     .set_toread(t.flags.contains("toread"))
@@ -160,7 +160,6 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
         (DELETE) (/links/{id: i64}) => {
             match vault.get_href(Authentication::from_token(token), id) {
                 Ok(href) => {
-                    debug!("Removing link: {}", href);
                     let result = vault.del_link(Authentication::from_token(token), &href);
                     match result {
                         Ok(_) =>  Response::empty_204(),
@@ -177,7 +176,6 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
         (POST) (/links/{id: i64}/read) => {
             match vault.get_href(Authentication::from_token(token), id) {
                 Ok(href) => {
-                    debug!("Marking link as read: {}", href);
                     let result = vault.read_link(Authentication::from_token(token), &href);
                     match result {
                         Ok(_) =>  Response::empty_204(),

@@ -3,7 +3,6 @@ version: "0.1.3"
 about: Saves your precious links into local vault
 args:
   - database:
-      short: b
       long: db
       help: "database to use [env: LINKIFY_DB_PATH]"
       takes_value: true
@@ -35,16 +34,16 @@ subcommands:
         - url:
             help: link to store in database
             required: true
-        - title:
+        - name:
             help: descritive title
             required: true
-            short: e
-            long: title
-            takes_value: true
-        - notes:
-            help: optional notes
             short: n
-            long: notes
+            long: name
+            takes_value: true
+        - description:
+            help: optional description
+            short: d
+            long: desc
             takes_value: true
         - tags:
             help: optional, comma-separated tags
@@ -69,15 +68,15 @@ subcommands:
       args:
         - url:
             help: link or its part to match
-        - title:
+        - name:
             help: title or its part to match
-            short: e
-            long: title
-            takes_value: true
-        - notes:
-            help: optional notes to match
             short: n
-            long: notes
+            long: name
+            takes_value: true
+        - description:
+            help: optional description to match
+            short: d
+            long: desc
             takes_value: true
         - tags:
             help: optional comma-separated tags to match

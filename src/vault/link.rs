@@ -19,8 +19,8 @@ use std::rc::Rc;
 pub struct Link {
     pub id: Option<i64>,
     pub href: String,
-    pub title: String,
-    pub notes: Option<String>,
+    pub name: String,
+    pub description: Option<String>,
     pub tags: Option<Vec<Tag>>,
     pub hash: String,
     pub shared: bool,
@@ -40,19 +40,19 @@ impl Link {
     pub fn new(
         id: Option<i64>,
         href: &str,
-        title: &str,
-        notes: Option<&str>,
+        name: &str,
+        description: Option<&str>,
         tags: Option<Vec<Tag>>,
     ) -> Link {
         Link {
             id,
             href: href.to_string(),
-            title: title.to_string(),
-            notes: notes.map(Into::into),
+            name: name.to_string(),
+            description: description.map(Into::into),
             shared: false,
             toread: false,
             favourite: false,
-            hash: digest(href, notes, &tags),
+            hash: digest(href, description, &tags),
             tags,
         }
     }
@@ -64,8 +64,8 @@ impl Link {
         Link::new(
             None,
             matches.value_of("url").unwrap_or_default(),
-            matches.value_of("title").unwrap_or_default(),
-            matches.value_of("notes"),
+            matches.value_of("name").unwrap_or_default(),
+            matches.value_of("description"),
             tags,
         )
     }
@@ -88,11 +88,11 @@ impl Vault {
         let mut conn = self.get_connection();
         let txn = conn.transaction().unwrap();
         txn.execute(
-            "INSERT INTO links(href, title, notes, hash, is_toread, is_shared, is_favourite, user_id) \
+            "INSERT INTO links(href, name, description, hash, is_toread, is_shared, is_favourite, user_id) \
             VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8) \
             ON CONFLICT(path(href), user_id) \
-            DO UPDATE SET href = ?1, title = ?2, notes = ?3, hash = ?4, is_toread = ?5, is_shared = ?6, is_favourite = ?7, updated_at = CURRENT_TIMESTAMP",
-            params![link.href, link.title, link.notes, link.hash, link.toread, link.shared, link.favourite, user.id],
+            DO UPDATE SET href = ?1, name = ?2, description = ?3, hash = ?4, is_toread = ?5, is_shared = ?6, is_favourite = ?7, updated_at = CURRENT_TIMESTAMP",
+            params![link.href, link.name, link.description, link.hash, link.toread, link.shared, link.favourite, user.id],
         )?;
         let link_id: i64 = txn
             .query_row(
@@ -160,7 +160,7 @@ impl Vault {
             Err(e) => return Err(e),
         };
         let mut query = Query::new_with_initial(
-            "SELECT l.id, href, title, notes, group_concat(tag) AS tagz, is_toread, is_shared, is_favourite \
+            "SELECT l.id, href, name, description, group_concat(tag) AS tagz, is_toread, is_shared, is_favourite \
             FROM links l \
             LEFT JOIN links_tags lt ON l.id = lt.link_id \
             LEFT JOIN tags t ON lt.tag_id = t.id WHERE",
@@ -168,23 +168,23 @@ impl Vault {
 
         let tags = pattern.tags.to_owned().unwrap_or_default();
         let path = path(pattern.href.as_str());
-        let title = Query::patternize(&pattern.title);
+        let name = Query::patternize(&pattern.name);
         let limit = limit.unwrap_or(0);
 
-        // Searching by title and notes is equivalent. Also, when href was not not explicitly
-        // provided it's equivalent to title. This is to easily find a link by either a title
-        // or some part of url.
+        // Searching by name and description is equivalent. Also, when href was not not explicitly
+        // provided it's equivalent to name. This is to easily find a link by either a name or some
+        // part of url.
 
-        if !title.is_empty() {
+        if !name.is_empty() {
             if path.is_empty() {
                 query.concat_with_param(
-                    "(title LIKE :title OR href LIKE :title OR notes LIKE :title) AND",
-                    (":title", &title),
+                    "(name LIKE :name OR href LIKE :name OR description LIKE :name) AND",
+                    (":name", &name),
                 );
             } else {
                 query.concat_with_param(
-                    "(title LIKE :title OR notes LIKE :title) AND",
-                    (":title", &title),
+                    "(name LIKE :name OR description LIKE :name) AND",
+                    (":name", &name),
                 );
             }
         }
@@ -342,8 +342,8 @@ impl Vault {
         limit: Option<u16>,
     ) -> DBResult<Vec<Link>> {
         let mut href: Vec<&str> = Vec::new();
-        let mut title: Vec<&str> = Vec::new();
-        let mut notes: Vec<&str> = Vec::new();
+        let mut name: Vec<&str> = Vec::new();
+        let mut desc: Vec<&str> = Vec::new();
         let mut tags: Vec<String> = Vec::new();
         let mut toread = false;
         let mut shared = false;
@@ -360,21 +360,21 @@ impl Vault {
                     "flags" => {
                         toread = ch[1].contains("toread");
                         shared = ch[1].contains("shared");
-                        favourite = ch[1].contains("favourite");
+                        favourite = ch[1].contains("fav");
                     }
                     "href" => href.push(ch[1]),
-                    "notes" => notes.push(ch[1]),
-                    _ => title.push(chunk),
+                    "desc" => desc.push(ch[1]),
+                    _ => name.push(chunk),
                 }
             } else {
-                title.push(chunk);
+                name.push(chunk);
             }
         }
         let link = Link::new(
             None,
             href.last().map_or("", |v| v.trim()),
-            title.join("%").trim(),
-            Some(&notes.join("%").trim()),
+            name.join("%").trim(),
+            Some(&desc.join("%").trim()),
             Some(tags),
         )
         .set_toread(toread)
