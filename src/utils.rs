@@ -1,6 +1,5 @@
 use rand::Rng;
 use rpassword::read_password;
-use sha1::Sha1;
 use std::fs::File;
 use std::io::{stdout, BufReader, Read, Write as IoWrite};
 
@@ -16,19 +15,6 @@ pub fn generate_key(len: u8) -> String {
             KEY_CHARSET[idx] as char
         })
         .collect()
-}
-
-pub fn digest(url: &str, description: Option<&str>, tags: &Option<Vec<String>>) -> String {
-    let mut hasher = Sha1::new();
-
-    hasher.update(url.as_bytes());
-    if let Some(desc) = description {
-        hasher.update(desc.as_bytes());
-    }
-    if let Some(tags) = tags {
-        hasher.update(tags.join(",").as_bytes());
-    }
-    hasher.digest().to_string()
 }
 
 pub fn password(password: Option<&str>, prompt: Option<&str>) -> String {

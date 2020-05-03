@@ -1,7 +1,7 @@
 use crate::db::query::Query;
 use crate::db::DBLookupType::{Exact, Patterned};
 use crate::db::{get_query_results, DBLookupType, DBResult};
-use crate::utils::{digest, path};
+use crate::utils::path;
 use crate::vault::auth::Authentication;
 use crate::vault::tags::Tag;
 use crate::vault::user::User;
@@ -11,6 +11,7 @@ use clap::ArgMatches;
 use miniserde::{Deserialize, Serialize};
 use rusqlite::types::Value as SqlValue;
 use rusqlite::{params, Row};
+use sha1::Sha1;
 use std::fmt;
 use std::rc::Rc;
 
@@ -21,7 +22,7 @@ pub struct Link {
     pub name: String,
     pub description: Option<String>,
     pub tags: Option<Vec<Tag>>,
-    pub hash: String,
+    pub hash: Option<String>,
     pub shared: bool,
     pub toread: bool,
     pub favourite: bool,
@@ -66,12 +67,13 @@ impl Link {
             href: href.to_string(),
             name: name.to_string(),
             description: description.map(Into::into),
+            hash: None,
             shared: false,
             toread: false,
             favourite: false,
-            hash: digest(href, description, &tags),
             tags,
         }
+        .digest()
     }
     pub fn from_matches(matches: &ArgMatches) -> Link {
         let tags = matches
@@ -85,6 +87,24 @@ impl Link {
             matches.value_of("description"),
             tags,
         )
+    }
+    pub fn digest(mut self) -> Self {
+        let mut hasher = Sha1::new();
+
+        hasher.update(self.href.as_bytes());
+        hasher.update(self.name.as_bytes());
+        if let Some(desc) = self.description.as_ref() {
+            hasher.update(desc.as_bytes());
+        }
+        if let Some(tags) = self.tags.as_ref() {
+            hasher.update(tags.join(",").as_bytes());
+        }
+        hasher.update(self.toread.to_string().as_bytes());
+        hasher.update(self.shared.to_string().as_bytes());
+        hasher.update(self.favourite.to_string().as_bytes());
+
+        self.hash = Some(hasher.digest().to_string());
+        self
     }
     pub fn set_toread(mut self, toread: bool) -> Self {
         self.toread = toread;
@@ -275,7 +295,7 @@ impl Vault {
             }
             query.concat("1=1");
         }
-        query.concat("ORDER BY l.created_at DESC");
+        query.concat("ORDER BY l.is_favourite DESC, l.created_at DESC");
 
         // Finally the limit. It's not the best idea to return all the links if no constraints
         // were provided. Let's limit result to 10 links by default.

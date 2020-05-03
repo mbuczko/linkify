@@ -323,7 +323,8 @@
                         if (exact) {
                             callback(result)
                         } else {
-                            let items = JSON.parse(result.response).map(({name, query}) => ({
+                            let items = JSON.parse(result.response).map(({id, name, query}) => ({
+                                id: id,
                                 url: name,
                                 name: name,
                                 description: query,
