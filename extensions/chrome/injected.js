@@ -1,6 +1,6 @@
 (function () {
 
-    let modal, searcher, saver;
+    let Modal, Finder, Saver;
 
     function $(id) {
         return document.getElementById(id);
@@ -135,23 +135,28 @@
                 e.preventDefault();
                 break;
             case 'Escape':
-                modal.close();
+                Modal.close();
                 break;
             case 'Enter':
+                let selected = selectedNode().selected,
+                    query = Finder.getValue();
+
                 if (e.ctrlKey) {
-                    switchViews('ly--content-inner', 'ly--content-search-saver');
-                    hide($('ly--content-search-saver-warning'));
-                    saver.setValue('');
-                } else {
+                    if (query.length > 0) {
+                        switchViews('ly--content-inner', 'ly--content-search-saver');
+                        hide($('ly--content-search-saver-warning'));
+                        Saver.setValue('');
+                    }
+                } else if (selected) {
                     let link = Array
-                            .from(selectedNode().selected.children)
+                            .from(selected.children)
                             .filter(e => e.tagName === 'A')[0],
                         type = link.dataset.type;
 
                     if (type === 'search') {
-                        searcher.setValue(link.dataset.query);
+                        Finder.setValue(link.dataset.query);
                     } else {
-                        modal.close();
+                        Modal.close();
                         if (e.shiftKey) {
                             chrome.extension.sendMessage({
                                 action: 'openTab',
@@ -169,23 +174,30 @@
     function saveKeyDownHandler(e) {
         switch (e.key) {
             case 'Enter':
-                storeSearch(searcher.getValue(), e.target.value, response => {
+                storeSearch(Finder.getValue(), e.target.value, response => {
                     if (response.status === 200) {
                         switchViews('ly--content-search-saver', 'ly--content-inner');
-                        searcher.setValue();
+                        Finder.setValue();
                     } else console.error(response);
                 });
                 break;
             case 'Escape':
                 switchViews('ly--content-search-saver', 'ly--content-inner');
-                searcher.setValue();
+                Finder.setValue();
                 break;
         }
     }
 
     function onSavedSearchClickHandler(e) {
-        searcher.setValue(e.target.dataset.query);
+        Finder.setValue(e.target.dataset.query);
         muteEvent(e);
+    }
+
+    function onSavedSearchDeleteClickHandler(e) {
+        removeSearch(e.target.dataset.id, () => {
+            Finder.setValue(Finder.getValue());
+            muteEvent(e);
+        });
     }
 
     function createTagNode(tags, clazz) {
@@ -215,7 +227,22 @@
             a.appendChild(document.createTextNode(name));
 
             if (type === 'search') {
+                let d = document.createElement('a'),
+                    s = document.createElement('span');
+
                 a.dataset.query = description;
+                d.dataset.id = id;
+                d.href = '#';
+                s.classList.add('ly--delete-search');
+                d.addEventListener('click', onSavedSearchDeleteClickHandler);
+                d.appendChild(document.createTextNode("delete"))
+                s.appendChild(document.createTextNode(" → "));
+                s.appendChild(d);
+
+                node.appendChild(a);
+                node.appendChild(s)
+            } else {
+                node.appendChild(a);
             }
             if (handler) {
                 a.addEventListener('click', handler);
@@ -236,14 +263,13 @@
                 star.appendChild(document.createTextNode("★"));
                 node.append(star);
             }
-            node.appendChild(a);
             node.appendChild(div);
             ul.appendChild(node);
         });
         toggle($('ly--no-results'), items.length === 0);
 
         if (callback) callback();
-        searcher.setValue();
+        Finder.setValue();
     }
 
     function fetchSettings() {
@@ -310,6 +336,17 @@
         }
     }
 
+    function removeSearch(id, callback) {
+        fetchSettings().then(settings => {
+            chrome.extension.sendMessage({
+                    action: 'removeSearch',
+                    settings: settings,
+                    searchId: id
+                },
+                callback)
+        })
+    }
+
     function fetchSearches(name, exact, callback) {
         fetchSettings().then(settings => {
             chrome.extension.sendMessage({
@@ -348,9 +385,9 @@
                 saveInput = $('ly--content-saver-input'),
                 popup = $('ly--modal-selector');
 
-            searcher = initInput(searchInput);
-            saver = initInput(saveInput);
-            modal = initModal(popup);
+            Finder = initInput(searchInput);
+            Saver  = initInput(saveInput);
+            Modal  = initModal(popup);
 
             saveInput.addEventListener('keydown', saveKeyDownHandler);
             saveInput.addEventListener('keyup', muteEvent);
@@ -384,7 +421,7 @@
             }, 250));
 
             // allow for closing the dialog by clicking on overlay
-            document.querySelector('.ly--overlay').addEventListener('click', modal.close);
+            document.querySelector('.ly--overlay').addEventListener('click', Modal.close);
         });
 
 
@@ -393,11 +430,11 @@
         // register listener for dialog shortcut
         window.addEventListener('keydown', e => {
             if (isShortcut(e)) {
-                if (modal.isOpened()) {
-                    modal.close();
+                if (Modal.isOpened()) {
+                    Modal.close();
                 } else {
-                    modal.open();
-                    searcher.setValue('');
+                    Modal.open();
+                    Finder.setValue('');
                 }
             }
         }, false);

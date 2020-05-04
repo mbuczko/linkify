@@ -127,9 +127,24 @@
 }
 
 #ly--content-links a:hover {
-  color: #1c99db !important;
+  color: #1c99db;
   opacity: 1;
   text-decoration: underline;
+}
+
+#ly--content-links .ly--delete-search a {
+  color: red;
+}
+
+#ly--content-links li .ly--delete-search {
+  margin: 0 8px;
+  display: none;
+  font-size: 13px;
+  line-height: 13px;
+}
+
+#ly--content-links li:hover .ly--delete-search {
+  display: inline-block;
 }
 
 #ly--content-links span {

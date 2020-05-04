@@ -38,7 +38,7 @@ impl From<SqliteError> for DBError {
     }
 }
 
-fn add_path_function(conn: &Connection) -> Result<(), DBError> {
+fn add_functions(conn: &Connection) -> Result<(), DBError> {
     conn.create_scalar_function("path", 1, true, move |ctx| {
         let url = ctx.get::<String>(0)?;
         Ok(path(&url))
@@ -58,7 +58,7 @@ fn add_path_function(conn: &Connection) -> Result<(), DBError> {
 
 pub fn conn_manager(db: &str) -> SqliteConnectionManager {
     SqliteConnectionManager::file(db).with_init(|c| {
-        add_path_function(c).expect("Cannot initialize SQLite function");
+        add_functions(c).expect("Cannot initialize additional SQLite functions");
         array::load_module(c).unwrap();
         c.execute_batch("PRAGMA foreign_keys=1;")
     })

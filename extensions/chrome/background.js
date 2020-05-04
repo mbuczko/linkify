@@ -125,6 +125,14 @@
                         }, responder);
                         return true;
 
+                    case 'removeSearch':
+                        asyncRequest({
+                            apikey: message.settings.token,
+                            url: message.settings.server + '/searches/' + message.searchId,
+                            method: 'DELETE'
+                        }, responder);
+                        return true;
+
                     case 'suggestTags':
                         asyncRequest({
                             apikey: message.settings.token,

@@ -19,13 +19,6 @@ pub struct UserPass {
 #[derive(Debug)]
 pub struct ApiKey(String);
 
-//#[derive(Debug)]
-//enum ApiKeyError {
-//    BadCount,
-//    Missing,
-//    Invalid,
-//}
-
 pub enum Authentication {
     User(UserPass),
     Token(ApiKey),

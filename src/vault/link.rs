@@ -139,7 +139,7 @@ impl Vault {
             )
             .unwrap();
 
-        // remove associations with tags assigned to given link so far
+        // remove connections with tags assigned to link (if it already exists)
         txn.execute(
             "DELETE FROM links_tags WHERE link_id = ?1",
             params![link_id],
@@ -209,8 +209,8 @@ impl Vault {
         let limit = limit.unwrap_or(0);
 
         // Searching by name and description is equivalent. Also, when href was not not explicitly
-        // provided it's equivalent to name. This is to easily find a link by either a name or some
-        // part of url.
+        // provided it's equivalent to name. This is to easily find a link by either a name/description
+        // or some part of url.
 
         if !name.is_empty() {
             if path.is_empty() {
@@ -240,7 +240,6 @@ impl Vault {
         if pattern.favourite {
             query.concat("l.is_favourite = TRUE AND");
         }
-
         query.concat_with_param(
             "(l.user_id = :id OR l.is_shared) GROUP BY l.id",
             (":id", &user.id),
@@ -298,7 +297,7 @@ impl Vault {
         query.concat("ORDER BY l.is_favourite DESC, l.created_at DESC");
 
         // Finally the limit. It's not the best idea to return all the links if no constraints
-        // were provided. Let's limit result to 10 links by default.
+        // were provided. Let's limit result up to 10 links by default.
 
         if limit > 0 {
             query.concat_with_param("LIMIT :limit", (":limit", &limit));
