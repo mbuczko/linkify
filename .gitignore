@@ -4,5 +4,4 @@
 .idea
 .envrc
 *.db
-*.json
 *.paw
