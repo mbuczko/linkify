@@ -5,7 +5,7 @@ Linkify is a CLI tool and HTTP server in one binary, which lets you store links 
 No additional database installation required. Linkify works straight out of the box.
 
 #+begin_src
-linkify 0.1.4
+linkify 0.1.5
 Saves your precious links into local vault
 
 USAGE:
