@@ -173,6 +173,8 @@ brew tap mbuczko/linkify
 brew install linkify
 #+end_src
 
+and follow the information how to set up a local server. It will be required to have a chrome extension working.
+
 ** From sources
 #+begin_src
 https://github.com/mbuczko/linkify.git
@@ -182,7 +184,8 @@ cargo install --locked --root /usr/local/
 
 No cargo installed? [[https://doc.rust-lang.org/cargo/getting-started/installation.html][Installation Guide]].
 
-* Acknowledgment
+* Licence
+
+Eclipse Public License - v 2.0
 
 Pin icon by Amit Jakhu (http://demo.amitjakhu.com/dripicons/)
-
