@@ -168,7 +168,7 @@ Now, `control-h` invokes linkify which pipes collected links directly to fzf. Se
 
 Most of the links are usually collected with web browser and this is where linkify comes onto scene with its second nature - HTTP sever and accompanying browser extension (chrome/brave for now). This combo lets you store/modify/remove links instantaneously without leaving the browser:
 
-[[https://github.com/mbuczko/linkify/blob/master/doc/linikify-ext.gif]]
+[[https://github.com/mbuczko/linkify/blob/master/doc/linkify-ext.gif]]
 
 As mentioned, this combination requires linkify server set up. Sample command may looks like this:
 
