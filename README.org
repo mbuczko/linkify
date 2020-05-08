@@ -33,27 +33,27 @@ SUBCOMMANDS:
 
 ** command-line
 
-Linkify in CLI mode works pretty much like a git command - exposes a few subcommands to deal with links (obviously), with users and adds some helpful features like importing links from json file.
+Linkify in CLI mode works pretty much like a git command - exposes a few subcommands to deal with links (obviously), linkify users and adds on top helpers like importing links from json file.
 
-First things first - to store a link we need to specify database location. Linkify opens one, given by =--db= parameter, or creates it at given location if provided database does not exists yet. Following command creates a database and add first user:
-
-#+begin_src
-  linkify users add foobar --db /usr/local/var/linkify/default.db
-#+end_src
-
-Having a database and user created, time for second (final!) step - adding a link:
+First things first - to store a link a database location needs to be specified first. Linkify opens one, given by =--db= parameter, or creates it if database at given location does not exists yet. Following command creates a database and add first user (foobar):
 
 #+begin_src
-  linkify add --db --db /usr/local/var/linkify/default.db --user foobar -n "My social stuff" -t social,reddit http://reddit.com
+linkify users add foobar --db /usr/local/var/linkify/default.db
 #+end_src
 
-A word of explanation of what required and optional attributes attached to the link really are:
+Having a database and user created adding a link comes down to:
 
-- name (`-n` or `--name` flag) - required human readable link name (a title)
-- optional description (`-d` or `--description`) - additional chunk of text, to make link easier to find
-- optional tags (`-t` or `--tags`) - a comma-separated list of keywords
+#+begin_src
+linkify add --db --db /usr/local/var/linkify/default.db --user foobar -n "My social stuff" -t social,reddit http://reddit.com
+#+end_src
 
-Tags together with name and description provide a powerful way to find desired links. It's worth to spend a few seconds to think them over a bit when adding new link to database.
+A word of explanation about attributes attached to the link:
+
+- _name_ (`-n` or `--name` flag) - required human readable link name (a title)
+- optional _description_ (`-d` or `--description`) - additional chunk of text, to make link easier to find
+- optional _tags_ (`-t` or `--tags`) - a comma-separated list of keywords
+
+Tags together with name and description provide quite a powerful way to locate link in database so it's worth to spend a few seconds to think them over a bit.
 
 All the examples above specify =--db= and =--user= every time, which might be frustrating in practice, so to save fingers from typing it's better to move this information into environmental variables:
 
@@ -68,15 +68,17 @@ That can be simplified (secured?) even further by providing API key instead of u
 Let's see our links now:
 
 #+begin_src shell
-# linkify ls
+linkify ls
+
 http://reddit.com » My social stuff
 #+end_src
 
 Yup, it's there. Storing the same URL with different name or tags simply overrides existing data:
 
 #+begin_src shell
-# linkify add -n "Time waster" http://reddit.com
-# linkify ls
+linkify add -n "Time waster" http://reddit.com
+linkify ls
+
 http://reddit.com » Time waster
 #+end_src
 
@@ -85,19 +87,19 @@ http://reddit.com » Time waster
 Searching by name or description is nothing exciting. Searching by tags however brings a real joy. Tags in a query are classified as _optional_, _+required_ and _-excluded_ which allows to make query more concrete. Say, we have a bunch of links tagged with "rust", "programming" and "doc" keywords. Searching by "rust,programming" tags:
 
 #+begin_src
-# linkify ls -t "rust,programming"
+linkify ls -t "rust,programming"
 #+end_src
 
 returns all results which are tagged EITHER with "rust" OR "programming". This is in fact how "optional" tags work - link is returned if it has AT LEAST one optional tag attached. But this way we also get in result links tagged with "rust,doc" or "programming,doc" since they all have an optional "programming" tag attached. Not interested in documentation? Let's modify query by introducing _excluded_ tag:
 
 #+begin_src
-# linkify ls -t "rust,programming,-doc"
+linkify ls -t "rust,programming,-doc"
 #+end_src
 
 All the "doc"-tagged results should disappear immediately. And yes, same for _required_ tags. Once enforced, only links containing ALL of required tags will be returned, eg:
 
 #+begin_src
-# linkify ls -t "rust,programming,+doc"
+linkify ls -t "rust,programming,+doc"
 #+end_src
 
 returns all the links having "rust" OR "programming" tag AND required "doc" one.
@@ -166,7 +168,7 @@ Now, `control-h` invokes linkify which pipes collected links directly to fzf. Se
 
 Most of the links are usually collected with web browser and this is where linkify comes onto scene with its second nature - HTTP sever and accompanying browser extension (chrome/brave for now). This combo lets you store/modify/remove links instantaneously without leaving the browser:
 
-[[https://github.com/mbuczko/linkify/blob/master/doc/linikify-ext.mp4]]
+[[https://github.com/mbuczko/linkify/blob/master/doc/linikify-ext.gif]]
 
 As mentioned, this combination requires linkify server set up. Sample command may looks like this:
 
