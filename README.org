@@ -33,9 +33,9 @@ SUBCOMMANDS:
 
 ** command-line
 
-Linkify in CLI mode works pretty much like a git command - exposes a few subcommands to deal with links (obviously), linkify users and adds on top helpers like importing links from json file.
+Linkify in CLI mode works pretty much like a git command - exposes a few subcommands to deal with links (obviously), authorization and adds on top helpers like importing links from json file.
 
-First things first - to store a link a database location needs to be specified first. Linkify opens one, given by =--db= parameter, or creates it if database at given location does not exists yet. Following command creates a database and add first user (foobar):
+To store a link a database location needs to be specified first. Linkify opens one, given by =--db= parameter, or creates it if database at given location does not exists yet. Following command creates a database and adds initial user (foobar):
 
 #+begin_src
 linkify users add foobar --db /usr/local/var/linkify/default.db
@@ -44,22 +44,22 @@ linkify users add foobar --db /usr/local/var/linkify/default.db
 Having a database and user created adding a link comes down to:
 
 #+begin_src
-linkify add --db --db /usr/local/var/linkify/default.db --user foobar -n "My social stuff" -t social,reddit http://reddit.com
+linkify add --db /usr/local/var/linkify/default.db --user foobar -n "My social stuff" -t social,reddit http://reddit.com
 #+end_src
 
 A word of explanation about attributes attached to the link:
 
-- _name_ (`-n` or `--name` flag) - required human readable link name (a title)
-- optional _description_ (`-d` or `--description`) - additional chunk of text, to make link easier to find
-- optional _tags_ (`-t` or `--tags`) - a comma-separated list of keywords
+- _name_ (=-n= or =--name= flag) - required human readable link name (a title)
+- optional _description_ (=-d= or =--description=) - additional chunk of text, to make link easier to find
+- optional _tags_ (=-t= or =--tags=) - a comma-separated list of keywords
 
 Tags together with name and description provide quite a powerful way to locate link in database so it's worth to spend a few seconds to think them over a bit.
 
 All the examples above specify =--db= and =--user= every time, which might be frustrating in practice, so to save fingers from typing it's better to move this information into environmental variables:
 
 #+begin_src shell
-export LINKIFY_DB_PATH=/tmp/links.db
-export LINKIFY_USER=foo
+export LINKIFY_DB_PATH=/usr/local/var/linkify/default.db
+export LINKIFY_USER=foobar
 export LINKIFY_PASSWORD=secret
 #+end_src
 
@@ -160,7 +160,7 @@ That command can be simplified even further and become available with a single k
 bind \ch 'begin; set url (linkify ls|fzf -e -0 --print0); if string length -q -- $url; open (echo $url | cut -d "»" -f1 | awk \'{$1=$1};1\'); end; end'
 #+end_src
 
-Now, `control-h` invokes linkify which pipes collected links directly to fzf. Selection is automagically opened in default browser via `open` command (available on Mac).
+Now, =control-h= invokes linkify which pipes collected links directly to fzf. Selection is automagically opened in default browser via =open= command (available on Mac).
 
 [[https://github.com/mbuczko/linkify/blob/master/doc/linikify-cli.gif]]
 
@@ -176,7 +176,7 @@ As mentioned, this combination requires linkify server set up. Sample command ma
 linkify server --db /usr/local/var/linkify/default.db
 #+end_src
 
-To get some more information what's actually going on when the server starts up, change `LOG_LEVEL` environmental variable to `debug`:
+To get some more information what's actually going on when the server starts up, change =LOG_LEVEL= environmental variable to =debug=:
 
 #+begin_src shell
 LOG_LEVEL=debug linkify server --db /usr/local/var/linkify/default.db
@@ -198,7 +198,7 @@ Last missing part is extension itself. While it's not available yet in a store i
 
 https://github.com/mbuczko/linkify/tree/master/extensions/chrome
 
-Having extension added it should be possible from now on to add or remove links from database (look at the pin icon) and compose queries with  `control-\` command (be sure to reload page after extension installation).
+Having extension added it should be possible from now on to add or remove links from database (look at the pin icon) and compose queries with  =control-\= command (be sure to reload page after extension installation).
 
 * Installation
 ** Homebrew
