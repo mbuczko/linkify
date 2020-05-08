@@ -294,7 +294,7 @@ impl Vault {
             }
             query.concat("1=1");
         }
-        query.concat("ORDER BY l.is_favourite DESC, l.created_at DESC");
+        query.concat("ORDER BY l.created_at DESC, l.is_favourite DESC");
 
         // Finally the limit. It's not the best idea to return all the links if no constraints
         // were provided. Let's limit result up to 10 links by default.

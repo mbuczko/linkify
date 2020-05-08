@@ -164,6 +164,14 @@
   opacity: 0.8;
 }
 
+#ly--content-links span.ly--desc {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
 #ly--content-links span.ly--favourite {
   color: orange;
   padding-right: 4px;

@@ -169,6 +169,7 @@
                     }
                 }
         }
+        e.stopPropagation();
     }
 
     function saveKeyDownHandler(e) {
@@ -186,6 +187,7 @@
                 Finder.setValue();
                 break;
         }
+        e.stopPropagation();
     }
 
     function onSavedSearchClickHandler(e) {
@@ -194,10 +196,8 @@
     }
 
     function onSavedSearchDeleteClickHandler(e) {
-        removeSearch(e.target.dataset.id, () => {
-            Finder.setValue(Finder.getValue());
-            muteEvent(e);
-        });
+        removeSearch(e.target.dataset.id, () => Finder.setValue(Finder.getValue()));
+        muteEvent(e);
     }
 
     function createTagNode(tags, clazz) {
@@ -255,6 +255,7 @@
             }
             if (description && description.length) {
                 span.appendChild(document.createTextNode(description));
+                span.classList.add('ly--desc');
                 div.appendChild(span);
             }
             if (favourite) {
