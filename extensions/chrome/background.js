@@ -1,5 +1,24 @@
 (function () {
 
+    function escapeXml(unsafe) {
+        if (unsafe) {
+            return unsafe.replace(/[<>&'"]/g, function (c) {
+                switch (c) {
+                    case '<':
+                        return '&lt;';
+                    case '>':
+                        return '&gt;';
+                    case '&':
+                        return '&amp;';
+                    case '\'':
+                        return '&apos;';
+                    case '"':
+                        return '&quot;';
+                }
+            });
+        } else return '';
+    }
+
     function request(config) {
         let xhr = new XMLHttpRequest(), postData = '';
         xhr.open(config.method, config.url, config.async);
@@ -175,6 +194,32 @@
             }
         );
     }
+
+    // omnibox
+    chrome.omnibox.onInputEntered.addListener((text, disposition) => {
+        chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+            chrome.tabs.update(tabs[0].id, {url: text});
+        });
+    });
+    chrome.omnibox.onInputChanged.addListener((text, suggest) => {
+        chrome.storage.sync.get(['token', 'server'], settings => {
+            if (settings.token && settings.server) {
+                let q = text.trim();
+                asyncRequest({
+                    apikey: settings.token,
+                    url: settings.server + '/links?limit=10' + (q && q.length ? '&q=' + encodeURIComponent(q) : '')
+                }, result => {
+                    if (result.status === 200) {
+                        let items = JSON.parse(result.response).map(({href, name, description}) => ({
+                            content: href,
+                            description: `${escapeXml(name)} <dim>${escapeXml(description)}</dim>`
+                        }));
+                        suggest(items);
+                    }
+                })
+            }
+        })
+    })
 
     window.addEventListener('load', backgroundInit)
 })();

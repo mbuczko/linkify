@@ -23,6 +23,9 @@
   "icons": {
     "128": "icon128.png"
   },
+  "omnibox": {
+    "keyword": "ly"
+  },
   "permissions":  [
     "declarativeContent",
     "storage",

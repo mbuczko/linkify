@@ -273,6 +273,8 @@
         Finder.setValue();
     }
 
+    // fetching token/server settings from the storage
+
     function fetchSettings() {
         return new Promise(
             (resolve, reject) => {
@@ -285,6 +287,8 @@
                 })
             })
     }
+
+    // communication with backend script
 
     function readLink(linkId) {
         fetchSettings().then(settings => {

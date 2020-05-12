@@ -7,7 +7,7 @@ pub enum Env {
     LogLevel,
     User,
     Password,
-    ApiKey
+    ApiKey,
 }
 
 pub struct Config {
