@@ -2,7 +2,7 @@
 
     function escapeXml(unsafe) {
         if (unsafe) {
-            return unsafe.replace(/[<>&'"]/g, function (c) {
+            return unsafe.replace(/[<>&'"]/g,  c => {
                 switch (c) {
                     case '<':
                         return '&lt;';

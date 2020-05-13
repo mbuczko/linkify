@@ -81,7 +81,7 @@ impl Vault {
         query
             .concat_with_param("u.id = :id AND", (":id", &user.id))
             .concat_with_param(
-                "name LIKE :name  ORDER BY s.created_at DESC",
+                "name LIKE :name ORDER BY s.created_at DESC",
                 (":name", &name),
             );
         get_query_results(self.get_connection(), query)
@@ -95,12 +95,10 @@ impl Vault {
             Ok(u) => u,
             Err(e) => return Err(e),
         };
-        let mut query = Query::new_with_initial(
-            "SELECT s.id, name, query FROM searches s INNER JOIN users u ON s.user_id = u.id WHERE",
-        );
+        let mut query = Query::new_with_initial("SELECT id, name, query FROM searches WHERE");
         query
-            .concat_with_param("s.id = :sid AND", (":sid", &search_id))
-            .concat_with_param("u.id = :uid", (":uid", &user.id));
+            .concat_with_param("id = :sid AND", (":sid", &search_id))
+            .concat_with_param("user_id = :uid", (":uid", &user.id));
 
         self.get_connection()
             .query_row_named(query.to_string().as_str(), query.named_params(), |r| {

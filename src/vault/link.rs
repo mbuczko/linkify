@@ -359,10 +359,10 @@ impl Vault {
         q: String,
         limit: Option<u16>,
     ) -> DBResult<Vec<Link>> {
-        let mut href: Vec<&str> = Vec::new();
+        let mut href = "";
+        let mut desc = "";
         let mut name: Vec<&str> = Vec::new();
-        let mut desc: Vec<&str> = Vec::new();
-        let mut tags: Vec<String> = Vec::new();
+        let mut tags: Vec<Tag> = Vec::new();
         let mut toread = false;
         let mut shared = false;
         let mut favourite = false;
@@ -380,8 +380,8 @@ impl Vault {
                         shared = ch[1].contains("shared");
                         favourite = ch[1].contains("fav");
                     }
-                    "href" => href.push(ch[1]),
-                    "desc" => desc.push(ch[1]),
+                    "href" => href = ch[1],
+                    "desc" => desc = ch[1],
                     _ => name.push(chunk),
                 }
             } else {
@@ -390,9 +390,9 @@ impl Vault {
         }
         let link = Link::new(
             None,
-            href.last().map_or("", |v| v.trim()),
+            href.trim(),
             name.join("%").trim(),
-            Some(&desc.join("%").trim()),
+            Some(desc.trim()),
             Some(tags),
         )
         .set_toread(toread)
