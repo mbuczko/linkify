@@ -1,14 +1,11 @@
 pub mod query;
 
-use crate::db::query::Query;
 use crate::utils::{every, path, some};
 
 use failure::Fail;
-use failure::_core::iter::FromIterator;
-use r2d2::PooledConnection;
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::vtab::array;
-use rusqlite::{Connection, Error as SqliteError, Row};
+use rusqlite::{Connection, Error as SqliteError};
 
 #[derive(Debug, Fail)]
 pub enum DBError {
@@ -62,28 +59,4 @@ pub fn conn_manager(db: &str) -> SqliteConnectionManager {
         array::load_module(c).unwrap();
         c.execute_batch("PRAGMA foreign_keys=1;")
     })
-}
-
-pub fn get_query_results_f<T, F>(
-    conn: PooledConnection<SqliteConnectionManager>,
-    query: Query,
-    f: F,
-) -> DBResult<Vec<T>>
-where
-    F: Fn(&Row) -> T,
-{
-    let mut stmt = conn.prepare(&query.to_string())?;
-    let rows = stmt.query_map_named(query.named_params(), |row| Ok(f(row)))?;
-
-    Result::from_iter(rows).map_err(Into::into)
-}
-
-pub fn get_query_results<T>(
-    conn: PooledConnection<SqliteConnectionManager>,
-    query: Query,
-) -> DBResult<Vec<T>>
-where
-    T: for<'a> From<&'a Row<'a>>,
-{
-    get_query_results_f(conn, query, |row| T::from(row))
 }

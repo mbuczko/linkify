@@ -1,6 +1,6 @@
 use crate::db::DBError::UnknownUser;
 use crate::db::DBLookupType::{Exact, Patterned};
-use crate::db::{get_query_results_f, DBLookupType, DBResult};
+use crate::db::{DBLookupType, DBResult};
 use crate::utils::{confirm, generate_key, password};
 use crate::vault::Vault;
 
@@ -36,12 +36,13 @@ impl Vault {
             Exact => pattern.to_owned(),
             Patterned => Query::patternize(pattern),
         };
-        let mut query = Query::new_with_initial(
+
+        Query::new_with_initial(
             "SELECT u.id, login, count(l.id) FROM users u \
             LEFT JOIN links l ON l.user_id = u.id",
-        );
-        query.concat_with_param("WHERE login LIKE :login GROUP BY login", (":login", &login));
-        get_query_results_f(self.get_connection(), query, |row| {
+        )
+        .concat_with_param("WHERE login LIKE :login GROUP BY login", (":login", &login))
+        .fetch_as(self.get_connection(), |row| {
             (
                 User {
                     id: row.get(0).unwrap(),

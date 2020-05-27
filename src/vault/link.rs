@@ -1,6 +1,6 @@
 use crate::db::query::Query;
 use crate::db::DBLookupType::{Exact, Patterned};
-use crate::db::{get_query_results, DBLookupType, DBResult};
+use crate::db::{DBLookupType, DBResult};
 use crate::utils::path;
 use crate::vault::auth::Authentication;
 use crate::vault::tags::Tag;
@@ -302,7 +302,7 @@ impl Vault {
         if limit > 0 {
             query.concat_with_param("LIMIT :limit", (":limit", &limit));
         }
-        get_query_results(self.get_connection(), query)
+        query.fetch(self.get_connection())
     }
     pub fn get_href(&self, auth: Option<Authentication>, link_id: i64) -> DBResult<String> {
         let user = match self.authenticate_user(auth) {

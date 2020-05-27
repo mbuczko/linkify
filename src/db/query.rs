@@ -1,4 +1,9 @@
-use rusqlite::ToSql;
+use crate::db::DBResult;
+
+use failure::_core::iter::FromIterator;
+use r2d2::PooledConnection;
+use r2d2_sqlite::SqliteConnectionManager;
+use rusqlite::{Row, ToSql};
 
 pub struct Query<'a> {
     params: Vec<(&'a str, &'a dyn ToSql)>,
@@ -37,5 +42,25 @@ impl<'a> Query<'a> {
     }
     pub fn patternize(arg: &str) -> String {
         format!("%{}%", arg)
+    }
+    pub fn fetch_as<T, F>(
+        &self,
+        conn: PooledConnection<SqliteConnectionManager>,
+        f: F,
+    ) -> DBResult<Vec<T>>
+    where
+        F: Fn(&Row) -> T,
+    {
+        let mut stmt = conn.prepare(&self.to_string())?;
+        let rows = stmt.query_map_named(self.named_params(), |row| Ok(f(row)))?;
+
+        Result::from_iter(rows).map_err(Into::into)
+    }
+
+    pub fn fetch<T>(&self, conn: PooledConnection<SqliteConnectionManager>) -> DBResult<Vec<T>>
+    where
+        T: for<'q> From<&'q Row<'q>>,
+    {
+        self.fetch_as(conn, |row| T::from(row))
     }
 }

@@ -1,5 +1,5 @@
 use crate::db::query::Query;
-use crate::db::{get_query_results_f, DBResult};
+use crate::db::DBResult;
 use crate::vault::auth::Authentication;
 use crate::vault::Vault;
 
@@ -40,14 +40,11 @@ impl Vault {
         };
         let pattern = Query::patternize(pattern.unwrap_or_default());
         let limit = limit.unwrap_or(8);
-        let mut query = Query::new_with_initial("SELECT tag FROM tags");
-        query
+
+        Query::new_with_initial("SELECT tag FROM tags")
             .concat_with_param("WHERE user_id = :id AND", (":id", &user.id))
             .concat_with_param("tag LIKE :pattern", (":pattern", &pattern))
-            .concat_with_param("ORDER BY used_at DESC LIMIT :limit", (":limit", &limit));
-
-        get_query_results_f(self.get_connection(), query, |row| {
-            row.get_unwrap::<_, Tag>(0)
-        })
+            .concat_with_param("ORDER BY used_at DESC LIMIT :limit", (":limit", &limit))
+            .fetch_as(self.get_connection(), |row| row.get_unwrap::<_, Tag>(0))
     }
 }

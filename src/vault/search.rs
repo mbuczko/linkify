@@ -1,4 +1,4 @@
-use crate::db::{get_query_results, DBLookupType, DBResult};
+use crate::db::{DBLookupType, DBResult};
 use crate::vault::auth::Authentication;
 use crate::vault::Vault;
 
@@ -75,16 +75,16 @@ impl Vault {
             DBLookupType::Exact => v.to_owned(),
             DBLookupType::Patterned => Query::patternize(v),
         });
-        let mut query = Query::new_with_initial(
+
+        Query::new_with_initial(
             "SELECT s.id, name, query FROM searches s INNER JOIN users u ON s.user_id = u.id WHERE",
-        );
-        query
-            .concat_with_param("u.id = :id AND", (":id", &user.id))
-            .concat_with_param(
-                "name LIKE :name ORDER BY s.created_at DESC",
-                (":name", &name),
-            );
-        get_query_results(self.get_connection(), query)
+        )
+        .concat_with_param("u.id = :id AND", (":id", &user.id))
+        .concat_with_param(
+            "name LIKE :name ORDER BY s.created_at DESC",
+            (":name", &name),
+        )
+        .fetch(self.get_connection())
     }
     pub fn get_search(
         &self,
