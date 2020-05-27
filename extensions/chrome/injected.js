@@ -175,11 +175,11 @@
     function saveKeyDownHandler(e) {
         switch (e.key) {
             case 'Enter':
-                storeSearch(Finder.getValue(), e.target.value, response => {
-                    if (response.status === 200) {
+                storeSearch(Finder.getValue(), e.target.value, ({data, error}) => {
+                    if (data) {
                         switchViews('ly--content-search-saver', 'ly--content-inner');
                         Finder.setValue();
-                    } else console.error(response);
+                    } else console.error(error);
                 });
                 break;
             case 'Escape':
@@ -235,7 +235,7 @@
                 d.href = '#';
                 s.classList.add('ly--delete-search');
                 d.addEventListener('click', onSavedSearchDeleteClickHandler);
-                d.appendChild(document.createTextNode("delete"))
+                d.appendChild(document.createTextNode("delete"));
                 s.appendChild(document.createTextNode(" → "));
                 s.appendChild(d);
 
@@ -307,9 +307,9 @@
                     settings: settings,
                     query: query
                 },
-                result => {
-                    if (result.status === 200) {
-                        let items = JSON.parse(result.response).map(({id, href, name, description, tags, toread, shared, favourite}) => ({
+                ({data, error}) => {
+                    if (data) {
+                        let items = data.map(({id, href, name, description, tags, toread, shared, favourite}) => ({
                             id: id,
                             url: href,
                             name: name,
@@ -321,9 +321,9 @@
                             type: 'link'
                         }));
                         renderItems(items, callback);
-                    }
-                })
-        })
+                    } else console.error(error);
+                });
+        });
     }
 
     function storeSearch(query, name, callback) {
@@ -335,9 +335,8 @@
                         query: query,
                         name: name
                     },
-                    callback)
-            })
-
+                    callback);
+            });
         }
     }
 
@@ -348,8 +347,8 @@
                     settings: settings,
                     searchId: id
                 },
-                callback)
-        })
+                callback);
+        });
     }
 
     function fetchSearches(name, exact, callback) {
@@ -360,12 +359,12 @@
                     searchname: name,
                     exact: exact
                 },
-                result => {
-                    if (result.status === 200) {
+                ({data, error}) => {
+                    if (data) {
                         if (exact) {
-                            callback(result)
+                            callback(data);
                         } else {
-                            let items = JSON.parse(result.response).map(({id, name, query}) => ({
+                            let items = data.map(({id, name, query}) => ({
                                 id: id,
                                 url: name,
                                 name: name,
@@ -373,11 +372,11 @@
                                 type: 'search',
                                 handler: onSavedSearchClickHandler
                             }));
-                            renderItems(items, () => callback(result));
+                            renderItems(items, callback);
                         }
-                    }
-                })
-        })
+                    } else console.error(error);
+                });
+        });
     }
 
     // inject dialog into DOM
@@ -401,10 +400,7 @@
                 let searchName = e.target.value;
                 if (searchName.length > 0) {
                     fetchSearches(searchName, true, result => {
-                        toggleWarning(
-                            result &&
-                            result.status === 200 &&
-                            JSON.parse(result.response).length);
+                        toggleWarning(result.length);
                     });
                 }
             }, 250));

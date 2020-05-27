@@ -4,59 +4,44 @@
         if (unsafe) {
             return unsafe.replace(/[<>&'"]/g,  c => {
                 switch (c) {
-                    case '<':
-                        return '&lt;';
-                    case '>':
-                        return '&gt;';
-                    case '&':
-                        return '&amp;';
-                    case '\'':
-                        return '&apos;';
-                    case '"':
-                        return '&quot;';
+                    case '<':  return '&lt;';
+                    case '>':  return '&gt;';
+                    case '&':  return '&amp;';
+                    case '\'': return '&apos;';
+                    case '"':  return '&quot;';
                 }
-            });
+            })
         } else return '';
     }
 
-    function request(config) {
-        let xhr = new XMLHttpRequest(), postData = '';
-        xhr.open(config.method, config.url, config.async);
-        if (config.apikey) {
-            xhr.setRequestHeader('Authorization', 'Bearer ' + config.apikey);
-        }
-        if (config.method === 'POST' || config.method === 'DELETE') {
-            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-        }
-        if (config.async && config.callback) {
-            xhr.onload = config.callback;
-            xhr.onerror = config.callback;
-        }
-        try {
-            if (config.data) {
-                for (let key in config.data) {
-                    if (config.data.hasOwnProperty(key)) {
-                        postData += encodeURIComponent(key) + '=' + encodeURIComponent(config.data[key]) + '&';
-                    }
+    function request(config, callback) {
+        let postData = null, method = config.method || 'GET';
+        if (config.data) {
+            postData = '';
+            for (let key in config.data) {
+                if (config.data.hasOwnProperty(key)) {
+                    postData += encodeURIComponent(key) + '=' + encodeURIComponent(config.data[key]) + '&';
                 }
             }
-            xhr.send(postData);
-            return xhr;
-        } catch (e) {
-            return {
-                'status': 0,
-                'exception': e
-            }
         }
-    }
+        fetch(config.url, {
+            method: method,
+            headers: {
+                'Authorization': 'Bearer ' + config.apikey,
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: postData
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.status === 204 ? {} : response.json();
+            })
+            .then(data => callback({ data: data }))
+            .catch(err => callback({ error: err.message || 'Error while reaching destination URL'}));
 
-    function asyncRequest(config, callback) {
-        config.method = config.method || 'GET';
-        config.async = true;
-        config.callback = function (e) {
-            callback(e.target);
-        };
-        return request(config);
+        return true;
     }
 
     function backgroundInit() {
@@ -66,43 +51,34 @@
                     pageUrl: {schemes: ['http', 'https']},
                 })],
                 actions: [new chrome.declarativeContent.ShowPageAction()]
-            }])
-        })
+            }]);
+        });
 
         chrome.extension.onMessage.addListener(
             function (message, sender, reply) {
-                let responder = (xhr) => {
-                    reply({
-                        status: xhr.status,
-                        response: xhr.response
-                    });
-                };
                 switch (message.action) {
                     case 'getLink':
-                        asyncRequest({
+                        return request({
                             apikey: message.settings.token,
                             url: message.settings.server + '/links?href=' + encodeURIComponent(message.url)
-                        }, responder);
-                        return true;
+                        }, reply);
 
                     case 'removeLink':
-                        asyncRequest({
+                        return request({
                             method: 'DELETE',
                             apikey: message.settings.token,
                             url: message.settings.server + '/links/' + message.linkId
-                        }, responder);
-                        return true;
+                        }, reply);
 
                     case 'readLink':
-                        asyncRequest({
+                        return request({
                             method: 'POST',
                             apikey: message.settings.token,
                             url: message.settings.server + '/links/' + message.linkId + '/read'
-                        }, responder);
-                        return true;
+                        }, reply);
 
                     case 'storeLink':
-                        asyncRequest({
+                        return request({
                             method: 'POST',
                             apikey: message.settings.token,
                             url: message.settings.server + '/links',
@@ -113,27 +89,24 @@
                                 flags: message.flags,
                                 description: message.description
                             }
-                        }, responder);
-                        return true;
+                        }, reply);
 
                     case 'matchLinks':
                         let q = message.query.trim();
-                        asyncRequest({
+                        return request({
                             apikey: message.settings.token,
                             url: message.settings.server + '/links?limit=10' + (q && q.length ? '&q=' + encodeURIComponent(q) : '')
-                        }, responder);
-                        return true;
+                        }, reply);
 
                     case 'matchSearches':
-                        asyncRequest({
+                        return request({
                             apikey: message.settings.token,
                             url: message.settings.server + '/searches?name=' + message.searchname + '&exact=' + message.exact,
                             method: 'GET',
-                        }, responder);
-                        return true;
+                        }, reply);
 
                     case 'storeSearch':
-                        asyncRequest({
+                        return request({
                             apikey: message.settings.token,
                             url: message.settings.server + '/searches',
                             method: 'POST',
@@ -141,41 +114,38 @@
                                 name: message.name,
                                 query: message.query
                             }
-                        }, responder);
-                        return true;
+                        }, reply);
 
                     case 'removeSearch':
-                        asyncRequest({
+                        return request({
                             apikey: message.settings.token,
                             url: message.settings.server + '/searches/' + message.searchId,
                             method: 'DELETE'
-                        }, responder);
-                        return true;
+                        }, reply);
 
                     case 'suggestTags':
-                        asyncRequest({
+                        return request({
                             apikey: message.settings.token,
                             url: message.settings.server + '/tags?name=' + encodeURIComponent(message.name),
                             method: 'GET'
-                        }, responder);
-                        return true;
+                        }, reply);
 
                     case 'updateIcon':
                         chrome.tabs.query({active: true, lastFocusedWindow: true}, tabs => {
                             let activeTab = tabs[0];
 
-                            asyncRequest({
+                            request({
                                 apikey: message.settings.token,
                                 url: message.settings.server + '/links?href=' + encodeURIComponent(activeTab.url)
-                            }, result => {
+                            }, ({data}) => {
                                 chrome.pageAction.setIcon({
                                     tabId: activeTab.id,
-                                    path: (result && result.status === 200 && JSON.parse(result.response).length) ?
+                                    path: (data && data.length) ?
                                         'icon128_full.png' :
                                         'icon128.png'
                                 });
-                            })
-                        })
+                            });
+                        });
                         return true;
 
                     case 'setIcon':
@@ -189,7 +159,7 @@
                         chrome.tabs.create({
                             active: true,
                             url: message.url
-                        })
+                        });
                 }
             }
         );
@@ -205,21 +175,21 @@
         chrome.storage.sync.get(['token', 'server'], settings => {
             if (settings.token && settings.server) {
                 let q = text.trim();
-                asyncRequest({
+                request({
                     apikey: settings.token,
                     url: settings.server + '/links?limit=10' + (q && q.length ? '&q=' + encodeURIComponent(q) : '')
-                }, result => {
-                    if (result.status === 200) {
-                        let items = JSON.parse(result.response).map(({href, name, description}) => ({
+                }, ({data, error}) => {
+                    if (data) {
+                        let items = data.map(({href, name, description}) => ({
                             content: href,
                             description: `${escapeXml(name)} <dim>${escapeXml(description)}</dim>`
                         }));
                         suggest(items);
                     }
-                })
+                });
             }
-        })
-    })
+        });
+    });
 
-    window.addEventListener('load', backgroundInit)
+    window.addEventListener('load', backgroundInit);
 })();

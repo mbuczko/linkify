@@ -10,12 +10,12 @@ function toggleElem(elem, show) {
 function showPanel(clazz, buttonz) {
     document
         .querySelectorAll('form .ly--panel')
-        .forEach(e => toggleElem(e))
+        .forEach(e => toggleElem(e));
     document
         .querySelectorAll('button')
-        .forEach(e => toggleElem(e))
+        .forEach(e => toggleElem(e));
 
-    toggleElem(document.querySelector('form .ly--panel' + clazz), true)
+    toggleElem(document.querySelector('form .ly--panel' + clazz), true);
     buttonz && buttonz.forEach(b => toggleElem(document.querySelector('button' + b), true));
 }
 
@@ -25,8 +25,8 @@ function storeSettings(token, server) {
             chrome.storage.sync.set({
                 token: token,
                 server: server
-            }, resolve)
-        })
+            }, resolve);
+        });
 }
 
 function fetchSettings() {
@@ -34,12 +34,12 @@ function fetchSettings() {
         (resolve, reject) => {
             chrome.storage.sync.get(['token', 'server'], settings => {
                 if (settings.token && settings.server) {
-                    resolve(settings)
+                    resolve(settings);
                 } else {
-                    reject()
+                    reject();
                 }
-            })
-        })
+            });
+        });
 }
 
 function fetchTabs(settings) {
@@ -50,9 +50,9 @@ function fetchTabs(settings) {
                     settings: settings,
                     tabs: tabs
                 });
-            })
+            });
         }
-    )
+    );
 }
 
 function fetchLink(settings, url) {
@@ -63,15 +63,15 @@ function fetchLink(settings, url) {
                     settings: settings,
                     url: url,
                 },
-                result => {
-                    if (result.status === 200) {
-                        resolve(JSON.parse(result.response)[0]);
+                ({data, error}) => {
+                    if (data) {
+                        resolve(data[0]);
                     } else {
-                        reject(result.status);
+                        reject(error);
                     }
-                })
+                });
         }
-    )
+    );
 }
 
 function storeLink(settings, url, name, description, tags, flags) {
@@ -86,14 +86,14 @@ function storeLink(settings, url, name, description, tags, flags) {
                     description: description,
                     flags: flags
                 },
-                result => {
-                    if (result.status === 204) {
-                        resolve(settings)
+                ({data, error}) => {
+                    if (data) {
+                        resolve(settings);
                     } else {
-                        reject(result.status)
+                        reject(error);
                     }
-            })
-        })
+            });
+        });
 }
 
 function removeLink(settings, linkId) {
@@ -104,15 +104,15 @@ function removeLink(settings, linkId) {
                     settings: settings,
                     linkId: linkId
                 },
-                result => {
-                    if (result.status === 204) {
-                        resolve(settings)
+                ({data, error}) => {
+                    if (data) {
+                        resolve(settings);
                     } else {
-                        reject(result.status)
+                        reject(error);
                     }
-                })
+                });
         }
-    )
+    );
 }
 
 function suggestTags(settings, name) {
@@ -123,38 +123,35 @@ function suggestTags(settings, name) {
                     settings: settings,
                     name: name || ''
                 },
-                result => {
-                    if (result.status === 200) {
-                        resolve(JSON.parse(result.response).tags);
+                ({data, error}) => {
+                    if (data) {
+                        resolve(data.tags);
                     } else {
-                        reject(result.status);
+                        reject(error);
                     }
-                })
+                });
         }
-    )
+    );
 }
 
 function suggestDescription(settings, tabId) {
     return new Promise(
         (resolve, reject) => {
-            chrome.tabs.executeScript(tabId,
-                {
-                    code: 'Array.from(document.getElementsByTagName("meta"))' +
-                        '.map(m => (m.getAttribute("name") || "").endsWith("description") ? m.getAttribute("content") : null)' +
-                        '.filter(m => m !== null)'
-                },
-                results => {
-                    resolve(results[0][0] || '');
-                });
+            chrome.tabs.executeScript(tabId, {
+                code: 'Array.from(document.getElementsByTagName("meta"))' +
+                    '.map(m => (m.getAttribute("name") || "").endsWith("description") ? m.getAttribute("content") : null)' +
+                    '.filter(m => m !== null)'
+            },
+            results => resolve(results[0][0] || ''));
         }
-    )
+    );
 }
 
 function updateIcon(settings) {
     chrome.extension.sendMessage({
         action: 'updateIcon',
         settings: settings
-    })
+    });
 }
 
 function isTagUsed(tags, tag) {
@@ -189,7 +186,7 @@ function renderTags(tags) {
             a.addEventListener('click', selectTag);
             a.appendChild(text);
             taglist.append(a);
-        })
+        });
     } else {
         let span = document.createElement('span'),
             text = document.createTextNode('nothing to suggest');
@@ -281,9 +278,9 @@ document.addEventListener('DOMContentLoaded', function () {
                     renderTags(tagz);
                     tags.focus();
                 })
-                .catch(() => showPanel('.ly--connection-error'))
+                .catch(() => showPanel('.ly--connection-error'));
         })
-        .catch(() => showPanel('.ly--uninitialized', ['.ly--init']))
+        .catch(() => showPanel('.ly--uninitialized', ['.ly--init']));
 
     // event handlers
 
@@ -295,7 +292,7 @@ document.addEventListener('DOMContentLoaded', function () {
     tags.addEventListener('input', e => {
         fetchSettings()
             .then(settings => suggestTags(settings, currentTag(e.target)))
-            .then(tags => renderTags(tags))
+            .then(tags => renderTags(tags));
     });
 
     storeBtn.addEventListener('click', e => {
@@ -313,8 +310,8 @@ document.addEventListener('DOMContentLoaded', function () {
             .then(settings => {
                 updateIcon(settings);
                 window.close();
-            })
-    })
+            });
+    });
 
     removeBtn.addEventListener('click', e => {
         fetchSettings()
@@ -322,17 +319,15 @@ document.addEventListener('DOMContentLoaded', function () {
             .then(settings => {
                 updateIcon(settings);
                 window.close();
-            })
-    })
+            });
+    });
 
     initBtn.addEventListener('click', e => {
         storeSettings($('ly--token').value, $('ly--server').value || 'http://127.0.0.1:8001')
-            .then(() => window.close())
-    })
+            .then(() => window.close());
+    });
 
     cog.addEventListener('click', e => {
         showPanel('.ly--uninitialized', ['.ly--init']);
-    })
+    });
 });
-
-
