@@ -64,12 +64,7 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
             match post_input!(request, {name: String, query: String}) {
                 Ok(t) => {
                     match vault.store_search(Authentication::from_token(token), t.name, t.query) {
-                        Ok(id) => Response {
-                            status_code: 200,
-                            headers: vec![("Location".into(), format!("/searches/{}", id).into())],
-                            data: ResponseBody::empty(),
-                            upgrade: None,
-                        },
+                        Ok(_) => Response::empty_204(),
                         Err(e) => {
                             error!("{:?}", e);
                             err_response(e)
