@@ -126,7 +126,7 @@
                     case 'suggestTags':
                         return request({
                             apikey: message.settings.token,
-                            url: message.settings.server + '/tags?name=' + encodeURIComponent(message.name),
+                            url: message.settings.server + '/tags?name=' + encodeURIComponent(message.name) + '&exclude=' + message.exclude,
                             method: 'GET'
                         }, reply);
 

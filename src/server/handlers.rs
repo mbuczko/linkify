@@ -55,7 +55,7 @@ fn lookup_type(request: &Request) -> DBLookupType {
 pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
     let token = request
         .header("authorization")
-        .map_or(None, |header| header.split_whitespace().last());
+        .and_then(|header| header.split_whitespace().last());
     let limit = request
         .get_param("limit")
         .and_then(|v| v.parse::<u16>().ok());
@@ -103,8 +103,11 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
             }
         },
         (GET) (/tags) => {
-            let tag_name = request.get_param("name");
-            match vault.recent_tags(Authentication::from_token(token), tag_name.as_deref(), limit) {
+            let pattern = request.get_param("name");
+            let exclude = request.get_param("exclude")
+                .map(|e| e.split(',').map(|v| v.trim().to_string()).collect());
+
+            match vault.recent_tags(Authentication::from_token(token), pattern.as_deref(), exclude, limit) {
                 Ok(tags) => {
                     let mut result = HashMap::new();
                     result.insert("tags", tags);
@@ -137,7 +140,7 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
         (POST) (/links) => {
             match post_input!(request, {href: String, name: String, description: String, tags: String, flags: String}) {
                 Ok(t) => {
-                    let tags: Vec<_> = t.tags.split(',').into_iter()
+                    let tags: Vec<_> = t.tags.split(',')
                         .map(|v| v.trim().to_string())
                         .filter(|v| !v.is_empty())
                         .collect();

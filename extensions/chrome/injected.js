@@ -7,11 +7,11 @@
     }
 
     function show(elem) {
-        elem.classList.add('ly--show')
+        elem.classList.add('ly--show');
     }
 
     function hide(elem) {
-        elem.classList.remove('ly--show')
+        elem.classList.remove('ly--show');
     }
 
     function toggle(elem, showing) {
@@ -53,14 +53,14 @@
             let later = function () {
                 timeout = null;
                 if (!immediate) func.apply(context, args);
-            }
+            };
             let callNow = immediate && !timeout;
             clearTimeout(timeout);
             timeout = setTimeout(later, wait);
             if (callNow) {
                 func.apply(context, args);
             }
-        }
+        };
     }
 
     function initInput(inputElem) {
@@ -75,7 +75,7 @@
                 }
                 inputElem.focus();
             }
-        }
+        };
     }
 
     function initModal(inputElem) {
@@ -85,16 +85,16 @@
 
                 // pop up spinner by default
                 switchViews('ly--content-search-saver');
-                switchViews('ly--content-inner', 'ly--modal-selector', true)
+                switchViews('ly--content-inner', 'ly--modal-selector', true);
             },
             close: () => {
                 hide(inputElem);
-                setTimeout(() => inputElem.style.display = 'none', 1000);
+                setTimeout(() => inputElem.style.display = 'none', 500);
             },
             isOpened: () => {
                 return inputElem.classList.contains('ly--show');
             }
-        }
+        };
     }
 
     function selectNode(current, target) {
@@ -111,7 +111,7 @@
         return {
             nodes: nodes,
             selected: nodes.getElementsByClassName('ly--selected')[0]
-        }
+        };
     }
 
     function selectNext() {
@@ -169,7 +169,9 @@
                     }
                 }
         }
-        e.stopPropagation();
+        if (!isShortcut(e)) {
+            e.stopPropagation();
+        }
     }
 
     function saveKeyDownHandler(e) {
@@ -240,7 +242,7 @@
                 s.appendChild(d);
 
                 node.appendChild(a);
-                node.appendChild(s)
+                node.appendChild(s);
             } else {
                 node.appendChild(a);
             }
@@ -280,12 +282,12 @@
             (resolve, reject) => {
                 chrome.storage.sync.get(['token', 'server'], settings => {
                     if (settings.token && settings.server) {
-                        resolve(settings)
+                        resolve(settings);
                     } else {
-                        reject()
+                        reject();
                     }
-                })
-            })
+                });
+            });
     }
 
     // communication with backend script
@@ -297,7 +299,7 @@
                 settings: settings,
                 linkId: linkId
             });
-        })
+        });
     }
 
     function fetchLinks(query, callback) {
@@ -446,7 +448,7 @@
                 chrome.extension.sendMessage({
                     action: 'updateIcon',
                     settings: settings
-                })
+                });
             }
         });
     }, 500);

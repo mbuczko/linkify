@@ -115,13 +115,14 @@ function removeLink(settings, linkId) {
     );
 }
 
-function suggestTags(settings, name) {
+function suggestTags(settings, name, exclude) {
     return new Promise(
         (resolve, reject) => {
             chrome.extension.sendMessage({
                     action: 'suggestTags',
                     settings: settings,
-                    name: name || ''
+                    name: name || '',
+                    exclude: exclude || ''
                 },
                 ({data, error}) => {
                     if (data) {
@@ -226,6 +227,7 @@ function selectTag(e) {
         input.value = tags.join(' ') + ' ';
         input.focus();
     }
+    e.target.remove();
 }
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -290,8 +292,10 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     tags.addEventListener('input', e => {
+        let current = currentTag(e.target);
+        let exclude = e.target.value.split(' ').filter(t => t !== current);
         fetchSettings()
-            .then(settings => suggestTags(settings, currentTag(e.target)))
+            .then(settings => suggestTags(settings, current, exclude))
             .then(tags => renderTags(tags));
     });
 

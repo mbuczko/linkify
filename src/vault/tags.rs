@@ -2,8 +2,10 @@ use crate::db::query::Query;
 use crate::db::DBResult;
 use crate::vault::auth::Authentication;
 use crate::vault::Vault;
-
 use crate::utils::remove_first;
+
+use rusqlite::types::Value as SqlValue;
+use std::rc::Rc;
 
 pub type Tag = String;
 
@@ -32,6 +34,7 @@ impl Vault {
         &self,
         auth: Option<Authentication>,
         pattern: Option<&str>,
+        exclude: Option<Vec<Tag>>,
         limit: Option<u16>,
     ) -> DBResult<Vec<Tag>> {
         let user = match self.authenticate_user(auth) {
@@ -39,11 +42,19 @@ impl Vault {
             Err(e) => return Err(e),
         };
         let pattern = Query::patternize(pattern.unwrap_or_default());
+        let excludes = Rc::new(
+            exclude
+                .unwrap_or_default()
+                .into_iter()
+                .map(SqlValue::from)
+                .collect(),
+        );
         let limit = limit.unwrap_or(8);
 
         Query::new_with_initial("SELECT tag FROM tags")
             .concat_with_param("WHERE user_id = :id AND", (":id", &user.id))
-            .concat_with_param("tag LIKE :pattern", (":pattern", &pattern))
+            .concat_with_param("tag LIKE :pattern AND", (":pattern", &pattern))
+            .concat_with_param("tag NOT IN rarray(:excludes)", (":excludes", &excludes))
             .concat_with_param("ORDER BY used_at DESC LIMIT :limit", (":limit", &limit))
             .fetch_as(self.get_connection(), |row| row.get_unwrap::<_, Tag>(0))
     }

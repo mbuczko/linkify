@@ -168,7 +168,7 @@ impl Vault {
     pub fn add_link(&self, auth: Option<Authentication>, link: Link) -> DBResult<Link> {
         match self.authenticate_user(auth) {
             Ok(u) => self.store_link(link, &u),
-            Err(e) => return Err(e),
+            Err(e) => Err(e),
         }
     }
     pub fn import_links(&self, auth: Option<Authentication>, links: Vec<Link>) -> DBResult<u32> {

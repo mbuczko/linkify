@@ -90,13 +90,13 @@ Searching by name or description is nothing exciting. Searching by tags however 
 linkify ls -t "rust,programming"
 #+end_src
 
-returns all results which are tagged EITHER with "rust" OR "programming". This is in fact how "optional" tags work - link is returned if it has AT LEAST one optional tag attached. But this way we also get in result links tagged with "rust,doc" or "programming,doc" since they all have an optional "programming" tag attached. Not interested in documentation? Let's modify query by introducing _excluded_ tag:
+returns all results which are tagged EITHER with "rust" OR "programming". This is in fact how "optional" tags work - link is returned if it has AT LEAST one optional tag attached. But this way we also get in result links tagged with "rust,doc" or "programming,doc" since they all have either "programming" or "rust" tag attached. Not interested in documentation? Let's modify query by introducing _excluded_ tag:
 
 #+begin_src
 linkify ls -t "rust,programming,-doc"
 #+end_src
 
-All the "doc"-tagged results should disappear immediately. And yes, same for _required_ tags. Once enforced, only links containing ALL of required tags will be returned, eg:
+All the "doc" tagged results should disappear immediately. And yes, same for _required_ tags. Once enforced, only links containing ALL of required tags will be returned, eg:
 
 #+begin_src
 linkify ls -t "rust,programming,+doc"
