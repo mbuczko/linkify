@@ -30,7 +30,7 @@ pub struct Link {
 
 impl fmt::Display for Link {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let _tags = self.tags.as_ref().map_or(None, |t| Some(t.join(" ")));
+        let _tags = self.tags.as_ref().map(|t| t.join(" "));
         let s = vec![self.href.as_str()];
         write!(f, "{}", s.join("\n"))
     }
@@ -78,7 +78,7 @@ impl Link {
     pub fn from_matches(matches: &ArgMatches) -> Link {
         let tags = matches
             .values_of("tags")
-            .and_then(|t| Some(t.map(String::from).collect::<Vec<String>>()));
+            .map(|t| t.map(String::from).collect::<Vec<String>>());
 
         Link::new(
             None,
@@ -319,7 +319,7 @@ impl Vault {
     pub fn get_link(&self, auth: Option<Authentication>, href: &str) -> DBResult<Option<Link>> {
         let pattern = Link::new(None, &href, "", None, None);
         self.find_links(auth, pattern, DBLookupType::Exact, Some(1))
-            .and_then(|v| Ok(v.first().cloned()))
+            .map(|v| v.first().cloned())
     }
     pub fn del_link(&self, auth: Option<Authentication>, href: &str) -> DBResult<Option<Link>> {
         match self.get_link(auth, &href) {
