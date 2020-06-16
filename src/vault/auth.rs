@@ -39,15 +39,15 @@ impl Authentication {
             matches
                 .value_of("user")
                 .or_else(|| config.get(Env::User))
-                .map_or(None, |login| {
+                .map(|login| {
                     debug!("Authenticating ({}).", login);
-                    Some(Authentication::User(UserPass {
+                    Authentication::User(UserPass {
                         login: login.to_string().to_ascii_lowercase(),
                         password: password(
                             matches.value_of("password").or_else(|| config.get(Env::Password)),
                             None,
                         ),
-                    }))
+                    })
                 })
         }
     }
