@@ -1,8 +1,8 @@
 use crate::db::query::Query;
 use crate::db::DBResult;
+use crate::utils::remove_first;
 use crate::vault::auth::Authentication;
 use crate::vault::Vault;
-use crate::utils::remove_first;
 
 use rusqlite::types::Value as SqlValue;
 use std::rc::Rc;

@@ -80,7 +80,7 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
         (GET) (/searches) => {
             match vault.find_searches(
                 Authentication::from_token(token),
-                request.get_param("name").as_deref(),
+                request.get_param("q").as_deref(),
                 lookup_type(request)
             ) {
                 Ok(searches) => content_encoding::apply(request, jsonize(searches)),

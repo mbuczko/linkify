@@ -32,7 +32,9 @@ impl Authentication {
         }
     }
     pub fn from_matches(config: Config, matches: &ArgMatches) -> Option<Self> {
-        let token = matches.value_of("apikey").or_else(|| config.get(Env::ApiKey));
+        let token = matches
+            .value_of("apikey")
+            .or_else(|| config.get(Env::ApiKey));
         if token.is_some() {
             Self::from_token(token)
         } else {
@@ -44,7 +46,9 @@ impl Authentication {
                     Authentication::User(UserPass {
                         login: login.to_string().to_ascii_lowercase(),
                         password: password(
-                            matches.value_of("password").or_else(|| config.get(Env::Password)),
+                            matches
+                                .value_of("password")
+                                .or_else(|| config.get(Env::Password)),
                             None,
                         ),
                     })

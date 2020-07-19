@@ -19,7 +19,7 @@ use std::process::exit;
 use terminal_size::{terminal_size as ts, Width};
 
 const LOG_LEVEL: Level = Level::Warn;
-const VERSION: &'static str = env!("CARGO_PKG_VERSION");
+const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 fn main() {
     let yaml = load_yaml!("cli.yml");
@@ -96,7 +96,7 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
                     for link in links {
                         let href_len = link.href.chars().count() as i16;
                         let desc_len = tw - href_len - 3;
-                        println!("{} » {}", link.href, truncate(&link.name, desc_len).blue())
+                        println!("{} | {}", link.href, truncate(&link.name, desc_len).blue())
                     }
                 }
                 Err(e) => {

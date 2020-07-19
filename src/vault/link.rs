@@ -102,7 +102,6 @@ impl Link {
         hasher.update(self.toread.to_string().as_bytes());
         hasher.update(self.shared.to_string().as_bytes());
         hasher.update(self.favourite.to_string().as_bytes());
-
         self.hash = Some(hasher.digest().to_string());
         self
     }

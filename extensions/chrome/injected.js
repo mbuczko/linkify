@@ -39,6 +39,10 @@
         return e.key === '\\' && e.ctrlKey;
     }
 
+    function isSavedSearch(query) {
+        return query.startsWith('@');
+    }
+
     function muteEvent(event) {
         event.stopPropagation();
         if (event.type !== 'keypress') {
@@ -411,7 +415,7 @@
             searchInput.addEventListener('keyup', muteEvent);
             searchInput.addEventListener('keypress', muteEvent);
             searchInput.addEventListener('input', debounce(e => {
-                let query = e.target.value, saved = query.startsWith('@');
+                let query = e.target.value, saved = isSavedSearch(query);
                 toggle($('ly--searcher-hint'), !saved);
                 if (saved) {
                     fetchSearches(query.substring(1), false, selectNext);
