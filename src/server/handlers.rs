@@ -60,10 +60,10 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
         .get_param("limit")
         .and_then(|v| v.parse::<u16>().ok());
     let resp = router!(request,
-        (POST) (/searches) => {
+        (POST) (/queries) => {
             match post_input!(request, {name: String, query: String}) {
                 Ok(t) => {
-                    match vault.store_search(Authentication::from_token(token), t.name, t.query) {
+                    match vault.store_query(Authentication::from_token(token), t.name, t.query) {
                         Ok(_) => Response::empty_204(),
                         Err(e) => {
                             error!("{:?}", e);
@@ -77,8 +77,8 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
                 }
             }
         },
-        (GET) (/searches) => {
-            match vault.find_searches(
+        (GET) (/queries) => {
+            match vault.find_queries(
                 Authentication::from_token(token),
                 request.get_param("q").as_deref(),
                 lookup_type(request)
@@ -87,8 +87,8 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
                 Err(e) => err_response(e)
             }
         },
-        (DELETE) (/searches/{id: i64}) => {
-            let result = vault.del_search(Authentication::from_token(token), id);
+        (DELETE) (/queries/{id: i64}) => {
+            let result = vault.del_query(Authentication::from_token(token), id);
             match result {
                 Ok(_) =>  Response::empty_204(),
                 Err(e) => {

@@ -1,7 +1,7 @@
 pub mod auth;
 pub mod link;
 pub mod migrations;
-pub mod search;
+pub mod stored_query;
 pub mod tags;
 pub mod user;
 

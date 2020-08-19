@@ -98,17 +98,17 @@
                             url: message.settings.server + '/links?limit=10' + (q && q.length ? '&q=' + encodeURIComponent(q) : '')
                         }, reply);
 
-                    case 'matchSearches':
+                    case 'matchQueries':
                         return request({
                             apikey: message.settings.token,
-                            url: message.settings.server + '/searches?q=' + message.searchname + '&exact=' + message.exact,
+                            url: message.settings.server + '/queries?q=' + message.queryName + '&exact=' + message.exact,
                             method: 'GET',
                         }, reply);
 
-                    case 'storeSearch':
+                    case 'storeQuery':
                         return request({
                             apikey: message.settings.token,
-                            url: message.settings.server + '/searches',
+                            url: message.settings.server + '/queries',
                             method: 'POST',
                             data: {
                                 name: message.name,
@@ -116,10 +116,10 @@
                             }
                         }, reply);
 
-                    case 'removeSearch':
+                    case 'removeQuery':
                         return request({
                             apikey: message.settings.token,
-                            url: message.settings.server + '/searches/' + message.searchId,
+                            url: message.settings.server + '/queries/' + message.queryId,
                             method: 'DELETE'
                         }, reply);
 
@@ -182,37 +182,16 @@
         chrome.storage.sync.get(['token', 'server'], settings => {
             if (settings.token && settings.server) {
                 let q = text.trim(),
-                    s = q.startsWith('@'),
-                    e = q.endsWith('.');
+                    s = q.startsWith('@');
                 if (s) {
                     q = q.substring(1);
                 }
-                if (e) {
-                    q = q.substring(0, q.length-1);
-                }
                 request({
                     apikey: settings.token,
-                    url: settings.server +
-                        (s ? '/searches' : '/links') +
-                        '?limit=10' +
-                        '&exact=' + e +
-                        (q && q.length ? '&q=' + encodeURIComponent(q) : '')
+                    url: settings.server + '/search?limit=10' + (q && q.length ? '&q=' + encodeURIComponent(q) : '')
                 }, ({data, error}) => {
                     if (data) {
-
-                        // Ok, so 2 scenarios to handle here:
-                        // - we either got a response with exact saved search definition (along with stored query)
-                        // - or we got a response with links / saved searches that we were looking for
-                        //
-                        // in 1st case additional request needs to be fired to get the links based on query taken
-                        // from saved search returned before.
-
-                        if (e && data.length) {
-                            request({
-                                apikey: settings.token,
-                                url: settings.server + '/links?limit=10&q=' + encodeURIComponent(data[0].query)
-                            }, ({data, error}) => data && suggest(generateItems(data)));
-                        } else suggest(generateItems(data));
+                        suggest(generateItems(data));
                     }
                 });
             }

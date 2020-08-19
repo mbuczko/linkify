@@ -105,7 +105,7 @@
   position: relative;
 }
 
-#ly--searcher-hint {
+#ly--query-hint {
   position: absolute;
   top: 6px;
   right: 10px;
@@ -141,18 +141,18 @@
   text-decoration: underline;
 }
 
-#ly--content-links .ly--delete-search a {
+#ly--content-links .ly--delete-query a {
   color: red;
 }
 
-#ly--content-links li .ly--delete-search {
+#ly--content-links li .ly--delete-query {
   margin: 0 8px;
   display: none;
   font-size: 13px;
   line-height: 13px;
 }
 
-#ly--content-links li:hover .ly--delete-search {
+#ly--content-links li:hover .ly--delete-query {
   display: inline-block;
 }
 
@@ -207,13 +207,13 @@
   background: #eee;
 }
 
-#ly--content-search-saver {
+#ly--content-query-saver {
   display: none;
   padding: 60px;
   margin: 0;
 }
 
-#ly--content-search-saver-warning {
+#ly--content-query-saver-warning {
   display: none;
   color: red;
   font-size: 12px;

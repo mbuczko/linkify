@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS searches
+CREATE TABLE IF NOT EXISTS queries
 (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -7,4 +7,4 @@ CREATE TABLE IF NOT EXISTS searches
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE UNIQUE INDEX searches_idx ON searches(user_id, name);
+CREATE UNIQUE INDEX queries_idx ON queries(user_id, name);

@@ -7,21 +7,21 @@ use miniserde::{Deserialize, Serialize};
 use rusqlite::{params, OptionalExtension, Row};
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct Search {
+pub struct StoredQuery {
     pub id: Option<i64>,
     pub name: String,
     pub query: String,
 }
 
-impl Search {
+impl StoredQuery {
     pub fn new(id: Option<i64>, name: String, query: String) -> Self {
-        Search { id, name, query }
+        StoredQuery{ id, name, query }
     }
 }
 
-impl From<&Row<'_>> for Search {
+impl From<&Row<'_>> for StoredQuery {
     fn from(row: &Row) -> Self {
-        Search::new(
+        StoredQuery::new(
             Some(row.get_unwrap(0)),
             row.get_unwrap::<_, String>(1),
             row.get_unwrap::<_, String>(2),
@@ -30,7 +30,7 @@ impl From<&Row<'_>> for Search {
 }
 
 impl Vault {
-    pub fn store_search(
+    pub fn store_query(
         &self,
         auth: Option<Authentication>,
         name: String,
@@ -44,7 +44,7 @@ impl Vault {
         let mut conn = self.get_connection();
         let txn = conn.transaction().unwrap();
         txn.execute(
-            "INSERT INTO searches(user_id, name, query) VALUES(?1, ?2, ?3) \
+            "INSERT INTO queries(user_id, name, query) VALUES(?1, ?2, ?3) \
             ON CONFLICT(user_id, name) \
             DO UPDATE SET name = ?2, query = ?3, created_at = CURRENT_TIMESTAMP",
             params![user.id, name, query],
@@ -52,7 +52,7 @@ impl Vault {
         let id = match txn.last_insert_rowid() {
             0 => txn
                 .query_row(
-                    "SELECT id FROM searches WHERE user_id = ?1 AND name = ?2",
+                    "SELECT id FROM queries WHERE user_id = ?1 AND name = ?2",
                     params![user.id, name],
                     |row| row.get(0),
                 )
@@ -61,12 +61,12 @@ impl Vault {
         };
         txn.commit().and(Ok(id)).map_err(Into::into)
     }
-    pub fn find_searches(
+    pub fn find_queries(
         &self,
         auth: Option<Authentication>,
         name: Option<&str>,
         lookup_type: DBLookupType,
-    ) -> DBResult<Vec<Search>> {
+    ) -> DBResult<Vec<StoredQuery>> {
         let user = match self.authenticate_user(auth) {
             Ok(u) => u,
             Err(e) => return Err(e),
@@ -77,7 +77,7 @@ impl Vault {
         });
 
         Query::new_with_initial(
-            "SELECT s.id, name, query FROM searches s INNER JOIN users u ON s.user_id = u.id WHERE",
+            "SELECT s.id, name, query FROM queries s INNER JOIN users u ON s.user_id = u.id WHERE",
         )
         .concat_with_param("u.id = :id AND", (":id", &user.id))
         .concat_with_param(
@@ -86,37 +86,37 @@ impl Vault {
         )
         .fetch(self.get_connection())
     }
-    pub fn get_search(
+    pub fn get_query(
         &self,
         auth: Option<Authentication>,
-        search_id: i64,
-    ) -> DBResult<Option<Search>> {
+        query_id: i64,
+    ) -> DBResult<Option<StoredQuery>> {
         let user = match self.authenticate_user(auth) {
             Ok(u) => u,
             Err(e) => return Err(e),
         };
-        let mut query = Query::new_with_initial("SELECT id, name, query FROM searches WHERE");
+        let mut query = Query::new_with_initial("SELECT id, name, query FROM queries WHERE");
         query
-            .concat_with_param("id = :sid AND", (":sid", &search_id))
+            .concat_with_param("id = :sid AND", (":sid", &query_id))
             .concat_with_param("user_id = :uid", (":uid", &user.id));
 
         self.get_connection()
             .query_row_named(query.to_string().as_str(), query.named_params(), |r| {
-                Ok(Search::from(r))
+                Ok(StoredQuery::from(r))
             })
             .optional()
             .map_err(Into::into)
     }
-    pub fn del_search(
+    pub fn del_query(
         &self,
         auth: Option<Authentication>,
-        search_id: i64,
-    ) -> DBResult<Option<Search>> {
-        match self.get_search(auth, search_id) {
-            Ok(Some(search)) => {
+        query_id: i64,
+    ) -> DBResult<Option<StoredQuery>> {
+        match self.get_query(auth, query_id) {
+            Ok(Some(query)) => {
                 self.get_connection()
-                    .execute("DELETE FROM searches WHERE id = ?", params![search.id])?;
-                Ok(Some(search))
+                    .execute("DELETE FROM queries WHERE id = ?", params![query.id])?;
+                Ok(Some(query))
             }
             Ok(None) => Ok(None),
             Err(e) => Err(e),

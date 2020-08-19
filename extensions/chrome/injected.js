@@ -19,7 +19,7 @@
     }
 
     function toggleWarning(showing) {
-        toggle($('ly--content-search-saver-warning'), showing);
+        toggle($('ly--content-query-saver-warning'), showing);
     }
 
     function switchViews(from, to, showSpinner) {
@@ -39,7 +39,7 @@
         return e.key === '\\' && e.ctrlKey;
     }
 
-    function isSavedSearch(query) {
+    function isSavedQuery(query) {
         return query.startsWith('@');
     }
 
@@ -88,7 +88,7 @@
                 inputElem.style.display = '';
 
                 // pop up spinner by default
-                switchViews('ly--content-search-saver');
+                switchViews('ly--content-query-saver');
                 switchViews('ly--content-inner', 'ly--modal-selector', true);
             },
             close: () => {
@@ -128,7 +128,7 @@
         selectNode(selected, target || nodes.lastChild);
     }
 
-    function searchKeyDownHandler(e) {
+    function queryKeyDownHandler(e) {
         switch (e.key) {
             case 'ArrowUp':
                 selectPrev();
@@ -147,8 +147,8 @@
 
                 if (e.ctrlKey) {
                     if (query.length > 0) {
-                        switchViews('ly--content-inner', 'ly--content-search-saver');
-                        hide($('ly--content-search-saver-warning'));
+                        switchViews('ly--content-inner', 'ly--content-query-saver');
+                        hide($('ly--content-query-saver-warning'));
                         Saver.setValue('');
                     }
                 } else if (selected) {
@@ -157,7 +157,7 @@
                             .filter(e => e.tagName === 'A')[0],
                         type = link.dataset.type;
 
-                    if (type === 'search') {
+                    if (type === 'query') {
                         Finder.setValue(link.dataset.query);
                     } else {
                         Modal.close();
@@ -181,28 +181,28 @@
     function saveKeyDownHandler(e) {
         switch (e.key) {
             case 'Enter':
-                storeSearch(Finder.getValue(), e.target.value, ({data, error}) => {
+                storeQuery(Finder.getValue(), e.target.value, ({data, error}) => {
                     if (data) {
-                        switchViews('ly--content-search-saver', 'ly--content-inner');
+                        switchViews('ly--content-query-saver', 'ly--content-inner');
                         Finder.setValue();
                     } else console.error(error);
                 });
                 break;
             case 'Escape':
-                switchViews('ly--content-search-saver', 'ly--content-inner');
+                switchViews('ly--content-query-saver', 'ly--content-inner');
                 Finder.setValue();
                 break;
         }
         e.stopPropagation();
     }
 
-    function onSavedSearchClickHandler(e) {
+    function onSavedQueryClickHandler(e) {
         Finder.setValue(e.target.dataset.query);
         muteEvent(e);
     }
 
-    function onSavedSearchDeleteClickHandler(e) {
-        removeSearch(e.target.dataset.id, () => Finder.setValue(Finder.getValue()));
+    function onSavedQueryDeleteClickHandler(e) {
+        removeQuery(e.target.dataset.id, () => Finder.setValue(Finder.getValue()));
         muteEvent(e);
     }
 
@@ -232,15 +232,15 @@
             a.rel = 'noopener noreferrer';
             a.appendChild(document.createTextNode(name));
 
-            if (type === 'search') {
+            if (type === 'query') {
                 let d = document.createElement('a'),
                     s = document.createElement('span');
 
                 a.dataset.query = description;
                 d.dataset.id = id;
                 d.href = '#';
-                s.classList.add('ly--delete-search');
-                d.addEventListener('click', onSavedSearchDeleteClickHandler);
+                s.classList.add('ly--delete-query');
+                d.addEventListener('click', onSavedQueryDeleteClickHandler);
                 d.appendChild(document.createTextNode("delete"));
                 s.appendChild(document.createTextNode(" → "));
                 s.appendChild(d);
@@ -332,11 +332,11 @@
         });
     }
 
-    function storeSearch(query, name, callback) {
+    function storeQuery(query, name, callback) {
         if (query.length > 0 && name.length > 0) {
             fetchSettings().then(settings => {
                 chrome.extension.sendMessage({
-                        action: 'storeSearch',
+                        action: 'storeQuery',
                         settings: settings,
                         query: query,
                         name: name
@@ -346,23 +346,23 @@
         }
     }
 
-    function removeSearch(id, callback) {
+    function removeQuery(id, callback) {
         fetchSettings().then(settings => {
             chrome.extension.sendMessage({
-                    action: 'removeSearch',
+                    action: 'removeQuery',
                     settings: settings,
-                    searchId: id
+                    queryId: id
                 },
                 callback);
         });
     }
 
-    function fetchSearches(name, exact, callback) {
+    function fetchQueries(name, exact, callback) {
         fetchSettings().then(settings => {
             chrome.extension.sendMessage({
-                    action: 'matchSearches',
+                    action: 'matchQueries',
                     settings: settings,
-                    searchname: name,
+                    queryName: name,
                     exact: exact
                 },
                 ({data, error}) => {
@@ -375,8 +375,8 @@
                                 url: name,
                                 name: name,
                                 description: query,
-                                type: 'search',
-                                handler: onSavedSearchClickHandler
+                                type: 'query',
+                                handler: onSavedQueryClickHandler
                             }));
                             renderItems(items, callback);
                         }
@@ -391,11 +391,11 @@
         .then(data => {
             document.body.insertAdjacentHTML('beforeend', data);
 
-            let searchInput = $('ly--content-searcher-input'),
+            let queryInput = $('ly--content-query-input'),
                 saveInput = $('ly--content-saver-input'),
                 popup = $('ly--modal-selector');
 
-            Finder = initInput(searchInput);
+            Finder = initInput(queryInput);
             Saver  = initInput(saveInput);
             Modal  = initModal(popup);
 
@@ -403,22 +403,22 @@
             saveInput.addEventListener('keyup', muteEvent);
             saveInput.addEventListener('keypress', muteEvent);
             saveInput.addEventListener('input', debounce(e => {
-                let searchName = e.target.value;
-                if (searchName.length > 0) {
-                    fetchSearches(searchName, true, result => {
+                let queryName = e.target.value;
+                if (queryName.length > 0) {
+                    fetchQueries(queryName, true, result => {
                         toggleWarning(result.length);
                     });
                 }
             }, 250));
 
-            searchInput.addEventListener('keydown', searchKeyDownHandler);
-            searchInput.addEventListener('keyup', muteEvent);
-            searchInput.addEventListener('keypress', muteEvent);
-            searchInput.addEventListener('input', debounce(e => {
-                let query = e.target.value, saved = isSavedSearch(query);
-                toggle($('ly--searcher-hint'), !saved);
+            queryInput.addEventListener('keydown', queryKeyDownHandler);
+            queryInput.addEventListener('keyup', muteEvent);
+            queryInput.addEventListener('keypress', muteEvent);
+            queryInput.addEventListener('input', debounce(e => {
+                let query = e.target.value, saved = isSavedQuery(query);
+                toggle($('ly--query-hint'), !saved);
                 if (saved) {
-                    fetchSearches(query.substring(1), false, selectNext);
+                    fetchQueries(query.substring(1), false, selectNext);
                 } else {
                     fetchLinks(query, () => {
                         switchViews('ly--content-spinner', 'ly--content-inner');
