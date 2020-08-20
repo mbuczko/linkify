@@ -352,7 +352,7 @@ impl Vault {
     ) -> DBResult<Vec<Link>> {
         self.find_links(auth, pattern, DBLookupType::Patterned, limit)
     }
-    pub fn query(
+    pub fn query_links(
         &self,
         auth: Option<Authentication>,
         q: String,

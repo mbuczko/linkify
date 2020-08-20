@@ -60,43 +60,6 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
         .get_param("limit")
         .and_then(|v| v.parse::<u16>().ok());
     let resp = router!(request,
-        (POST) (/queries) => {
-            match post_input!(request, {name: String, query: String}) {
-                Ok(t) => {
-                    match vault.store_query(Authentication::from_token(token), t.name, t.query) {
-                        Ok(_) => Response::empty_204(),
-                        Err(e) => {
-                            error!("{:?}", e);
-                            err_response(e)
-                        }
-                    }
-                }
-                Err(e) => {
-                    let json = try_or_400::ErrJson::from_err(&e);
-                    Response::json(&json).with_status_code(400)
-                }
-            }
-        },
-        (GET) (/queries) => {
-            match vault.find_queries(
-                Authentication::from_token(token),
-                request.get_param("q").as_deref(),
-                lookup_type(request)
-            ) {
-                Ok(searches) => content_encoding::apply(request, jsonize(searches)),
-                Err(e) => err_response(e)
-            }
-        },
-        (DELETE) (/queries/{id: i64}) => {
-            let result = vault.del_query(Authentication::from_token(token), id);
-            match result {
-                Ok(_) =>  Response::empty_204(),
-                Err(e) => {
-                    error!("{:?}", e);
-                    err_response(e)
-                }
-            }
-        },
         (GET) (/tags) => {
             let pattern = request.get_param("name");
             let exclude = request.get_param("exclude")
@@ -114,15 +77,51 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
                 }
             }
         },
+        (POST) (/queries) => {
+            match post_input!(request, {name: String, query: String}) {
+                Ok(t) => {
+                    match vault.store_query(Authentication::from_token(token), t.name, t.query) {
+                        Ok(_) => Response::empty_204(),
+                        Err(e) => {
+                            error!("{:?}", e);
+                            err_response(e)
+                        }
+                    }
+                }
+                Err(e) => {
+                    let json = try_or_400::ErrJson::from_err(&e);
+                    Response::json(&json).with_status_code(400)
+                }
+            }
+        },
+        (DELETE) (/queries/{id: i64}) => {
+            let result = vault.del_query(Authentication::from_token(token), id);
+            match result {
+                Ok(_) =>  Response::empty_204(),
+                Err(e) => {
+                    error!("{:?}", e);
+                    err_response(e)
+                }
+            }
+        },
+        (GET) (/queries) => {
+            let lookup = lookup_type(request);
+            match vault.find_queries(Authentication::from_token(token), request.get_param("q").as_deref(), lookup) {
+                Ok(queries) => content_encoding::apply(request, jsonize(queries)),
+                Err(e) => {
+                    error!("{:?}", e);
+                    err_response(e)
+                }
+            }
+        },
         (GET) (/links) => {
-            let authentication = Authentication::from_token(token);
-            let query = request.get_param("q");
-            let href = request.get_param("href").unwrap_or_default();
-            let result = if query.is_some() {
-                vault.query(authentication, query.unwrap(), limit)
-            } else {
-                let pattern = Link::new(None, href.as_str(), "", None, None);
-                vault.find_links(authentication, pattern, DBLookupType::Exact, limit)
+            let query = request.get_param("q").unwrap_or_default();
+            let result = match lookup_type(request) {
+                DBLookupType::Patterned => vault.query_links(Authentication::from_token(token), query, limit),
+                DBLookupType::Exact => {
+                    let pattern = Link::new(None, query.as_str(), "", None, None);
+                    vault.find_links(Authentication::from_token(token), pattern, DBLookupType::Exact, limit)
+                }
             };
             match result {
                 Ok(links) => content_encoding::apply(request, jsonize(links)),
@@ -179,7 +178,6 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
                 }
                 _ => Response::empty_404()
             }
-
         },
         (POST) (/links/{id: i64}/read) => {
             match vault.get_href(Authentication::from_token(token), id) {
@@ -195,7 +193,37 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
                 }
                 _ => Response::empty_404()
             }
-
+        },
+        (GET) (/search) => {
+            let query = request.get_param("q").unwrap_or_default();
+            let is_stored_query = query.starts_with('@');
+            let fetch_links = |q| {
+                match vault.query_links(Authentication::from_token(token), q, limit) {
+                    Ok(links) => content_encoding::apply(request, jsonize(links)),
+                    Err(e) => err_response(e)
+                }
+            };
+            if is_stored_query {
+                let chunks: Vec<&str> = query.splitn(2, '/').collect();
+                let is_exact = chunks.len() == 2;
+                let lookup = if is_exact {
+                    DBLookupType::Exact
+                } else {
+                    DBLookupType::Patterned
+                };
+                match vault.find_queries(Authentication::from_token(token), chunks.get(0).unwrap().strip_prefix('@'), lookup) {
+                    Ok(queries) => {
+                        if !queries.is_empty() && is_exact {
+                            let stored = queries.get(0).map(|q| q.query.clone()).unwrap();
+                            let query = chunks.get(1).unwrap();
+                            fetch_links(format!("{} {}", stored, query))
+                        } else {
+                            content_encoding::apply(request, jsonize(queries))
+                        }
+                    },
+                    Err(e) => err_response(e)
+                }
+            } else { fetch_links(query) }
         },
         _ => {
            Response::empty_404()

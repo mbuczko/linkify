@@ -60,7 +60,7 @@
                     case 'getLink':
                         return request({
                             apikey: message.settings.token,
-                            url: message.settings.server + '/links?href=' + encodeURIComponent(message.url)
+                            url: message.settings.server + '/links?exact=true&q=' + encodeURIComponent(message.url)
                         }, reply);
 
                     case 'removeLink':
@@ -91,18 +91,11 @@
                             }
                         }, reply);
 
-                    case 'matchLinks':
-                        let q = message.query.trim();
+                    case 'search':
+                        let q = message.query.trimLeft();
                         return request({
                             apikey: message.settings.token,
-                            url: message.settings.server + '/links?limit=10' + (q && q.length ? '&q=' + encodeURIComponent(q) : '')
-                        }, reply);
-
-                    case 'matchQueries':
-                        return request({
-                            apikey: message.settings.token,
-                            url: message.settings.server + '/queries?q=' + message.queryName + '&exact=' + message.exact,
-                            method: 'GET',
+                            url: message.settings.server + '/search?limit=10' + (q && q.length ? '&q=' + encodeURIComponent(q) : '')
                         }, reply);
 
                     case 'storeQuery':
@@ -136,7 +129,7 @@
 
                             request({
                                 apikey: message.settings.token,
-                                url: message.settings.server + '/links?href=' + encodeURIComponent(activeTab.url)
+                                url: message.settings.server + '/links?exact=true&q=' + encodeURIComponent(activeTab.url)
                             }, ({data}) => {
                                 chrome.pageAction.setIcon({
                                     tabId: activeTab.id,
@@ -181,11 +174,7 @@
     chrome.omnibox.onInputChanged.addListener((text, suggest) => {
         chrome.storage.sync.get(['token', 'server'], settings => {
             if (settings.token && settings.server) {
-                let q = text.trim(),
-                    s = q.startsWith('@');
-                if (s) {
-                    q = q.substring(1);
-                }
+                let q = text.trim();
                 request({
                     apikey: settings.token,
                     url: settings.server + '/search?limit=10' + (q && q.length ? '&q=' + encodeURIComponent(q) : '')

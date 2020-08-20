@@ -39,7 +39,7 @@
         return e.key === '\\' && e.ctrlKey;
     }
 
-    function isSavedQuery(query) {
+    function isStoredQuery(query) {
         return query.startsWith('@');
     }
 
@@ -306,25 +306,26 @@
         });
     }
 
-    function fetchLinks(query, callback) {
+    function fetchQueryResults(query, callback) {
         fetchSettings().then(settings => {
             chrome.extension.sendMessage({
-                    action: 'matchLinks',
+                    action: 'search',
                     settings: settings,
                     query: query
                 },
                 ({data, error}) => {
                     if (data) {
-                        let items = data.map(({id, href, name, description, tags, toread, shared, favourite}) => ({
+                        let items = data.map(({id, href, name, query, description, tags, toread, shared, favourite}) => ({
                             id: id,
-                            url: href,
+                            url: href || name,
+                            type: href ? 'link' : 'query',
                             name: name,
                             tags: tags,
-                            description: description,
+                            description: description || query,
                             toread: toread,
                             shared: shared,
                             favourite: favourite,
-                            type: 'link'
+                            handler: query && onSavedQueryClickHandler
                         }));
                         renderItems(items, callback);
                     } else console.error(error);
@@ -357,34 +358,6 @@
         });
     }
 
-    function fetchQueries(name, exact, callback) {
-        fetchSettings().then(settings => {
-            chrome.extension.sendMessage({
-                    action: 'matchQueries',
-                    settings: settings,
-                    queryName: name,
-                    exact: exact
-                },
-                ({data, error}) => {
-                    if (data) {
-                        if (exact) {
-                            callback(data);
-                        } else {
-                            let items = data.map(({id, name, query}) => ({
-                                id: id,
-                                url: name,
-                                name: name,
-                                description: query,
-                                type: 'query',
-                                handler: onSavedQueryClickHandler
-                            }));
-                            renderItems(items, callback);
-                        }
-                    } else console.error(error);
-                });
-        });
-    }
-
     // inject dialog into DOM
     fetch(chrome.extension.getURL('/modal.html'))
         .then(response => response.text())
@@ -405,7 +378,7 @@
             saveInput.addEventListener('input', debounce(e => {
                 let queryName = e.target.value;
                 if (queryName.length > 0) {
-                    fetchQueries(queryName, true, result => {
+                    fetchQueryResults('@' + queryName + '/', result => {
                         toggleWarning(result.length);
                     });
                 }
@@ -415,16 +388,12 @@
             queryInput.addEventListener('keyup', muteEvent);
             queryInput.addEventListener('keypress', muteEvent);
             queryInput.addEventListener('input', debounce(e => {
-                let query = e.target.value, saved = isSavedQuery(query);
-                toggle($('ly--query-hint'), !saved);
-                if (saved) {
-                    fetchQueries(query.substring(1), false, selectNext);
-                } else {
-                    fetchLinks(query, () => {
-                        switchViews('ly--content-spinner', 'ly--content-inner');
-                        selectNext();
-                    });
-                }
+                let query = e.target.value, stored = isStoredQuery(query);
+                toggle($('ly--query-hint'), !stored);
+                fetchQueryResults(query, () => {
+                    switchViews('ly--content-spinner', 'ly--content-inner');
+                    selectNext();
+                });
             }, 250));
 
             // allow for closing the dialog by clicking on overlay
