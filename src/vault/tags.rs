@@ -32,7 +32,7 @@ impl Vault {
     }
     pub fn recent_tags(
         &self,
-        auth: Option<Authentication>,
+        auth: &Option<Authentication>,
         pattern: Option<&str>,
         exclude: Option<Vec<Tag>>,
         limit: Option<u16>,

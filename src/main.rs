@@ -12,6 +12,7 @@ use crate::vault::{init_vault, Vault};
 
 use clap::{load_yaml, App, ArgMatches};
 use colored::Colorize;
+use db::DBLookupType;
 use log::Level;
 use miniserde::json;
 use semver::Version;
@@ -54,7 +55,7 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
     match matches.subcommand() {
         ("add", Some(sub_m)) => {
             match vault.add_link(
-                Authentication::from_matches(config, sub_m),
+                &Authentication::from_matches(config, sub_m),
                 Link::from_matches(sub_m),
             ) {
                 Ok(id) => println!("Added (id={})", id),
@@ -66,7 +67,7 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
         }
         ("del", Some(sub_m)) => {
             match vault.del_link(
-                Authentication::from_matches(config, sub_m),
+                &Authentication::from_matches(config, sub_m),
                 matches.value_of("url").unwrap_or("<unknown>"),
             ) {
                 Ok(Some(link)) => println!("Deleted (id={})", link.id.unwrap()),
@@ -81,11 +82,36 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
             }
         }
         ("ls", Some(sub_m)) => {
-            match vault.match_links(
-                Authentication::from_matches(config, sub_m),
-                Link::from_matches(sub_m),
-                None,
-            ) {
+            let auth = Authentication::from_matches(config, sub_m);
+            let query = sub_m.value_of("query").unwrap_or_default().to_string();
+            let links = if query.starts_with('@') {
+                let chunks: Vec<&str> = query.splitn(2, '/').collect();
+                let stored_query = chunks.first().unwrap().strip_prefix('@');
+                match vault.find_queries(
+                    &auth,
+                    stored_query,
+                    DBLookupType::Exact,
+                ) {
+                    Ok(queries) => {
+                        if queries.len() != 1 {
+                            eprintln!("No stored query found ({})", stored_query.unwrap());
+                            exit(1);
+                        } else {
+                            let stored = queries.get(0).map(|q| q.query.clone()).unwrap();
+                            let query = chunks.get(1).unwrap_or(&"");
+                            vault.query_links(&auth, format!("{} {}", stored, query), None)
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("Error while fetching stored query ({:?}).", e);
+                        exit(1);
+                    }
+                }
+            } else {
+                vault.query_links(&auth, query, None)
+            };
+
+            match links {
                 Ok(links) => {
                     let size = ts();
                     let tw = if let Some((Width(w), _)) = size {
@@ -108,7 +134,7 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
         ("import", Some(sub_m)) => {
             let contents = read_file(sub_m.value_of("file").expect("Cannot read file."));
             let links: Vec<Link> = json::from_str(&contents).expect("Invalid JSON.");
-            match vault.import_links(Authentication::from_matches(config, sub_m), links) {
+            match vault.import_links(&Authentication::from_matches(config, sub_m), links) {
                 Ok(n) => println!("Imported {} links.", n),
                 Err(e) => {
                     eprintln!("Error while importing links ({:?}).", e);

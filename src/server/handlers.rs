@@ -56,6 +56,7 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
     let token = request
         .header("authorization")
         .and_then(|header| header.split_whitespace().last());
+    let auth = Authentication::from_token(token);
     let limit = request
         .get_param("limit")
         .and_then(|v| v.parse::<u16>().ok());
@@ -65,7 +66,7 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
             let exclude = request.get_param("exclude")
                 .map(|e| e.split(',').map(|v| v.trim().to_string()).collect());
 
-            match vault.recent_tags(Authentication::from_token(token), pattern.as_deref(), exclude, limit) {
+            match vault.recent_tags(&auth, pattern.as_deref(), exclude, limit) {
                 Ok(tags) => {
                     let mut result = HashMap::new();
                     result.insert("tags", tags);
@@ -80,7 +81,7 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
         (POST) (/queries) => {
             match post_input!(request, {name: String, query: String}) {
                 Ok(t) => {
-                    match vault.store_query(Authentication::from_token(token), t.name, t.query) {
+                    match vault.store_query(&auth, t.name, t.query) {
                         Ok(_) => Response::empty_204(),
                         Err(e) => {
                             error!("{:?}", e);
@@ -95,7 +96,7 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
             }
         },
         (DELETE) (/queries/{id: i64}) => {
-            let result = vault.del_query(Authentication::from_token(token), id);
+            let result = vault.del_query(&auth, id);
             match result {
                 Ok(_) =>  Response::empty_204(),
                 Err(e) => {
@@ -106,7 +107,7 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
         },
         (GET) (/queries) => {
             let lookup = lookup_type(request);
-            match vault.find_queries(Authentication::from_token(token), request.get_param("q").as_deref(), lookup) {
+            match vault.find_queries(&auth, request.get_param("q").as_deref(), lookup) {
                 Ok(queries) => content_encoding::apply(request, jsonize(queries)),
                 Err(e) => {
                     error!("{:?}", e);
@@ -117,10 +118,10 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
         (GET) (/links) => {
             let query = request.get_param("q").unwrap_or_default();
             let result = match lookup_type(request) {
-                DBLookupType::Patterned => vault.query_links(Authentication::from_token(token), query, limit),
+                DBLookupType::Patterned => vault.query_links(&auth, query, limit),
                 DBLookupType::Exact => {
                     let pattern = Link::new(None, query.as_str(), "", None, None);
-                    vault.find_links(Authentication::from_token(token), pattern, DBLookupType::Exact, limit)
+                    vault.find_links(&auth, pattern, DBLookupType::Exact, limit)
                 }
             };
             match result {
@@ -149,7 +150,7 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
                     .set_toread(t.flags.contains("toread"))
                     .set_shared(t.flags.contains("shared"))
                     .set_favourite(t.flags.contains("favourite"));
-                    let result = vault.add_link(Authentication::from_token(token), link);
+                    let result = vault.add_link(&auth, link);
                     match result {
                         Ok(_) =>  Response::empty_204(),
                         Err(e) => {
@@ -165,9 +166,9 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
             }
         },
         (DELETE) (/links/{id: i64}) => {
-            match vault.get_href(Authentication::from_token(token), id) {
+            match vault.get_href(&auth, id) {
                 Ok(href) => {
-                    let result = vault.del_link(Authentication::from_token(token), &href);
+                    let result = vault.del_link(&auth, &href);
                     match result {
                         Ok(_) =>  Response::empty_204(),
                         Err(e) => {
@@ -180,9 +181,9 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
             }
         },
         (POST) (/links/{id: i64}/read) => {
-            match vault.get_href(Authentication::from_token(token), id) {
+            match vault.get_href(&auth, id) {
                 Ok(href) => {
-                    let result = vault.read_link(Authentication::from_token(token), &href);
+                    let result = vault.read_link(&auth, &href);
                     match result {
                         Ok(_) =>  Response::empty_204(),
                         Err(e) => {
@@ -198,7 +199,7 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
             let query = request.get_param("q").unwrap_or_default();
             let is_stored_query = query.starts_with('@');
             let fetch_links = |q| {
-                match vault.query_links(Authentication::from_token(token), q, limit) {
+                match vault.query_links(&auth, q, limit) {
                     Ok(links) => content_encoding::apply(request, jsonize(links)),
                     Err(e) => err_response(e)
                 }
@@ -211,7 +212,7 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
                 } else {
                     DBLookupType::Patterned
                 };
-                match vault.find_queries(Authentication::from_token(token), chunks.get(0).unwrap().strip_prefix('@'), lookup) {
+                match vault.find_queries(&auth, chunks.first().unwrap().strip_prefix('@'), lookup) {
                     Ok(queries) => {
                         if !queries.is_empty() && is_exact {
                             let stored = queries.get(0).map(|q| q.query.clone()).unwrap();

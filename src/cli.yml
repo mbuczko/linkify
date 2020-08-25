@@ -66,24 +66,8 @@ subcommands:
   - ls:
       about: Lists matching links
       args:
-        - url:
-            help: link or its part to match
-        - name:
-            help: title or its part to match
-            short: n
-            long: name
-            takes_value: true
-        - description:
-            help: optional description to match
-            short: d
-            long: desc
-            takes_value: true
-        - tags:
-            help: optional comma-separated tags to match
-            short: t
-            long: tags
-            takes_value: true
-            use_delimiter: true
+        - query:
+            help: query for links
   - users:
       about: Manages with users
       subcommands:

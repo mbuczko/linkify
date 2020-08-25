@@ -164,13 +164,13 @@ impl Vault {
         }
         txn.commit().and(Ok(link)).map_err(Into::into)
     }
-    pub fn add_link(&self, auth: Option<Authentication>, link: Link) -> DBResult<Link> {
+    pub fn add_link(&self, auth: &Option<Authentication>, link: Link) -> DBResult<Link> {
         match self.authenticate_user(auth) {
             Ok(u) => self.store_link(link, &u),
             Err(e) => Err(e),
         }
     }
-    pub fn import_links(&self, auth: Option<Authentication>, links: Vec<Link>) -> DBResult<u32> {
+    pub fn import_links(&self, auth: &Option<Authentication>, links: Vec<Link>) -> DBResult<u32> {
         let user = match self.authenticate_user(auth) {
             Ok(u) => u,
             Err(e) => return Err(e),
@@ -186,7 +186,7 @@ impl Vault {
     }
     pub fn find_links(
         &self,
-        auth: Option<Authentication>,
+        auth: &Option<Authentication>,
         pattern: Link,
         lookup_type: DBLookupType,
         limit: Option<u16>,
@@ -303,7 +303,7 @@ impl Vault {
         }
         query.fetch(self.get_connection())
     }
-    pub fn get_href(&self, auth: Option<Authentication>, link_id: i64) -> DBResult<String> {
+    pub fn get_href(&self, auth: &Option<Authentication>, link_id: i64) -> DBResult<String> {
         let user = match self.authenticate_user(auth) {
             Ok(u) => u,
             Err(e) => return Err(e),
@@ -315,12 +315,12 @@ impl Vault {
         )?;
         Ok(href)
     }
-    pub fn get_link(&self, auth: Option<Authentication>, href: &str) -> DBResult<Option<Link>> {
+    pub fn get_link(&self, auth: &Option<Authentication>, href: &str) -> DBResult<Option<Link>> {
         let pattern = Link::new(None, &href, "", None, None);
         self.find_links(auth, pattern, DBLookupType::Exact, Some(1))
             .map(|v| v.first().cloned())
     }
-    pub fn del_link(&self, auth: Option<Authentication>, href: &str) -> DBResult<Option<Link>> {
+    pub fn del_link(&self, auth: &Option<Authentication>, href: &str) -> DBResult<Option<Link>> {
         match self.get_link(auth, &href) {
             Ok(Some(link)) => {
                 self.get_connection()
@@ -331,7 +331,7 @@ impl Vault {
             Err(e) => Err(e),
         }
     }
-    pub fn read_link(&self, auth: Option<Authentication>, href: &str) -> DBResult<Option<Link>> {
+    pub fn read_link(&self, auth: &Option<Authentication>, href: &str) -> DBResult<Option<Link>> {
         match self.get_link(auth, &href) {
             Ok(Some(link)) => {
                 self.get_connection().execute(
@@ -344,9 +344,9 @@ impl Vault {
             Err(e) => Err(e),
         }
     }
-    pub fn match_links(
+    pub fn find_matching_links(
         &self,
-        auth: Option<Authentication>,
+        auth: &Option<Authentication>,
         pattern: Link,
         limit: Option<u16>,
     ) -> DBResult<Vec<Link>> {
@@ -354,8 +354,8 @@ impl Vault {
     }
     pub fn query_links(
         &self,
-        auth: Option<Authentication>,
-        q: String,
+        auth: &Option<Authentication>,
+        query: String,
         limit: Option<u16>,
     ) -> DBResult<Vec<Link>> {
         let mut href = "";
@@ -366,7 +366,7 @@ impl Vault {
         let mut shared = false;
         let mut favourite = false;
 
-        for chunk in q.split_whitespace() {
+        for chunk in query.split_whitespace() {
             let ch: Vec<_> = chunk.split(':').collect();
             if ch.len() == 2 {
                 match ch[0] {
@@ -398,6 +398,6 @@ impl Vault {
         .set_shared(shared)
         .set_favourite(favourite);
 
-        self.match_links(auth, link, limit)
+        self.find_matching_links(auth, link, limit)
     }
 }

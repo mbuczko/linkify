@@ -15,7 +15,7 @@ pub struct StoredQuery {
 
 impl StoredQuery {
     pub fn new(id: Option<i64>, name: String, query: String) -> Self {
-        StoredQuery{ id, name, query }
+        StoredQuery { id, name, query }
     }
 }
 
@@ -32,7 +32,7 @@ impl From<&Row<'_>> for StoredQuery {
 impl Vault {
     pub fn store_query(
         &self,
-        auth: Option<Authentication>,
+        auth: &Option<Authentication>,
         name: String,
         query: String,
     ) -> DBResult<i64> {
@@ -63,7 +63,7 @@ impl Vault {
     }
     pub fn find_queries(
         &self,
-        auth: Option<Authentication>,
+        auth: &Option<Authentication>,
         name: Option<&str>,
         lookup_type: DBLookupType,
     ) -> DBResult<Vec<StoredQuery>> {
@@ -88,7 +88,7 @@ impl Vault {
     }
     pub fn get_query(
         &self,
-        auth: Option<Authentication>,
+        auth: &Option<Authentication>,
         query_id: i64,
     ) -> DBResult<Option<StoredQuery>> {
         let user = match self.authenticate_user(auth) {
@@ -109,7 +109,7 @@ impl Vault {
     }
     pub fn del_query(
         &self,
-        auth: Option<Authentication>,
+        auth: &Option<Authentication>,
         query_id: i64,
     ) -> DBResult<Option<StoredQuery>> {
         match self.get_query(auth, query_id) {
