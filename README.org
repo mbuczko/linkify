@@ -55,7 +55,7 @@ A word of explanation about attributes attached to the link:
 
 Tags together with name and description provide quite a powerful way to locate link in database so it's worth to spend a few seconds to think them over a bit.
 
-All the examples above specify =--db= and =--user= every time, which might be frustrating in practice, so to save fingers from typing it's better to move this information into environmental variables:
+All the examples above specify =--db= and =--user= every time, which might be frustrating in practice, it's highly recommended to move this information into environmental variables:
 
 #+begin_src shell
 export LINKIFY_DB_PATH=/usr/local/var/linkify/default.db
@@ -68,7 +68,7 @@ That can be simplified (secured?) even further by providing API key instead of u
 Let's see links stored so far:
 
 #+begin_src shell
-linkify ls
+\# linkify ls
 
 http://reddit.com | My social stuff
 #+end_src
@@ -76,8 +76,8 @@ http://reddit.com | My social stuff
 Storing the same URL with different name or tags simply overrides existing data:
 
 #+begin_src shell
-linkify add -n "Time waster" http://reddit.com
-linkify ls
+\# linkify add -n "Time waster" http://reddit.com
+\# linkify ls
 
 http://reddit.com | Time waster
 #+end_src
