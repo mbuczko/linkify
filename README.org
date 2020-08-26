@@ -1,6 +1,6 @@
 * Make your own Pinboard
 
-Linkify is a CLI tool and HTTP server in one binary, which lets you store links in local database (SQLite powered) and query for results either from command-line or with fancy browser extension. A simple user/password (or alternatively - api-token) authorization makes it ideal match for multiple browser profiles - one can divide links between personal and work accounts or even make certain links common (shared) across defined profiles.
+Linkify is a CLI tool and HTTP server in one binary, which lets you store links in local database (SQLite powered) and query for results either from command-line or with fancy browser extension. A simple user/password (or alternatively - api-token) authorization makes it ideal match for multiple browser profiles - one can categorize links between personal and work accounts or even make certain links common (shared) across defined profiles.
 
 No additional database installation required. Linkify works straight out of the box.
 
@@ -33,9 +33,9 @@ SUBCOMMANDS:
 
 ** command-line
 
-Linkify in CLI mode works pretty much like a git command - exposes a few subcommands to deal with links (obviously), authorization and adds on top helpers like importing links from json file.
+Linkify in CLI mode works pretty much like a git command - exposes a few subcommands to deal with links (obviously), authorization and adds few helpers on top, like importing links from json file.
 
-To store a link a database location needs to be specified first. Linkify opens one, given by =--db= parameter, or creates it if database at given location does not exists yet. Following command creates a database and adds initial user (foobar):
+To store a link a database location needs to be specified first. Linkify opens one, given by =--db= parameter, or creates it if database at given location does not exist yet. Following command creates a database and adds initial user (foobar):
 
 #+begin_src
 linkify users add foobar --db /usr/local/var/linkify/default.db
@@ -50,8 +50,8 @@ linkify add --db /usr/local/var/linkify/default.db --user foobar -n "My social s
 A word of explanation about attributes attached to the link:
 
 - _name_ (=-n= or =--name= flag) - required human readable link name (a title)
-- optional _description_ (=-d= or =--description=) - additional chunk of text, to make link easier to find
-- optional _tags_ (=-t= or =--tags=) - a comma-separated list of keywords
+- optional _description_ (=-d= or =--description=) - additional chunk of text describing what the link is about
+- optional _tags_ (=-t= or =--tags=) - a comma-separated list of keywords to make link easier to find
 
 Tags together with name and description provide quite a powerful way to locate link in database so it's worth to spend a few seconds to think them over a bit.
 
@@ -65,48 +65,68 @@ export LINKIFY_PASSWORD=secret
 
 That can be simplified (secured?) even further by providing API key instead of user/password pair, but more on this later.
 
-Let's see our links now:
+Let's see links stored so far:
 
 #+begin_src shell
 linkify ls
 
-http://reddit.com » My social stuff
+http://reddit.com | My social stuff
 #+end_src
 
-Yup, it's there. Storing the same URL with different name or tags simply overrides existing data:
+Storing the same URL with different name or tags simply overrides existing data:
 
 #+begin_src shell
 linkify add -n "Time waster" http://reddit.com
 linkify ls
 
-http://reddit.com » Time waster
+http://reddit.com | Time waster
 #+end_src
 
 *** Tags
 
-Searching by name or description is nothing exciting. Searching by tags however brings a real joy. Tags in a query are classified as _optional_, _+required_ and _-excluded_ which allows to make query more concrete. Say, we have a bunch of links tagged with "rust", "programming" and "doc" keywords. Searching by "rust,programming" tags:
+At some point searching by name might be not enough and having tons of links in db without any kind of categorization sooner or later turns entire database into a mess. To avoid this situation, please welcome tags. Tags are those helpful little labels (optionally) assigned to stored link, which can be used later in a query to precisely trace given link back.
+
+Tags in a query are classified as _optional_, _+required_ and _-excluded_ which allows to form the query even more concrete. Say, we have a bunch of links tagged with "rust", "programming" and "doc" keywords. Searching by "rust,programming" tags:
 
 #+begin_src
-linkify ls -t "rust,programming"
+linkify ls "tags:rust,programming"
 #+end_src
 
 returns all results which are tagged EITHER with "rust" OR "programming". This is in fact how "optional" tags work - link is returned if it has AT LEAST one optional tag attached. But this way we also get in result links tagged with "rust,doc" or "programming,doc" since they all have either "programming" or "rust" tag attached. Not interested in documentation? Let's modify query by introducing _excluded_ tag:
 
 #+begin_src
-linkify ls -t "rust,programming,-doc"
+linkify ls "tags:rust,programming,-doc"
 #+end_src
 
 All the "doc" tagged results should disappear immediately. And yes, same for _required_ tags. Once enforced, only links containing ALL of required tags will be returned, eg:
 
 #+begin_src
-linkify ls -t "rust,programming,+doc"
+linkify ls "tags:rust,programming,+doc"
 #+end_src
 
 returns all the links having "rust" OR "programming" tag AND required "doc" one.
 
+*** Saved searches
+
+"Saved search" is one step further towards simplicity. The idea behind is simple - instead of remembering right query every time, let's store it under some name and use that name instead.
+
+_Note - saved search can be created only with browser plugin for now._
+
+Going back to the previous example. Having ="tags:rust,programming,-doc"= query stored as "rust", one may simplify command line to the following:
+
+#+begin_src
+linkify ls @rust
+#+end_src
+
+but it's even better than that. Want to still narrow result to links having "async" string in URL or name?
+
+#+begin_src
+linkify ls @rust/async
+#+end_src
+
 *** Importing
 
-Sometimes it's tempting to import data already stored somewhere else. Linkify imports everything you wish, provided as following json:
+Linkify imports everything you wish, provided as following json:
 
 #+begin_src json
 [{
@@ -132,7 +152,7 @@ Sometimes it's tempting to import data already stored somewhere else. Linkify im
 
 Have Pinboard account?
 
-You can import your Pinboard links straight into Linkify in 3 simple steps:
+You can import your Pinboard links straight into linkify in 3 simple steps:
 - export your Pinboard links into some pinboard_export.json file (Settings » backup » JSON)
 - do =jq= magic to adjust json to required format:
 
@@ -148,27 +168,27 @@ linkify import linkify.json
 
 *** Integration with fzf
 
-Use [[https://github.com/junegunn/fzf][fzf]] to search links like a pro:
+Use [[https://github.com/junegunn/fzf][fzf]] to search links like a pro :)
 
 #+begin_src shell
 linkify ls | fzf -e -0 --print0
 #+end_src
 
-That command can be simplified even further and become available with a single key press integrated with your shell. Here is how it could be done with [[https://fishshell.com/][fish]] shell:
+Have a [[https://fishshell.com/][fish]] shell? Bind the command to single key press:
 
 #+begin_src shell
-bind \ch 'begin; set url (linkify ls|fzf -e -0 --print0); if string length -q -- $url; open (echo $url | cut -d "»" -f1 | awk \'{$1=$1};1\'); end; end'
+bind \ch 'begin; set url (linkify ls|fzf -e -0 --print0); if string length -q -- $url; open (echo $url | cut -d "|" -f1 | awk \'{$1=$1};1\'); end; end'
 #+end_src
 
 Now, =control-h= invokes linkify which pipes collected links directly to fzf. Selection is automagically opened in default browser via =open= command (available on Mac).
 
-[[https://github.com/mbuczko/linkify/blob/master/doc/linikify-cli.gif]]
+[[https://github.com/mbuczko/linkify/blob/master/doc/fzf.png]]
 
 ** HTTP server
 
-Most of the links are usually collected with web browser and this is where linkify comes onto scene with its second nature - HTTP sever and accompanying browser extension (chrome/brave for now). This combo lets you store/modify/remove links instantaneously without leaving the browser:
+Most of the links are usually collected with web browser and this is where linkify comes onto scene with its second nature - HTTP sever and accompanying browser extension (chrome/brave for now). This delicious combo lets you store/modify/remove links instantaneously without leaving the browser:
 
-[[https://github.com/mbuczko/linkify/blob/master/doc/linkify-ext.gif]]
+[[https://github.com/mbuczko/linkify/blob/master/doc/dialog.png]]
 
 As mentioned, this combination requires linkify server set up. Sample command may looks like this:
 
@@ -182,23 +202,29 @@ To get some more information what's actually going on when the server starts up,
 LOG_LEVEL=debug linkify server --db /usr/local/var/linkify/default.db
 #+end_src
 
-Having server up and running next step is to generate an access token so the server would know what user the extension bases on:
+Having server up and running next step is to generate an access token so the server would know what user the extension impersonates:
 
 #+begin_src shell
 linkify users token <your-user-name> --db /usr/local/var/linkify/default.db
 #+end_src
 
-Generated token may be used as a replacement for user/pass pair for linkify run in CLI:
+Generated token may be also used as a replacement for user/pass pair for linkify run in CLI:
 
 #+begin_src shell
 export LINKIFY_API_KEY=<your-generated-token>
 #+end_src
 
-Last missing part is extension itself. While it's not available yet in a store it needs to be installed directly (in developer mode) from directory:
+Last missing part is extension itself. While it's not available yet in a store it needs to be installed directly from a package (in developer mode):
 
-https://github.com/mbuczko/linkify/tree/master/extensions/chrome
+[[https://github.com/mbuczko/linkify/blob/master/extensions/linkify.crx]]
 
 Having extension added it should be possible from now on to add or remove links from database (look at the pin icon) and compose queries with  =control-\= command (be sure to reload page after extension installation).
+
+[[https://github.com/mbuczko/linkify/blob/master/doc/query.png]]
+
+Also, as extension comes with own search engine (activated in address bar by =ly= followed by space), the query can be placed like this:
+
+[[https://github.com/mbuczko/linkify/blob/master/doc/omnibox.png]]
 
 * Installation
 ** Homebrew
