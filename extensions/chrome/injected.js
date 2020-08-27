@@ -306,28 +306,32 @@
         });
     }
 
-    function fetchQueryResults(query, callback) {
+    function fetchQueryResults(query, callback, exact) {
         fetchSettings().then(settings => {
             chrome.extension.sendMessage({
                     action: 'search',
                     settings: settings,
-                    query: query
+                    query: exact ? '@' + query + '/' : query
                 },
                 ({data, error}) => {
                     if (data) {
-                        let items = data.map(({id, href, name, query, description, tags, toread, shared, favourite}) => ({
-                            id: id,
-                            url: href || name,
-                            type: href ? 'link' : 'query',
-                            name: name,
-                            tags: tags,
-                            description: description || query,
-                            toread: toread,
-                            shared: shared,
-                            favourite: favourite,
-                            handler: query && onSavedQueryClickHandler
-                        }));
-                        renderItems(items, callback);
+                        if (exact) {
+                            callback(data);
+                        } else {
+                            let items = data.map(({id, href, name, query, description, tags, toread, shared, favourite}) => ({
+                                id: id,
+                                url: href || name,
+                                type: href ? 'link' : 'query',
+                                name: name,
+                                tags: tags,
+                                description: description || query,
+                                toread: toread,
+                                shared: shared,
+                                favourite: favourite,
+                                handler: query && onSavedQueryClickHandler
+                            }));
+                            renderItems(items, callback);
+                        }
                     } else console.error(error);
                 });
         });
@@ -378,9 +382,9 @@
             saveInput.addEventListener('input', debounce(e => {
                 let queryName = e.target.value;
                 if (queryName.length > 0) {
-                    fetchQueryResults('@' + queryName + '/', result => {
+                    fetchQueryResults(queryName, result => {
                         toggleWarning(result.length);
-                    });
+                    }, true);
                 }
             }, 250));
 
