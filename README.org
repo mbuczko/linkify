@@ -106,6 +106,15 @@ linkify ls "tags:rust,programming,+doc"
 
 returns all the links having "rust" OR "programming" tag AND required "doc" one.
 
+*** Flags
+
+Apart from =tags=, linkify handles few `flags`:
+- =toread= : matches all the links marked as "read later".
+- =favourite= : matches all the links marked as "favourite".
+- =shared= : matches all the links marked as "shared". Shared links are visible for all the users.
+
+Sample query: =tags:rust flags:toread async tokio=
+
 *** Saved searches
 
 _Saved search_ is one step further towards simplicity. The idea behind is straightforward - instead of remembering the query every time, let's store it under some name and use that name instead.
