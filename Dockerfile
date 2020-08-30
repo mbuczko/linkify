@@ -1,4 +1,4 @@
-FROM rustlang/rust as linkify-builder
+FROM rustlang/rust:nightly-slim as linkify-builder
 WORKDIR /usr/src/linkify
 COPY . .
 RUN cargo install --path .
