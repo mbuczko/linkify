@@ -1,9 +1,6 @@
-FROM rust:1.42-slim-buster as linkify-builder
+FROM rust-lang/docker-rust-nightly as linkify-builder
 WORKDIR /usr/src/linkify
-ADD Cargo.toml Cargo.lock ./
-RUN mkdir src && echo "// dummy file" > src/lib.rs && cargo build
-ADD src ./src
-ADD resources ./resources
+COPY . .
 RUN cargo install --path .
 
 FROM debian:buster-slim
