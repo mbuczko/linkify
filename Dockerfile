@@ -3,7 +3,7 @@ WORKDIR /usr/src/linkify
 COPY . .
 RUN cargo install --path .
 
-FROM debian:buster-slim
+FROM arm64v8/debian:buster-slim
 ENV LINKIFY_DB_PATH=/linkify/linkify.db LOG_LEVEL=debug
 COPY --from=linkify-builder /usr/local/cargo/bin/linkify /usr/local/bin/linkify
 EXPOSE 8001
