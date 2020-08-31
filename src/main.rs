@@ -170,7 +170,7 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
                     exit(1);
                 }
             },
-            ("ls", Some(sub_m)) => match vault.match_users(sub_m.value_of("login").unwrap()) {
+            ("ls", Some(sub_m)) => match vault.match_users(sub_m.value_of("login").unwrap_or_default()) {
                 Ok(users) => {
                     for (user, count) in users {
                         println!("{} ({})", user, count);
