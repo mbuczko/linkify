@@ -7,9 +7,9 @@ use log::info;
 use rouille::Response;
 
 pub fn start(vault: Vault) {
-    info!("Starting a server: http://localhost:8001");
+    info!("Starting a server: http://0.0.0.0:8001");
 
-    rouille::start_server("127.0.0.1:8001", move |request| {
+    rouille::start_server("0.0.0.0:8001", move |request| {
         let res = handler(&request, &vault);
         match res {
             Ok(response) => response,
