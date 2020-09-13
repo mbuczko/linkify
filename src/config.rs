@@ -28,11 +28,11 @@ impl Config {
         if let Ok(password) = env::var("LINKIFY_PASSWORD") {
             config.values.insert(Env::Password, password);
         }
-        if let Ok(password) = env::var("LINKIFY_API_KEY") {
-            config.values.insert(Env::ApiKey, password);
+        if let Ok(apikey) = env::var("LINKIFY_API_KEY") {
+            config.values.insert(Env::ApiKey, apikey);
         }
-        if let Ok(password) = env::var("LOG_LEVEL") {
-            config.values.insert(Env::LogLevel, password);
+        if let Ok(level) = env::var("LOG_LEVEL") {
+            config.values.insert(Env::LogLevel, level);
         }
         config
     }

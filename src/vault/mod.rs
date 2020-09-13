@@ -12,7 +12,6 @@ use r2d2::{Pool, PooledConnection};
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::Result as SqliteResult;
 use semver::Version;
-use std::str;
 
 pub struct Vault {
     pool: Pool<SqliteConnectionManager>,

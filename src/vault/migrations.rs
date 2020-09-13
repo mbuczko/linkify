@@ -1,6 +1,6 @@
 use crate::db::DBResult;
-
 use crate::vault::Vault;
+
 use log::debug;
 use rusqlite::NO_PARAMS;
 use rust_embed::RustEmbed;
