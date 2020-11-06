@@ -4,8 +4,8 @@ use crate::vault::auth::Authentication;
 use crate::vault::link::Link;
 use crate::vault::Vault;
 
-use failure::Error;
 use log::error;
+use failure::Error;
 use miniserde::{json, Serialize};
 use rouille::content_encoding;
 use rouille::{post_input, router, try_or_400, Request, Response, ResponseBody};
@@ -61,6 +61,20 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
         .get_param("limit")
         .and_then(|v| v.parse::<u16>().ok());
     let resp = router!(request,
+        (POST) (/auth) => {
+            match post_input!(request, {login: String, password: String}) {
+                Ok(t) => match vault.user_info(&Authentication::from_credentials(t.login, t.password)) {
+                    Ok(user_info) => content_encoding::apply(request, jsonize(user_info)),
+                    Err(e) => {
+                        err_response(e)
+                    }
+                }
+                Err(e) => {
+                    let json = try_or_400::ErrJson::from_err(&e);
+                    Response::json(&json).with_status_code(400)
+                }
+            }
+        },
         (GET) (/tags) => {
             let pattern = request.get_param("name");
             let exclude = request.get_param("exclude")
