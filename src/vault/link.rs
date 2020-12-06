@@ -12,8 +12,8 @@ use miniserde::{Deserialize, Serialize};
 use rusqlite::types::Value as SqlValue;
 use rusqlite::{params, Row};
 use sha1::Sha1;
-use std::fmt;
 use std::rc::Rc;
+use std::fmt;
 
 #[derive(Serialize, Clone, Deserialize, Debug)]
 pub struct Link {
@@ -26,6 +26,7 @@ pub struct Link {
     pub shared: bool,
     pub toread: bool,
     pub favourite: bool,
+    pub created_at: String,
 }
 
 impl fmt::Display for Link {
@@ -51,6 +52,7 @@ impl From<&Row<'_>> for Link {
         .set_toread(row.get_unwrap::<_, bool>(5))
         .set_shared(row.get_unwrap::<_, bool>(6))
         .set_favourite(row.get_unwrap::<_, bool>(7))
+        .set_timestamp(row.get_unwrap::<_, String>(8))
     }
 }
 
@@ -67,11 +69,12 @@ impl Link {
             href: href.to_string(),
             name: name.to_string(),
             description: description.map(Into::into),
+            tags,
             hash: None,
             shared: false,
             toread: false,
             favourite: false,
-            tags,
+            created_at: String::new()
         }
         .digest()
     }
@@ -105,6 +108,10 @@ impl Link {
         self.hash = Some(hasher.digest().to_string());
         self
     }
+    pub fn set_timestamp(mut self, ts: String) -> Self {
+        self.created_at = ts;
+        self
+    }
     pub fn set_toread(mut self, toread: bool) -> Self {
         self.toread = toread;
         self
@@ -130,18 +137,18 @@ impl Vault {
             DO UPDATE SET href = ?1, name = ?2, description = ?3, hash = ?4, is_toread = ?5, is_shared = ?6, is_favourite = ?7, updated_at = CURRENT_TIMESTAMP",
             params![link.href, link.name, link.description, link.hash, link.toread, link.shared, link.favourite, user.id],
         )?;
-        let link_id: i64 = txn
+        let meta: (i64, String) = txn
             .query_row(
-                "SELECT id FROM links WHERE href = ?1 AND user_id = ?2",
+                "SELECT id, datetime(created_at) FROM links WHERE href = ?1 AND user_id = ?2",
                 params![link.href, user.id],
-                |row| row.get(0),
+                |row| Ok((row.get(0).unwrap(), row.get(1).unwrap())),
             )
             .unwrap();
 
         // remove connections with tags assigned to link (if it already exists)
         txn.execute(
             "DELETE FROM links_tags WHERE link_id = ?1",
-            params![link_id],
+            params![meta.0],
         )?;
 
         // join link with its tags (if provided)
@@ -159,10 +166,10 @@ impl Vault {
             txn.execute(
                 "INSERT INTO links_tags(link_id, tag_id) \
             SELECT ?1, id FROM tags WHERE tag IN rarray(?2) AND user_id = ?3",
-                params![link_id, Rc::new(values), user.id],
+                params![meta.0, Rc::new(values), user.id],
             )?;
         }
-        txn.commit().and(Ok(link)).map_err(Into::into)
+        txn.commit().and(Ok(link.set_timestamp(meta.1))).map_err(Into::into)
     }
     pub fn add_link(&self, auth: &Option<Authentication>, link: Link) -> DBResult<Link> {
         match self.authenticate_user(auth) {
@@ -196,7 +203,7 @@ impl Vault {
             Err(e) => return Err(e),
         };
         let mut query = Query::new_with_initial(
-            "SELECT l.id, href, name, description, group_concat(tag) AS tagz, is_toread, is_shared, is_favourite \
+            "SELECT l.id, href, name, description, group_concat(tag) AS tagz, is_toread, is_shared, is_favourite, datetime(l.created_at) \
             FROM links l \
             LEFT JOIN links_tags lt ON l.id = lt.link_id \
             LEFT JOIN tags t ON lt.tag_id = t.id WHERE",

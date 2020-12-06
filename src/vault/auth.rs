@@ -81,7 +81,7 @@ impl Vault {
                     })
             },
             Authentication::Token(token) => {
-                debug!("Authenticating with token");
+                debug!("Authenticating with token.");
                 self
                     .get_connection()
                     .query_row(
