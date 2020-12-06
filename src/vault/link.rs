@@ -12,8 +12,8 @@ use miniserde::{Deserialize, Serialize};
 use rusqlite::types::Value as SqlValue;
 use rusqlite::{params, Row};
 use sha1::Sha1;
-use std::rc::Rc;
 use std::fmt;
+use std::rc::Rc;
 
 #[derive(Serialize, Clone, Deserialize, Debug)]
 pub struct Link {
@@ -74,7 +74,7 @@ impl Link {
             shared: false,
             toread: false,
             favourite: false,
-            created_at: String::new()
+            created_at: String::new(),
         }
         .digest()
     }
@@ -106,6 +106,10 @@ impl Link {
         hasher.update(self.shared.to_string().as_bytes());
         hasher.update(self.favourite.to_string().as_bytes());
         self.hash = Some(hasher.digest().to_string());
+        self
+    }
+    pub fn set_id(mut self, id: Option<i64>) -> Self {
+        self.id = id;
         self
     }
     pub fn set_timestamp(mut self, ts: String) -> Self {
@@ -146,10 +150,7 @@ impl Vault {
             .unwrap();
 
         // remove connections with tags assigned to link (if it already exists)
-        txn.execute(
-            "DELETE FROM links_tags WHERE link_id = ?1",
-            params![meta.0],
-        )?;
+        txn.execute("DELETE FROM links_tags WHERE link_id = ?1", params![meta.0])?;
 
         // join link with its tags (if provided)
         if let Some(vt) = &link.tags {
@@ -169,7 +170,9 @@ impl Vault {
                 params![meta.0, Rc::new(values), user.id],
             )?;
         }
-        txn.commit().and(Ok(link.set_timestamp(meta.1))).map_err(Into::into)
+        txn.commit()
+            .and(Ok(link.set_id(Some(meta.0)).set_timestamp(meta.1)))
+            .map_err(Into::into)
     }
     pub fn add_link(&self, auth: &Option<Authentication>, link: Link) -> DBResult<Link> {
         match self.authenticate_user(auth) {
