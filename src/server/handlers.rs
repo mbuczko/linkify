@@ -13,6 +13,12 @@ use std::collections::HashMap;
 
 pub type HandlerResult = Result<Response, Error>;
 
+
+#[derive(Serialize, Clone, Debug)]
+struct LinksReponse {
+    links: Vec<Link>
+}
+
 fn jsonize<T: Serialize>(result: T) -> Response {
     let json = json::to_string(&result);
     Response {
@@ -139,7 +145,7 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
                 }
             };
             match result {
-                Ok(links) => content_encoding::apply(request, jsonize(links)),
+                Ok(links) => content_encoding::apply(request, jsonize(LinksReponse{links})),
                 Err(e) => {
                     error!("{:?}", e);
                     err_response(e)
