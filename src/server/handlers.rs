@@ -1,11 +1,13 @@
+#![allow(warnings)]
+
 use crate::db::DBError::{Unauthenticated, UnknownUser};
 use crate::db::{DBError, DBLookupType};
 use crate::vault::auth::Authentication;
 use crate::vault::link::Link;
 use crate::vault::Vault;
 
-use log::error;
 use failure::Error;
+use log::error;
 use miniserde::{json, Serialize};
 use rouille::content_encoding;
 use rouille::{post_input, router, try_or_400, Request, Response, ResponseBody};
@@ -13,10 +15,10 @@ use std::collections::HashMap;
 
 pub type HandlerResult = Result<Response, Error>;
 
-
 #[derive(Serialize, Clone, Debug)]
 struct LinksReponse {
-    links: Vec<Link>
+    links: Vec<Link>,
+    version: i64,
 }
 
 fn jsonize<T: Serialize>(result: T) -> Response {
@@ -66,6 +68,10 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
     let limit = request
         .get_param("limit")
         .and_then(|v| v.parse::<u16>().ok());
+    let version = request
+        .get_param("version")
+        .and_then(|v| v.parse::<i64>().ok())
+        .unwrap_or(-1);
     let resp = router!(request,
         (POST) (/auth) => {
             match post_input!(request, {login: String, password: String}) {
@@ -138,14 +144,14 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
         (GET) (/links) => {
             let query = request.get_param("q").unwrap_or_default();
             let result = match lookup_type(request) {
-                DBLookupType::Patterned => vault.query_links(&auth, query, limit),
+                DBLookupType::Patterned => vault.query_links(&auth, query, version, limit),
                 DBLookupType::Exact => {
                     let pattern = Link::new(None, query.as_str(), "", None, None);
-                    vault.find_links(&auth, pattern, DBLookupType::Exact, limit)
+                    vault.find_links(&auth, pattern, DBLookupType::Exact, version, limit)
                 }
             };
             match result {
-                Ok(links) => content_encoding::apply(request, jsonize(LinksReponse{links})),
+                Ok((links, version)) => content_encoding::apply(request, jsonize(LinksReponse{links, version})),
                 Err(e) => {
                     error!("{:?}", e);
                     err_response(e)
@@ -153,7 +159,7 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
             }
         },
         (POST) (/links) => {
-            match post_input!(request, {href: String, name: String, description: String, tags: String, flags: String}) {
+            match post_input!(request, {version: i64, href: String, name: String, description: String, tags: String, flags: String}) {
                 Ok(t) => {
                     let tags: Vec<_> = t.tags.split(',')
                         .map(|v| v.trim().to_string())
@@ -170,7 +176,7 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
                     .set_toread(t.flags.contains("toread"))
                     .set_shared(t.flags.contains("shared"))
                     .set_favourite(t.flags.contains("favourite"));
-                    let result = vault.add_link(&auth, link);
+                    let result = vault.add_link(&auth, link, Some(t.version));
                     match result {
                         Ok(_) =>  Response::empty_204(),
                         Err(e) => {
@@ -219,7 +225,7 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
             let query = request.get_param("q").unwrap_or_default();
             let is_stored_query = query.starts_with('@');
             let fetch_links = |q| {
-                match vault.query_links(&auth, q, limit) {
+                match vault.query_links(&auth, q, version, limit) {
                     Ok(links) => content_encoding::apply(request, jsonize(links)),
                     Err(e) => err_response(e)
                 }

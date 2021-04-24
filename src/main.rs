@@ -57,6 +57,7 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
             match vault.add_link(
                 &Authentication::from_matches(config, sub_m),
                 Link::from_matches(sub_m),
+                None,
             ) {
                 Ok(id) => println!("Added (id={})", id),
                 Err(e) => {
@@ -87,11 +88,7 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
             let links = if query.starts_with('@') {
                 let chunks: Vec<&str> = query.splitn(2, '/').collect();
                 let stored_query = chunks.first().unwrap().strip_prefix('@');
-                match vault.find_queries(
-                    &auth,
-                    stored_query,
-                    DBLookupType::Exact,
-                ) {
+                match vault.find_queries(&auth, stored_query, DBLookupType::Exact) {
                     Ok(queries) => {
                         if queries.len() != 1 {
                             eprintln!("No stored query found ({})", stored_query.unwrap());
@@ -99,7 +96,7 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
                         } else {
                             let stored = queries.get(0).map(|q| q.query.clone()).unwrap();
                             let query = chunks.get(1).unwrap_or(&"");
-                            vault.query_links(&auth, format!("{} {}", stored, query), None)
+                            vault.query_links(&auth, format!("{} {}", stored, query), -1, None)
                         }
                     }
                     Err(e) => {
@@ -108,11 +105,11 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
                     }
                 }
             } else {
-                vault.query_links(&auth, query, None)
+                vault.query_links(&auth, query, -1, None)
             };
 
             match links {
-                Ok(links) => {
+                Ok((links, _)) => {
                     let size = ts();
                     let tw = if let Some((Width(w), _)) = size {
                         w as i16
@@ -170,17 +167,19 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
                     exit(1);
                 }
             },
-            ("ls", Some(sub_m)) => match vault.match_users(sub_m.value_of("login").unwrap_or_default()) {
-                Ok(users) => {
-                    for (user, count) in users {
-                        println!("{} ({})", user, count);
+            ("ls", Some(sub_m)) => {
+                match vault.match_users(sub_m.value_of("login").unwrap_or_default()) {
+                    Ok(users) => {
+                        for (user, count) in users {
+                            println!("{} ({})", user, count);
+                        }
+                    }
+                    Err(_) => {
+                        eprintln!("Error while fetching users.");
+                        exit(1);
                     }
                 }
-                Err(_) => {
-                    eprintln!("Error while fetching users.");
-                    exit(1);
-                }
-            },
+            }
             ("token", Some(sub_m)) => match vault.generate_key(sub_m.value_of("login").unwrap()) {
                 Ok((_u, k)) => println!(
                     "Generated API key: {}\nSample cURL:\n\n  \

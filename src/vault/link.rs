@@ -131,16 +131,24 @@ impl Link {
 }
 
 impl Vault {
-    fn store_link(&self, link: Link, user: &User) -> DBResult<Link> {
+    fn get_latest_version(&self, user: &User) -> DBResult<i64> {
+        let version = self.get_connection().query_row(
+            "SELECT ifnull(max(version), 0) FROM links WHERE user_id = ?1",
+            params![user.id],
+            |row| row.get::<_, i64>(0),
+        )?;
+        Ok(version)
+    }
+    fn store_link(&self, version: i64, link: Link, user: &User) -> DBResult<Link> {
         let mut conn = self.get_connection();
         let txn = conn.transaction().unwrap();
         txn.execute(
             "INSERT INTO links(href, name, description, hash, is_toread, is_shared, is_favourite, user_id, version) \
-            VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, (select max(version)+1 from links)) \
+            VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9) \
             ON CONFLICT(path(href), user_id) \
             DO UPDATE SET href = ?1, name = ?2, description = ?3, hash = ?4, is_toread = ?5, is_shared = ?6, is_favourite = ?7, \
-                          updated_at = CURRENT_TIMESTAMP, version = (select max(version)+1 from links)",
-            params![link.href, link.name, link.description, link.hash, link.toread, link.shared, link.favourite, user.id],
+                          version = ?9, updated_at = CURRENT_TIMESTAMP",
+            params![link.href, link.name, link.description, link.hash, link.toread, link.shared, link.favourite, user.id, version],
         )?;
         let meta: (i64, String) = txn
             .query_row(
@@ -175,9 +183,17 @@ impl Vault {
             .and(Ok(link.set_id(Some(meta.0)).set_timestamp(meta.1)))
             .map_err(Into::into)
     }
-    pub fn add_link(&self, auth: &Option<Authentication>, link: Link) -> DBResult<Link> {
+    pub fn add_link(
+        &self,
+        auth: &Option<Authentication>,
+        link: Link,
+        version: Option<i64>,
+    ) -> DBResult<Link> {
         match self.authenticate_user(auth) {
-            Ok(u) => self.store_link(link, &u),
+            Ok(u) => {
+                let ver = version.unwrap_or(self.get_latest_version(&u)? + 1);
+                self.store_link(ver, link, &u)
+            }
             Err(e) => Err(e),
         }
     }
@@ -186,9 +202,13 @@ impl Vault {
             Ok(u) => u,
             Err(e) => return Err(e),
         };
+        // TODO: wrap into outer tansaction to be sure that no other links are being added
+        // at the same time with other version.
+        let ver = self.get_latest_version(&user)? + 1;
         let mut imported: u32 = 0;
+
         for link in links {
-            if let Ok(l) = self.store_link(link, &user) {
+            if let Ok(l) = self.store_link(ver, link, &user) {
                 imported += 1;
                 println!("+ {}", l.href)
             }
@@ -200,23 +220,34 @@ impl Vault {
         auth: &Option<Authentication>,
         pattern: Link,
         lookup_type: DBLookupType,
+        version: i64,
         limit: Option<u16>,
-    ) -> DBResult<Vec<Link>> {
+    ) -> DBResult<(Vec<Link>, i64)> {
         let user = match self.authenticate_user(auth) {
             Ok(u) => u,
             Err(e) => return Err(e),
         };
         let mut query = Query::new_with_initial(
             "SELECT l.id, href, name, description, group_concat(tag) AS tagz, is_toread, is_shared, is_favourite, datetime(l.created_at) \
-            FROM links l \
-            LEFT JOIN links_tags lt ON l.id = lt.link_id \
-            LEFT JOIN tags t ON lt.tag_id = t.id WHERE",
+             FROM links l \
+             LEFT JOIN links_tags lt ON l.id = lt.link_id \
+             LEFT JOIN tags t ON lt.tag_id = t.id WHERE",
         );
 
         let tags = pattern.tags.to_owned().unwrap_or_default();
         let path = path(pattern.href.as_str());
         let name = Query::patternize(&pattern.name);
         let limit = limit.unwrap_or(0);
+
+        // Apply versioning - return only these records which have version greater or equal
+        // to provided one. version = -1 means that all records should be returned (except
+        // from deleted ones for performance reasons).
+
+        if version >= 0 {
+            query.concat_with_param("version >= :version AND", (":version", &version));
+        } else {
+            query.concat("deleted_at IS NULL AND");
+        }
 
         // Searching by name and description is equivalent. Also, when href was not not explicitly
         // provided it's equivalent to name. This is to easily find a link by either a name/description
@@ -285,8 +316,8 @@ impl Vault {
             if has_optional {
                 query.concat_with_param(
                     "l.id IN (\
-            SELECT link_id FROM links_tags lt2 \
-            JOIN tags t2 ON lt2.tag_id = t2.id AND t2.tag IN rarray(:tags)) AND",
+                     SELECT link_id FROM links_tags lt2 \
+                     JOIN tags t2 ON lt2.tag_id = t2.id AND t2.tag IN rarray(:tags)) AND",
                     (":tags", &optional_ptr),
                 );
             }
@@ -312,7 +343,10 @@ impl Vault {
         if limit > 0 {
             query.concat_with_param("LIMIT :limit", (":limit", &limit));
         }
-        query.fetch(self.get_connection())
+        Ok((
+            query.fetch(self.get_connection())?,
+            self.get_latest_version(&user)?,
+        ))
     }
     pub fn get_href(&self, auth: &Option<Authentication>, link_id: i64) -> DBResult<String> {
         let user = match self.authenticate_user(auth) {
@@ -328,8 +362,8 @@ impl Vault {
     }
     pub fn get_link(&self, auth: &Option<Authentication>, href: &str) -> DBResult<Option<Link>> {
         let pattern = Link::new(None, &href, "", None, None);
-        self.find_links(auth, pattern, DBLookupType::Exact, Some(1))
-            .map(|v| v.first().cloned())
+        self.find_links(auth, pattern, DBLookupType::Exact, -1, Some(1))
+            .map(|(links, _)| links.first().cloned())
     }
     pub fn del_link(&self, auth: &Option<Authentication>, href: &str) -> DBResult<Option<Link>> {
         match self.get_link(auth, &href) {
@@ -359,16 +393,18 @@ impl Vault {
         &self,
         auth: &Option<Authentication>,
         pattern: Link,
+        version: i64,
         limit: Option<u16>,
-    ) -> DBResult<Vec<Link>> {
-        self.find_links(auth, pattern, DBLookupType::Patterned, limit)
+    ) -> DBResult<(Vec<Link>, i64)> {
+        self.find_links(auth, pattern, DBLookupType::Patterned, version, limit)
     }
     pub fn query_links(
         &self,
         auth: &Option<Authentication>,
         query: String,
+        version: i64,
         limit: Option<u16>,
-    ) -> DBResult<Vec<Link>> {
+    ) -> DBResult<(Vec<Link>, i64)> {
         let mut href = "";
         let mut desc = "";
         let mut name: Vec<&str> = Vec::new();
@@ -398,7 +434,7 @@ impl Vault {
                 name.push(chunk);
             }
         }
-        let link = Link::new(
+        let pattern = Link::new(
             None,
             href.trim(),
             name.join("%").trim(),
@@ -409,6 +445,6 @@ impl Vault {
         .set_shared(shared)
         .set_favourite(favourite);
 
-        self.find_matching_links(auth, link, limit)
+        self.find_matching_links(auth, pattern, version, limit)
     }
 }

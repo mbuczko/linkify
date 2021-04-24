@@ -8,8 +8,8 @@ use crate::vault::Vault;
 use bcrypt::verify;
 use clap::ArgMatches;
 use log::debug;
+use miniserde::Serialize;
 use rusqlite::params;
-use miniserde::{Serialize};
 
 #[derive(Debug)]
 pub struct ApiKey(String);
@@ -17,7 +17,7 @@ pub struct ApiKey(String);
 #[derive(Clone, Serialize, Debug)]
 pub struct UserInfo {
     pub login: String,
-    pub token: String
+    pub token: String,
 }
 
 pub enum Authentication {
@@ -65,8 +65,7 @@ impl Vault {
         auth.as_ref().map_or(Err(Unauthenticated), |a| match a {
             Authentication::Credentials(login, password) => {
                 debug!("Authenticating with credentials ({}).", login);
-                self
-                    .get_connection()
+                self.get_connection()
                     .query_row(
                         "SELECT id, login, password FROM users WHERE login = ?1",
                         params![login],
@@ -79,11 +78,10 @@ impl Vault {
                             Err(BadPassword)
                         }
                     })
-            },
+            }
             Authentication::Token(token) => {
                 debug!("Authenticating with token.");
-                self
-                    .get_connection()
+                self.get_connection()
                     .query_row(
                         "SELECT id, login FROM users WHERE api_key = ?1",
                         params![token.0],
@@ -103,13 +101,15 @@ impl Vault {
                 .query_row(
                     "SELECT api_key FROM users WHERE id = ?1",
                     params![user.id],
-                    |row| Ok(row.get(0)?)
+                    |row| Ok(row.get(0)?),
                 )
                 .map_or(Err(UnknownUser), |token| {
-                    Ok(UserInfo {login: user.login, token})
+                    Ok(UserInfo {
+                        login: user.login,
+                        token,
+                    })
                 }),
-            _ => Err(UnknownUser)
+            _ => Err(UnknownUser),
         }
     }
-
 }
