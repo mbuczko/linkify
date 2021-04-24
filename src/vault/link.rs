@@ -135,10 +135,11 @@ impl Vault {
         let mut conn = self.get_connection();
         let txn = conn.transaction().unwrap();
         txn.execute(
-            "INSERT INTO links(href, name, description, hash, is_toread, is_shared, is_favourite, user_id) \
-            VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8) \
+            "INSERT INTO links(href, name, description, hash, is_toread, is_shared, is_favourite, user_id, version) \
+            VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, (select max(version)+1 from links)) \
             ON CONFLICT(path(href), user_id) \
-            DO UPDATE SET href = ?1, name = ?2, description = ?3, hash = ?4, is_toread = ?5, is_shared = ?6, is_favourite = ?7, updated_at = CURRENT_TIMESTAMP",
+            DO UPDATE SET href = ?1, name = ?2, description = ?3, hash = ?4, is_toread = ?5, is_shared = ?6, is_favourite = ?7, \
+                          updated_at = CURRENT_TIMESTAMP, version = (select max(version)+1 from links)",
             params![link.href, link.name, link.description, link.hash, link.toread, link.shared, link.favourite, user.id],
         )?;
         let meta: (i64, String) = txn
