@@ -4,6 +4,7 @@ use crate::db::DBError::{Unauthenticated, UnknownUser};
 use crate::db::{DBError, DBLookupType};
 use crate::vault::auth::Authentication;
 use crate::vault::link::Link;
+use crate::vault::link::Version;
 use crate::vault::Vault;
 
 use failure::Error;
@@ -18,7 +19,7 @@ pub type HandlerResult = Result<Response, Error>;
 #[derive(Serialize, Clone, Debug)]
 struct LinksReponse {
     links: Vec<Link>,
-    version: i64,
+    version: i32,
 }
 
 fn jsonize<T: Serialize>(result: T) -> Response {
@@ -68,10 +69,12 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
     let limit = request
         .get_param("limit")
         .and_then(|v| v.parse::<u16>().ok());
-    let version = request
-        .get_param("version")
-        .and_then(|v| v.parse::<i64>().ok())
-        .unwrap_or(-1);
+    let version = Version::new(
+        request
+            .get_param("version")
+            .and_then(|v| v.parse::<i32>().ok())
+            .unwrap_or(-1),
+    );
     let resp = router!(request,
         (POST) (/auth) => {
             match post_input!(request, {login: String, password: String}) {
@@ -144,14 +147,14 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
         (GET) (/links) => {
             let query = request.get_param("q").unwrap_or_default();
             let result = match lookup_type(request) {
-                DBLookupType::Patterned => vault.query_links(&auth, query, version, limit),
+                DBLookupType::Patterned => vault.query_links(&auth, query, version.clone(), limit),
                 DBLookupType::Exact => {
                     let pattern = Link::new(None, query.as_str(), "", None, None);
-                    vault.find_links(&auth, pattern, DBLookupType::Exact, version, limit)
+                    vault.find_links(&auth, pattern, DBLookupType::Exact, version.clone(), limit)
                 }
             };
             match result {
-                Ok((links, version)) => content_encoding::apply(request, jsonize(LinksReponse{links, version})),
+                Ok((links, version)) => content_encoding::apply(request, jsonize(LinksReponse{links, version: version.offset()})),
                 Err(e) => {
                     error!("{:?}", e);
                     err_response(e)
@@ -159,7 +162,7 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
             }
         },
         (POST) (/links) => {
-            match post_input!(request, {version: i64, href: String, name: String, description: String, tags: String, flags: String}) {
+            match post_input!(request, {version: i32, href: String, name: String, description: String, tags: String, flags: String}) {
                 Ok(t) => {
                     let tags: Vec<_> = t.tags.split(',')
                         .map(|v| v.trim().to_string())
@@ -176,7 +179,7 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
                     .set_toread(t.flags.contains("toread"))
                     .set_shared(t.flags.contains("shared"))
                     .set_favourite(t.flags.contains("favourite"));
-                    let result = vault.add_link(&auth, link, Some(t.version));
+                    let result = vault.add_link(&auth, link, Version::new(t.version));
                     match result {
                         Ok(_) =>  Response::empty_204(),
                         Err(e) => {
@@ -224,9 +227,9 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
         (GET) (/search) => {
             let query = request.get_param("q").unwrap_or_default();
             let is_stored_query = query.starts_with('@');
-            let fetch_links = |q| {
-                match vault.query_links(&auth, q, version, limit) {
-                    Ok(links) => content_encoding::apply(request, jsonize(links)),
+            let fetch_links = |q, v| {
+                match vault.query_links(&auth, q, v, limit) {
+                    Ok((links, version)) => content_encoding::apply(request, jsonize(links)),
                     Err(e) => err_response(e)
                 }
             };
@@ -243,14 +246,14 @@ pub fn handler(request: &Request, vault: &Vault) -> HandlerResult {
                         if !queries.is_empty() && is_exact {
                             let stored = queries.get(0).map(|q| q.query.clone()).unwrap();
                             let query = chunks.get(1).unwrap();
-                            fetch_links(format!("{} {}", stored, query))
+                            fetch_links(format!("{} {}", stored, query), version)
                         } else {
                             content_encoding::apply(request, jsonize(queries))
                         }
                     },
                     Err(e) => err_response(e)
                 }
-            } else { fetch_links(query) }
+            } else { fetch_links(query, version) }
         },
         _ => {
            Response::empty_404()

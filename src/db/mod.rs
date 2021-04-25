@@ -20,6 +20,9 @@ pub enum DBError {
 
     #[fail(display = "Bad credentials")]
     BadPassword,
+
+    #[fail(display = "Incorrect version")]
+    BadVersion,
 }
 
 pub enum DBLookupType {

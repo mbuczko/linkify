@@ -8,6 +8,7 @@ use crate::config::{Config, Env};
 use crate::utils::{read_file, truncate};
 use crate::vault::auth::Authentication;
 use crate::vault::link::Link;
+use crate::vault::link::Version;
 use crate::vault::{init_vault, Vault};
 
 use clap::{load_yaml, App, ArgMatches};
@@ -15,7 +16,6 @@ use colored::Colorize;
 use db::DBLookupType;
 use log::Level;
 use miniserde::json;
-use semver::Version;
 use std::process::exit;
 use terminal_size::{terminal_size as ts, Width};
 
@@ -28,7 +28,7 @@ fn main() {
     let matches = App::from(yaml).get_matches();
     let db = matches
         .value_of("database")
-        .or(config.get(Env::Database))
+        .or_else(|| config.get(Env::Database))
         .expect("Cannot find a database. Use --db parameter or LINKIFY_DB_PATH env variable.");
 
     simple_logger::init_with_level(config.get(Env::LogLevel).map_or(LOG_LEVEL, |l| match l {
@@ -39,7 +39,7 @@ fn main() {
     }))
     .unwrap();
 
-    match init_vault(db, Version::parse(VERSION).unwrap()) {
+    match init_vault(db, semver::Version::parse(VERSION).unwrap()) {
         Ok(v) => {
             if matches.is_present("server") {
                 server::start(v);
@@ -57,7 +57,7 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
             match vault.add_link(
                 &Authentication::from_matches(config, sub_m),
                 Link::from_matches(sub_m),
-                None,
+                Version::latest(),
             ) {
                 Ok(id) => println!("Added (id={})", id),
                 Err(e) => {
@@ -96,7 +96,12 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
                         } else {
                             let stored = queries.get(0).map(|q| q.query.clone()).unwrap();
                             let query = chunks.get(1).unwrap_or(&"");
-                            vault.query_links(&auth, format!("{} {}", stored, query), -1, None)
+                            vault.query_links(
+                                &auth,
+                                format!("{} {}", stored, query),
+                                Version::latest(),
+                                None,
+                            )
                         }
                     }
                     Err(e) => {
@@ -105,7 +110,7 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
                     }
                 }
             } else {
-                vault.query_links(&auth, query, -1, None)
+                vault.query_links(&auth, query, Version::latest(), None)
             };
 
             match links {

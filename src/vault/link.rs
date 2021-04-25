@@ -1,4 +1,5 @@
 use crate::db::query::Query;
+use crate::db::DBError::BadVersion;
 use crate::db::DBLookupType::{Exact, Patterned};
 use crate::db::{DBLookupType, DBResult};
 use crate::utils::path;
@@ -14,6 +15,24 @@ use rusqlite::{params, Row};
 use sha1::Sha1;
 use std::fmt;
 use std::rc::Rc;
+
+#[derive(Clone, Debug)]
+pub struct Version(i32);
+
+impl Version {
+    pub fn new(offset: i32) -> Version {
+        Version(offset)
+    }
+    pub fn offset(&self) -> i32 {
+        self.0
+    }
+    pub fn latest() -> Version {
+        Version(-1)
+    }
+    pub fn bump(&self) -> Self {
+        Version(self.offset() + 1)
+    }
+}
 
 #[derive(Serialize, Clone, Deserialize, Debug)]
 pub struct Link {
@@ -131,15 +150,19 @@ impl Link {
 }
 
 impl Vault {
-    fn get_latest_version(&self, user: &User) -> DBResult<i64> {
-        let version = self.get_connection().query_row(
+    fn get_latest_version(&self, user: &User) -> DBResult<Version> {
+        let offset = self.get_connection().query_row(
             "SELECT ifnull(max(version), 0) FROM links WHERE user_id = ?1",
             params![user.id],
-            |row| row.get::<_, i64>(0),
+            |row| row.get::<_, i32>(0),
         )?;
-        Ok(version)
+        Ok(Version::new(offset))
     }
-    fn store_link(&self, version: i64, link: Link, user: &User) -> DBResult<Link> {
+    fn store_link(&self, link: Link, version: Version, user: &User) -> DBResult<Link> {
+        let offset = match version {
+            Version(offset) if offset >= 0 => offset,
+            _ => return Err(BadVersion),
+        };
         let mut conn = self.get_connection();
         let txn = conn.transaction().unwrap();
         txn.execute(
@@ -148,7 +171,7 @@ impl Vault {
             ON CONFLICT(path(href), user_id) \
             DO UPDATE SET href = ?1, name = ?2, description = ?3, hash = ?4, is_toread = ?5, is_shared = ?6, is_favourite = ?7, \
                           version = ?9, updated_at = CURRENT_TIMESTAMP",
-            params![link.href, link.name, link.description, link.hash, link.toread, link.shared, link.favourite, user.id, version],
+            params![link.href, link.name, link.description, link.hash, link.toread, link.shared, link.favourite, user.id, offset],
         )?;
         let meta: (i64, String) = txn
             .query_row(
@@ -187,13 +210,10 @@ impl Vault {
         &self,
         auth: &Option<Authentication>,
         link: Link,
-        version: Option<i64>,
+        version: Version,
     ) -> DBResult<Link> {
         match self.authenticate_user(auth) {
-            Ok(u) => {
-                let ver = version.unwrap_or(self.get_latest_version(&u)? + 1);
-                self.store_link(ver, link, &u)
-            }
+            Ok(u) => self.store_link(link, version, &u),
             Err(e) => Err(e),
         }
     }
@@ -202,13 +222,14 @@ impl Vault {
             Ok(u) => u,
             Err(e) => return Err(e),
         };
+
         // TODO: wrap into outer tansaction to be sure that no other links are being added
         // at the same time with other version.
-        let ver = self.get_latest_version(&user)? + 1;
-        let mut imported: u32 = 0;
+        let version = self.get_latest_version(&user)?.bump();
 
+        let mut imported: u32 = 0;
         for link in links {
-            if let Ok(l) = self.store_link(ver, link, &user) {
+            if let Ok(l) = self.store_link(link, version.clone(), &user) {
                 imported += 1;
                 println!("+ {}", l.href)
             }
@@ -220,9 +241,9 @@ impl Vault {
         auth: &Option<Authentication>,
         pattern: Link,
         lookup_type: DBLookupType,
-        version: i64,
+        version: Version,
         limit: Option<u16>,
-    ) -> DBResult<(Vec<Link>, i64)> {
+    ) -> DBResult<(Vec<Link>, Version)> {
         let user = match self.authenticate_user(auth) {
             Ok(u) => u,
             Err(e) => return Err(e),
@@ -238,13 +259,14 @@ impl Vault {
         let path = path(pattern.href.as_str());
         let name = Query::patternize(&pattern.name);
         let limit = limit.unwrap_or(0);
+        let offset = version.offset();
 
         // Apply versioning - return only these records which have version greater or equal
         // to provided one. version = -1 means that all records should be returned (except
         // from deleted ones for performance reasons).
 
-        if version >= 0 {
-            query.concat_with_param("version >= :version AND", (":version", &version));
+        if offset >= 0 {
+            query.concat_with_param("version >= :version AND", (":version", &offset));
         } else {
             query.concat("deleted_at IS NULL AND");
         }
@@ -362,8 +384,14 @@ impl Vault {
     }
     pub fn get_link(&self, auth: &Option<Authentication>, href: &str) -> DBResult<Option<Link>> {
         let pattern = Link::new(None, &href, "", None, None);
-        self.find_links(auth, pattern, DBLookupType::Exact, -1, Some(1))
-            .map(|(links, _)| links.first().cloned())
+        self.find_links(
+            auth,
+            pattern,
+            DBLookupType::Exact,
+            Version::latest(),
+            Some(1),
+        )
+        .map(|(links, _)| links.first().cloned())
     }
     pub fn del_link(&self, auth: &Option<Authentication>, href: &str) -> DBResult<Option<Link>> {
         match self.get_link(auth, &href) {
@@ -393,18 +421,18 @@ impl Vault {
         &self,
         auth: &Option<Authentication>,
         pattern: Link,
-        version: i64,
+        version: Version,
         limit: Option<u16>,
-    ) -> DBResult<(Vec<Link>, i64)> {
+    ) -> DBResult<(Vec<Link>, Version)> {
         self.find_links(auth, pattern, DBLookupType::Patterned, version, limit)
     }
     pub fn query_links(
         &self,
         auth: &Option<Authentication>,
         query: String,
-        version: i64,
+        version: Version,
         limit: Option<u16>,
-    ) -> DBResult<(Vec<Link>, i64)> {
+    ) -> DBResult<(Vec<Link>, Version)> {
         let mut href = "";
         let mut desc = "";
         let mut name: Vec<&str> = Vec::new();
