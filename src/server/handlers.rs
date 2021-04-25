@@ -18,8 +18,8 @@ pub type HandlerResult = Result<Response, Error>;
 
 #[derive(Serialize, Clone, Debug)]
 struct LinksReponse {
-    links: Vec<Link>,
     version: i32,
+    links: Vec<Link>,
 }
 
 fn jsonize<T: Serialize>(result: T) -> Response {
