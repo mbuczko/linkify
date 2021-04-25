@@ -26,11 +26,14 @@ impl Version {
     pub fn offset(&self) -> i32 {
         self.0
     }
-    pub fn latest() -> Version {
+    pub fn unknown() -> Version {
         Version(-1)
     }
     pub fn bump(&self) -> Self {
         Version(self.offset() + 1)
+    }
+    pub fn is_offset_valid(offset: i32) -> bool {
+        offset >= 0
     }
 }
 
@@ -158,9 +161,16 @@ impl Vault {
         )?;
         Ok(Version::new(offset))
     }
+    fn ensure_valid_version(&self, version: Version, user: &User) -> DBResult<Version> {
+        if Version::is_offset_valid(version.offset()) {
+            Ok(version)
+        } else {
+            Ok(self.get_latest_version(&user)?.bump())
+        }
+    }
     fn store_link(&self, link: Link, version: Version, user: &User) -> DBResult<Link> {
         let offset = match version {
-            Version(offset) if offset >= 0 => offset,
+            Version(offset) if Version::is_offset_valid(offset) => offset,
             _ => return Err(BadVersion),
         };
         let mut conn = self.get_connection();
@@ -213,7 +223,12 @@ impl Vault {
         version: Version,
     ) -> DBResult<Link> {
         match self.authenticate_user(auth) {
-            Ok(u) => self.store_link(link, version, &u),
+            Ok(u) => {
+                // if no valid version has been provided, store the link
+                // at the new (latest) version possible.
+                let v = self.ensure_valid_version(version, &u)?;
+                self.store_link(link, v, &u)
+            },
             Err(e) => Err(e),
         }
     }
@@ -265,7 +280,7 @@ impl Vault {
         // to provided one. version = -1 means that all records should be returned (except
         // from deleted ones for performance reasons).
 
-        if offset >= 0 {
+        if Version::is_offset_valid(offset) {
             query.concat_with_param("version >= :version AND", (":version", &offset));
         } else {
             query.concat("deleted_at IS NULL AND");
@@ -388,7 +403,7 @@ impl Vault {
             auth,
             pattern,
             DBLookupType::Exact,
-            Version::latest(),
+            Version::unknown(),
             Some(1),
         )
         .map(|(links, _)| links.first().cloned())

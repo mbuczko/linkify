@@ -57,9 +57,9 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
             match vault.add_link(
                 &Authentication::from_matches(config, sub_m),
                 Link::from_matches(sub_m),
-                Version::latest(),
+                Version::unknown(),
             ) {
-                Ok(id) => println!("Added (id={})", id),
+                Ok(link) => println!("Added (id={})", link.id.unwrap()),
                 Err(e) => {
                     eprintln!("Error while adding a link ({:?})", e);
                     exit(1);
@@ -99,7 +99,7 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
                             vault.query_links(
                                 &auth,
                                 format!("{} {}", stored, query),
-                                Version::latest(),
+                                Version::unknown(),
                                 None,
                             )
                         }
@@ -110,7 +110,7 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
                     }
                 }
             } else {
-                vault.query_links(&auth, query, Version::latest(), None)
+                vault.query_links(&auth, query, Version::unknown(), None)
             };
 
             match links {
