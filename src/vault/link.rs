@@ -153,6 +153,9 @@ impl Link {
 }
 
 impl Vault {
+    /// Return latest version that links have been stored with for given [`User`].
+    ///
+    /// If user has no links yet, returns 0 as an initial version.
     fn get_latest_version(&self, user: &User) -> DBResult<Version> {
         let offset = self.get_connection().query_row(
             "SELECT ifnull(max(version), 0) FROM links WHERE user_id = ?1",
@@ -161,6 +164,10 @@ impl Vault {
         )?;
         Ok(Version::new(offset))
     }
+
+    /// Return given [`Version`] if it's a valid one, ie. its offset is >= 0.
+    ///
+    /// In case of invalid version return new lastest one bumped up by 1.
     fn ensure_valid_version(&self, version: Version, user: &User) -> DBResult<Version> {
         if Version::is_offset_valid(version.offset()) {
             Ok(version)
