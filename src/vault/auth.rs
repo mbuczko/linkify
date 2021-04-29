@@ -27,10 +27,7 @@ pub enum Authentication {
 
 impl Authentication {
     pub fn from_token(token: Option<&str>) -> Option<Self> {
-        match token {
-            Some(t) => Some(Authentication::Token(ApiKey(t.to_string()))),
-            _ => None,
-        }
+        token.map(|t| Authentication::Token(ApiKey(t.to_string())))
     }
     pub fn from_credentials(login: String, password: String) -> Option<Self> {
         Some(Authentication::Credentials(login, password))
@@ -101,7 +98,7 @@ impl Vault {
                 .query_row(
                     "SELECT api_key FROM users WHERE id = ?1",
                     params![user.id],
-                    |row| Ok(row.get(0)?),
+                    |row| row.get(0),
                 )
                 .map_or(Err(UnknownUser), |token| {
                     Ok(UserInfo {
