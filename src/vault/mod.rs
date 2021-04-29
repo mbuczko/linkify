@@ -1,11 +1,12 @@
 pub mod auth;
 pub mod link;
-pub mod migrations;
-pub mod stored_query;
-pub mod tags;
-pub mod user;
 
-use crate::db::conn_manager;
+mod migrations;
+mod stored_query;
+mod tags;
+mod user;
+
+use super::db::conn_manager;
 
 use log::debug;
 use r2d2::{Pool, PooledConnection};

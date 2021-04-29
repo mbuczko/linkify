@@ -1,6 +1,6 @@
 pub mod query;
 
-use crate::utils::{every, path, some};
+use super::utils::{every, path, some};
 
 use failure::Fail;
 use r2d2_sqlite::SqliteConnectionManager;

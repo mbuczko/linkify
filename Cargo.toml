@@ -19,7 +19,7 @@ bcrypt = "0.6.1"
 miniserde = "0.1.12"
 colored = "1.9.3"
 terminal_size = "0.1.10"
-rouille = "3.0.0"
+rouille = "3.1.0"
 failure = "0.1.7"
 rand = "0.7.3"
 

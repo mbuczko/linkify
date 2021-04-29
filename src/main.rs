@@ -4,12 +4,11 @@ mod server;
 mod utils;
 mod vault;
 
-use crate::config::{Config, Env};
-use crate::utils::{read_file, truncate};
-use crate::vault::auth::Authentication;
-use crate::vault::link::Link;
-use crate::vault::link::Version;
-use crate::vault::{init_vault, Vault};
+use config::{Config, Env};
+use utils::{read_file, truncate};
+use vault::auth::Authentication;
+use vault::link::{Link, Version};
+use vault::Vault;
 
 use clap::{load_yaml, App, ArgMatches};
 use colored::Colorize;
@@ -39,7 +38,7 @@ fn main() {
     }))
     .unwrap();
 
-    match init_vault(db, semver::Version::parse(VERSION).unwrap()) {
+    match vault::init_vault(db, semver::Version::parse(VERSION).unwrap()) {
         Ok(v) => {
             if matches.is_present("server") {
                 server::start(v);
