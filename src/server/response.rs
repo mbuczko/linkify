@@ -12,7 +12,6 @@ pub struct LinksResponse {
     pub links: Vec<Link>,
 }
 
-
 pub fn empty_40x(code: u16) -> Response {
     Response {
         status_code: code,

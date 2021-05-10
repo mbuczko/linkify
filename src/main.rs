@@ -58,7 +58,7 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
                 Link::from_matches(sub_m),
                 Version::unknown(),
             ) {
-                Ok(link) => println!("Added (id={})", link.id.unwrap()),
+                Ok((link, version)) => println!("Added (id={} version={})", link.id.unwrap(), version),
                 Err(e) => {
                     eprintln!("Error while adding a link ({:?})", e);
                     exit(1);

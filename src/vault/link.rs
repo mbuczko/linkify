@@ -37,6 +37,12 @@ impl Version {
     }
 }
 
+impl fmt::Display for Version {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.offset())
+    }
+}
+
 #[derive(Serialize, Clone, Deserialize, Debug)]
 pub struct Link {
     pub id: Option<i64>,
@@ -175,7 +181,7 @@ impl Vault {
             Ok(self.get_latest_version(&user)?.bump())
         }
     }
-    fn store_link(&self, link: Link, version: Version, user: &User) -> DBResult<Link> {
+    fn store_link(&self, link: Link, version: Version, user: &User) -> DBResult<(Link, Version)> {
         let offset = match version {
             Version(offset) if Version::is_offset_valid(offset) => offset,
             _ => return Err(BadVersion),
@@ -219,25 +225,38 @@ impl Vault {
                 params![meta.0, Rc::new(values), user.id],
             )?;
         }
-        txn.commit()
-            .and(Ok(link.set_id(Some(meta.0)).set_timestamp(meta.1)))
-            .map_err(Into::into)
+        let link = txn.commit()
+            .and(Ok(link.set_id(Some(meta.0)).set_timestamp(meta.1)))?;
+
+        Ok((link, version))
     }
     pub fn add_link(
         &self,
         auth: &Option<Authentication>,
         link: Link,
         version: Version,
-    ) -> DBResult<Link> {
+    ) -> DBResult<(Link, Version)> {
         match self.authenticate_user(auth) {
             Ok(u) => {
                 // if no valid version has been provided, store the link
                 // at the new (latest) version possible.
                 let v = self.ensure_valid_version(version, &u)?;
                 self.store_link(link, v, &u)
-            },
+            }
             Err(e) => Err(e),
         }
+    }
+    pub fn add_links(
+        &self,
+        auth: &Option<Authentication>,
+        links: Vec<Link>,
+        version: Version,
+    ) -> DBResult<Version> {
+        let mut batch_version = version;
+        for link in links {
+            batch_version = self.add_link(&auth, link, batch_version)?.1;
+        }
+        Ok(batch_version)
     }
     pub fn import_links(&self, auth: &Option<Authentication>, links: Vec<Link>) -> DBResult<u32> {
         let user = match self.authenticate_user(auth) {
@@ -251,9 +270,9 @@ impl Vault {
 
         let mut imported: u32 = 0;
         for link in links {
-            if let Ok(l) = self.store_link(link, version.clone(), &user) {
+            if let Ok((created_link, _version)) = self.store_link(link, version.clone(), &user) {
                 imported += 1;
-                println!("+ {}", l.href)
+                println!("+ {}", created_link.href)
             }
         }
         Ok(imported)

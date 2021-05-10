@@ -1,14 +1,14 @@
 use crate::db::DBLookupType;
-use crate::vault::Vault;
-use crate::vault::auth::Authentication;
-use crate::vault::link::{Link, Version};
+use crate::server::json::*;
 use crate::server::request::*;
 use crate::server::response::*;
-use crate::server::json::*;
+use crate::vault::auth::Authentication;
+use crate::vault::link::{Link, Version};
+use crate::vault::Vault;
 
-use log::error;
 use failure::Error;
-use rouille::{Request, Response, router, content_encoding, try_or_400};
+use log::error;
+use rouille::{content_encoding, router, try_or_400, Request, Response};
 use std::collections::HashMap;
 
 pub type HandlerResult = Result<Response, Error>;
@@ -115,27 +115,26 @@ pub fn api_handler(request: &Request, vault: &Vault) -> HandlerResult {
         (POST) (/links) => {
             match json_input::<LinksRequest>(request) {
                 Ok(res) => {
-                    for link in res.links {
+                    let version = Version::new(res.version);
+                    let links = res.links.into_iter().map(|link| {
                         let tags: Vec<_> = link.tags.unwrap_or_default().split(',')
                             .map(|v| v.trim().to_string())
                             .filter(|v| !v.is_empty())
                             .collect();
                         let flags = link.flags.unwrap_or_default();
                         let desc = link.description.trim();
-                        let link = Link::new(
+                        Link::new(
                             None,
                             &link.href,
                             &link.name,
                             if desc.is_empty() { None } else { Some(desc) },
                             if tags.is_empty() { None } else { Some(tags) }
                         )
-                        .set_toread(flags.contains("toread"))
-                        .set_shared(flags.contains("shared"))
-                        .set_favourite(flags.contains("favourite"));
-
-                        let version = Version::new(res.version);
-                        vault.add_link(&auth, link, version)?;
-                    }
+                            .set_toread(flags.contains("toread"))
+                            .set_shared(flags.contains("shared"))
+                            .set_favourite(flags.contains("favourite"))
+                    }).collect();
+                    vault.add_links(&auth, links, version)?;
                     Response::empty_204()
                 }
                 Err(e) => {
