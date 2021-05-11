@@ -10,8 +10,8 @@ use crate::vault::Vault;
 
 use clap::ArgMatches;
 use miniserde::{Deserialize, Serialize};
-use rusqlite::types::Value as SqlValue;
 use rusqlite::{params, Row};
+use rusqlite::{types::Value as SqlValue, Transaction};
 use sha1::Sha1;
 use std::fmt;
 use std::rc::Rc;
@@ -32,9 +32,10 @@ impl Version {
     pub fn bump(&self) -> Self {
         Version(self.offset() + 1)
     }
-    pub fn is_offset_valid(offset: i32) -> bool {
-        offset >= 0
+    pub fn is_valid(&self) -> bool {
+        self.offset() >= 0
     }
+
 }
 
 impl fmt::Display for Version {
@@ -170,24 +171,17 @@ impl Vault {
         )?;
         Ok(Version::new(offset))
     }
-
-    /// Return given [`Version`] if it's a valid one, ie. its offset is >= 0.
-    ///
-    /// In case of invalid version return new lastest one bumped up by 1.
-    fn ensure_valid_version(&self, version: Version, user: &User) -> DBResult<Version> {
-        if Version::is_offset_valid(version.offset()) {
-            Ok(version)
-        } else {
-            Ok(self.get_latest_version(&user)?.bump())
-        }
-    }
-    fn store_link(&self, link: Link, version: Version, user: &User) -> DBResult<(Link, Version)> {
+    fn store_link(
+        &self,
+        link: Link,
+        version: Version,
+        user: &User,
+        txn: &Transaction,
+    ) -> DBResult<(Link, Version)> {
         let offset = match version {
-            Version(offset) if Version::is_offset_valid(offset) => offset,
+            Version(offset) if version.is_valid() => offset,
             _ => return Err(BadVersion),
         };
-        let mut conn = self.get_connection();
-        let txn = conn.transaction().unwrap();
         txn.execute(
             "INSERT INTO links(href, name, description, hash, is_toread, is_shared, is_favourite, user_id, version) \
             VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9) \
@@ -225,24 +219,15 @@ impl Vault {
                 params![meta.0, Rc::new(values), user.id],
             )?;
         }
-        let link = txn.commit()
-            .and(Ok(link.set_id(Some(meta.0)).set_timestamp(meta.1)))?;
-
-        Ok((link, version))
+        Ok((link.set_id(Some(meta.0)).set_timestamp(meta.1), version))
     }
     pub fn add_link(
         &self,
         auth: &Option<Authentication>,
         link: Link,
-        version: Version,
-    ) -> DBResult<(Link, Version)> {
+    ) -> DBResult<Version> {
         match self.authenticate_user(auth) {
-            Ok(u) => {
-                // if no valid version has been provided, store the link
-                // at the new (latest) version possible.
-                let v = self.ensure_valid_version(version, &u)?;
-                self.store_link(link, v, &u)
-            }
+            Ok(user) => self.add_links(auth, vec![link], self.get_latest_version(&user)?),
             Err(e) => Err(e),
         }
     }
@@ -252,11 +237,42 @@ impl Vault {
         links: Vec<Link>,
         version: Version,
     ) -> DBResult<Version> {
-        let mut batch_version = version;
+        assert!(version.is_valid());
+
+        let user = match self.authenticate_user(auth) {
+            Ok(u) => u,
+            Err(e) => return Err(e),
+        };
+        let mut conn = self.get_connection();
+
+        // remove all the links from request which are already
+        // stored with newer version. first-write wins.
+
+        let hrefs = Rc::new(
+            links
+                .iter()
+                .map(|l| path(&l.href.to_lowercase()))
+                .map(SqlValue::from)
+                .collect(),
+        );
+        let conflicting = Query::new_with_initial("SELECT lower(path(href)) FROM links WHERE")
+            .concat_with_param("user_id = :user_id", (":user_id", &user.id))
+            .concat_with_param("AND version > :version", (":version", &version.offset()))
+            .concat_with_param(
+                "AND lower(path(href)) IN rarray(:hrefs)",
+                (":hrefs", &hrefs),
+            )
+            .fetch_as(self.get_connection(), |row| row.get_unwrap::<_, String>(0))?;
+
+        let mut ver = self.get_latest_version(&user)?.bump();
+        let txn = conn.transaction().unwrap();
         for link in links {
-            batch_version = self.add_link(&auth, link, batch_version)?.1;
+            if !conflicting.iter().any(|v| *v == path(link.href.to_lowercase().as_str())) {
+                ver = self.store_link(link, ver, &user, &txn)?.1;
+            }
         }
-        Ok(batch_version)
+        txn.commit()?;
+        Ok(ver)
     }
     pub fn import_links(&self, auth: &Option<Authentication>, links: Vec<Link>) -> DBResult<u32> {
         let user = match self.authenticate_user(auth) {
@@ -264,17 +280,18 @@ impl Vault {
             Err(e) => return Err(e),
         };
 
-        // TODO: wrap into outer tansaction to be sure that no other links are being added
-        // at the same time with other version.
-        let version = self.get_latest_version(&user)?.bump();
+        let mut conn = self.get_connection();
+        let txn = conn.transaction().unwrap();
+        let ver = self.get_latest_version(&user)?.bump();
 
         let mut imported: u32 = 0;
         for link in links {
-            if let Ok((created_link, _version)) = self.store_link(link, version.clone(), &user) {
+            if let Ok((created_link, _version)) = self.store_link(link, ver.clone(), &user, &txn) {
                 imported += 1;
                 println!("+ {}", created_link.href)
             }
         }
+        txn.commit()?;
         Ok(imported)
     }
     pub fn find_links(
@@ -304,9 +321,9 @@ impl Vault {
 
         // Apply versioning - return only these records which have version greater or equal
         // to provided one. version = -1 means that all records should be returned (except
-        // from deleted ones for performance reasons).
+        // from deleted ones for performance reason).
 
-        if Version::is_offset_valid(offset) {
+        if version.is_valid() {
             query.concat_with_param("version >= :version AND", (":version", &offset));
         } else {
             query.concat("deleted_at IS NULL AND");

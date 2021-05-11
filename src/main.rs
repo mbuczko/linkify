@@ -56,9 +56,10 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
             match vault.add_link(
                 &Authentication::from_matches(config, sub_m),
                 Link::from_matches(sub_m),
-                Version::unknown(),
             ) {
-                Ok((link, version)) => println!("Added (id={} version={})", link.id.unwrap(), version),
+                Ok(version) => {
+                    println!("Added (version={})", version)
+                }
                 Err(e) => {
                     eprintln!("Error while adding a link ({:?})", e);
                     exit(1);

@@ -87,7 +87,7 @@ pub fn path(url: &str) -> String {
 pub fn every(elements: &str, expected: &str) -> bool {
     let v: Vec<&str> = elements.split(',').collect();
     for e in expected.split(',') {
-        if !v.iter().find(|&v| v == &e).is_some() {
+        if !v.iter().any(|&v| v == e) {
             return false;
         }
     }
@@ -97,7 +97,7 @@ pub fn every(elements: &str, expected: &str) -> bool {
 pub fn some(elements: &str, expected: &str) -> bool {
     let v: Vec<&str> = elements.split(',').collect();
     for e in expected.split(',') {
-        if v.iter().find(|&v| v == &e).is_some() {
+        if v.iter().any(|&v| v == e) {
             return true;
         }
     }
