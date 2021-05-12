@@ -22,7 +22,7 @@ impl Vault {
     pub fn get_connection(&self) -> PooledConnection<SqliteConnectionManager> {
         self.pool.get().unwrap()
     }
-    pub fn new(db: &str) -> Self {
+    pub fn new(db: Option<&str>) -> Self {
         let manager = conn_manager(db);
         match r2d2::Pool::new(manager) {
             Ok(pool) => Vault { pool },
@@ -31,9 +31,7 @@ impl Vault {
     }
 }
 
-pub fn init_vault(db: &str, app_semver: Version) -> SqliteResult<Vault> {
-    debug!("Opening database ({})", db);
-
+pub fn init_vault(db: Option<&str>, app_semver: Version) -> SqliteResult<Vault> {
     let vault = Vault::new(db);
     let (last_script_version, last_app_version) = match vault.version() {
         Ok((lsv, lav)) => (lsv, lav),

@@ -3,6 +3,7 @@ pub mod query;
 use super::utils::{every, path, some};
 
 use failure::Fail;
+use log::debug;
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::vtab::array;
 use rusqlite::{Connection, Error as SqliteError};
@@ -56,8 +57,18 @@ fn add_functions(conn: &Connection) -> Result<(), DBError> {
     Ok(())
 }
 
-pub fn conn_manager(db: &str) -> SqliteConnectionManager {
-    SqliteConnectionManager::file(db).with_init(|c| {
+pub fn conn_manager(db: Option<&str>) -> SqliteConnectionManager {
+    let scm: SqliteConnectionManager;
+
+    if let Some(db_name) = db {
+        scm = SqliteConnectionManager::file(db.unwrap());
+        debug!("Opening database ({})", db_name);
+    } else {
+        scm = SqliteConnectionManager::memory();
+        debug!("Opening in-memory database");
+    }
+
+    scm.with_init(|c| {
         add_functions(c).expect("Cannot initialize additional SQLite functions");
         array::load_module(c).unwrap();
         c.execute_batch("PRAGMA foreign_keys=1;")

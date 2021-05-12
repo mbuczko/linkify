@@ -281,15 +281,15 @@ impl Vault {
         };
 
         let mut conn = self.get_connection();
+        let mut ver = self.get_latest_version(&user)?.bump();
         let txn = conn.transaction().unwrap();
-        let ver = self.get_latest_version(&user)?.bump();
 
         let mut imported: u32 = 0;
         for link in links {
-            if let Ok((created_link, _version)) = self.store_link(link, ver.clone(), &user, &txn) {
-                imported += 1;
-                println!("+ {}", created_link.href)
-            }
+            let (created_link, version) = self.store_link(link, ver, &user, &txn)?;
+            imported += 1;
+            ver = version;
+            println!("+ {}", created_link.href)
         }
         txn.commit()?;
         Ok(imported)
