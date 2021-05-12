@@ -5,7 +5,7 @@ mod utils;
 mod vault;
 
 use config::{Config, Env};
-use utils::{read_file, truncate};
+use utils::{password, read_file, truncate};
 use vault::auth::Authentication;
 use vault::link::{Link, Version};
 use vault::Vault;
@@ -145,13 +145,15 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
             }
         }
         ("users", Some(sub_m)) => match sub_m.subcommand() {
-            ("add", Some(sub_m)) => match vault.add_user(sub_m.value_of("login").unwrap()) {
-                Ok(u) => println!("Added ({}).", u.login),
-                Err(_) => {
-                    eprintln!("Error while adding new user. User might already exist.");
-                    exit(1);
-                }
-            },
+            ("add", Some(sub_m)) => {
+                let pass = password(None, Some("Initial password"));
+                match vault.add_user(sub_m.value_of("login").unwrap(), &pass) {
+                    Ok(u) => println!("Added ({}).", u.login),
+                    Err(_) => {
+                        eprintln!("Error while adding new user. User might already exist.");
+                        exit(1);
+                    }
+                }},
             ("del", Some(sub_m)) => match vault.del_user(sub_m.value_of("login").unwrap()) {
                 Ok((u, is_deleted)) => {
                     if is_deleted {

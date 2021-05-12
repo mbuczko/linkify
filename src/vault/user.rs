@@ -61,9 +61,8 @@ impl Vault {
     pub fn match_users(&self, pattern: &str) -> DBResult<Vec<(User, u32)>> {
         self.find_users(pattern, DBLookupType::Patterned)
     }
-    pub fn add_user(&self, login: &str) -> DBResult<User> {
-        let pass = password(None, Some("Initial password"));
-        let hashed = hash(pass, 10).expect("Couldn't hash a password for some reason.");
+    pub fn add_user(&self, login: &str, password: &str) -> DBResult<User> {
+        let hashed = hash(password, 10).expect("Couldn't hash a password for some reason.");
         self.get_connection().execute(
             "INSERT INTO users(login, password) VALUES(?1, ?2)",
             params![login, hashed],

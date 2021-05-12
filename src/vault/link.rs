@@ -35,7 +35,6 @@ impl Version {
     pub fn is_valid(&self) -> bool {
         self.offset() >= 0
     }
-
 }
 
 impl fmt::Display for Version {
@@ -221,11 +220,7 @@ impl Vault {
         }
         Ok((link.set_id(Some(meta.0)).set_timestamp(meta.1), version))
     }
-    pub fn add_link(
-        &self,
-        auth: &Option<Authentication>,
-        link: Link,
-    ) -> DBResult<Version> {
+    pub fn add_link(&self, auth: &Option<Authentication>, link: Link) -> DBResult<Version> {
         match self.authenticate_user(auth) {
             Ok(user) => self.add_links(auth, vec![link], self.get_latest_version(&user)?),
             Err(e) => Err(e),
@@ -267,7 +262,10 @@ impl Vault {
         let mut ver = self.get_latest_version(&user)?.bump();
         let txn = conn.transaction().unwrap();
         for link in links {
-            if !conflicting.iter().any(|v| *v == path(link.href.to_lowercase().as_str())) {
+            if !conflicting
+                .iter()
+                .any(|v| *v == path(link.href.to_lowercase().as_str()))
+            {
                 ver = self.store_link(link, ver, &user, &txn)?.1;
             }
         }
