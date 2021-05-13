@@ -42,7 +42,7 @@ impl Vault {
             Err(e) => return Err(e),
         };
         let pattern = Query::patternize(pattern.unwrap_or_default());
-        let excludes = Rc::new(
+        let excludes = Rc::<Vec<_>>::new(
             exclude
                 .unwrap_or_default()
                 .into_iter()

@@ -153,7 +153,8 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
                         eprintln!("Error while adding new user. User might already exist.");
                         exit(1);
                     }
-                }},
+                }
+            }
             ("del", Some(sub_m)) => match vault.del_user(sub_m.value_of("login").unwrap()) {
                 Ok((u, is_deleted)) => {
                     if is_deleted {

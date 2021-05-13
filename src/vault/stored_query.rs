@@ -101,7 +101,7 @@ impl Vault {
             .concat_with_param("user_id = :uid", (":uid", &user.id));
 
         self.get_connection()
-            .query_row_named(query.build().as_str(), query.named_params(), |r| {
+            .query_row(query.build().as_str(), query.named_params(), |r| {
                 Ok(StoredQuery::from(r))
             })
             .optional()

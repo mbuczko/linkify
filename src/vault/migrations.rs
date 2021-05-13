@@ -2,7 +2,6 @@ use crate::db::DBResult;
 use crate::vault::Vault;
 
 use log::debug;
-use rusqlite::NO_PARAMS;
 use rust_embed::RustEmbed;
 use semver::Version;
 use std::fmt;
@@ -91,7 +90,7 @@ impl Vault {
         self.get_connection()
             .query_row(
                 "SELECT version, app_semver FROM migrations ORDER BY version DESC LIMIT 1",
-                NO_PARAMS,
+                [],
                 |row| {
                     Ok((
                         row.get(0)?,

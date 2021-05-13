@@ -243,7 +243,7 @@ impl Vault {
         // remove all the links from request which are already
         // stored with newer version. first-write wins.
 
-        let hrefs = Rc::new(
+        let hrefs = Rc::<Vec<_>>::new(
             links
                 .iter()
                 .map(|l| path(&l.href.to_lowercase()))
@@ -387,7 +387,7 @@ impl Vault {
         let excluded = excluded.join(",");
         let required = required.join(",");
 
-        let optional_ptr = Rc::new(optional.into_iter().map(SqlValue::from).collect());
+        let optional_ptr = Rc::<Vec<_>>::new(optional.into_iter().map(SqlValue::from).collect());
         if has_optional || has_required || has_excluded {
             query.concat("HAVING");
 

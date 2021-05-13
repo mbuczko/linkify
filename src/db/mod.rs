@@ -5,6 +5,7 @@ use super::utils::{every, path, some};
 use failure::Fail;
 use log::debug;
 use r2d2_sqlite::SqliteConnectionManager;
+use rusqlite::functions::FunctionFlags;
 use rusqlite::vtab::array;
 use rusqlite::{Connection, Error as SqliteError};
 
@@ -40,20 +41,35 @@ impl From<SqliteError> for DBError {
 }
 
 fn add_functions(conn: &Connection) -> Result<(), DBError> {
-    conn.create_scalar_function("path", 1, true, move |ctx| {
-        let url = ctx.get::<String>(0)?;
-        Ok(path(&url))
-    })?;
-    conn.create_scalar_function("every", 2, true, move |ctx| {
-        let elements = ctx.get::<String>(0)?;
-        let expected = ctx.get::<String>(1)?;
-        Ok(every(&elements, &expected))
-    })?;
-    conn.create_scalar_function("some", 2, true, move |ctx| {
-        let elements = ctx.get::<String>(0)?;
-        let expected = ctx.get::<String>(1)?;
-        Ok(some(&elements, &expected))
-    })?;
+    conn.create_scalar_function(
+        "path",
+        1,
+        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
+        move |ctx| {
+            let url = ctx.get::<String>(0)?;
+            Ok(path(&url))
+        },
+    )?;
+    conn.create_scalar_function(
+        "every",
+        2,
+        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
+        move |ctx| {
+            let elements = ctx.get::<String>(0)?;
+            let expected = ctx.get::<String>(1)?;
+            Ok(every(&elements, &expected))
+        },
+    )?;
+    conn.create_scalar_function(
+        "some",
+        2,
+        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
+        move |ctx| {
+            let elements = ctx.get::<String>(0)?;
+            let expected = ctx.get::<String>(1)?;
+            Ok(some(&elements, &expected))
+        },
+    )?;
     Ok(())
 }
 
@@ -64,7 +80,7 @@ pub fn conn_manager(db: Option<&str>) -> SqliteConnectionManager {
         scm = SqliteConnectionManager::file(db.unwrap());
         debug!("Opening database ({})", db_name);
     } else {
-        scm = SqliteConnectionManager::memory();
+        scm = SqliteConnectionManager::file("file::memory:?cache=shared");
         debug!("Opening in-memory database");
     }
 
