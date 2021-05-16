@@ -23,6 +23,9 @@ rouille = "3.1.0"
 failure = "0.1.7"
 rand = "0.7.3"
 
+[dev-dependencies]
+rstest = "0.9.0"
+
 [profile.release]
 opt-level = 'z'  # Optimize for size.
 lto = true

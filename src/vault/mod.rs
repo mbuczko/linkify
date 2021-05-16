@@ -33,6 +33,7 @@ impl Vault {
 
 pub fn init_vault(db: Option<&str>, app_semver: Version) -> SqliteResult<Vault> {
     let vault = Vault::new(db);
+
     let (last_script_version, last_app_version) = match vault.version() {
         Ok((lsv, lav)) => (lsv, lav),
         Err(_) => (String::default(), Version::parse("0.0.0").unwrap()),
@@ -47,4 +48,19 @@ pub fn init_vault(db: Option<&str>, app_semver: Version) -> SqliteResult<Vault> 
         vault.upgrade(last_script_version, app_semver);
     }
     Ok(vault)
+}
+
+#[cfg(test)]
+pub mod test_util {
+    use super::*;
+    use rstest::*;
+
+    #[fixture]
+    pub fn testing_vault() -> Vault {
+        let appver = semver::Version::parse(env!("CARGO_PKG_VERSION")).unwrap();
+        match init_vault(None, appver) {
+            Ok(vault) => vault,
+            _ => panic!("Cannot initialize testing vault"),
+        }
+    }
 }
