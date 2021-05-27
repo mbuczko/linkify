@@ -92,21 +92,18 @@ impl Vault {
     }
 
     pub fn user_info(&self, auth: &Option<Authentication>) -> DBResult<UserInfo> {
-        match self.authenticate_user(auth) {
-            Ok(user) => self
-                .get_connection()
-                .query_row(
-                    "SELECT api_key FROM users WHERE id = ?1",
-                    params![user.id],
-                    |row| row.get(0),
-                )
-                .map_or(Err(UnknownUser), |token| {
-                    Ok(UserInfo {
-                        login: user.login,
-                        token,
-                    })
-                }),
-            _ => Err(UnknownUser),
-        }
+        let user = self.authenticate_user(auth)?;
+        self.get_connection()
+            .query_row(
+                "SELECT api_key FROM users WHERE id = ?1",
+                params![user.id],
+                |row| row.get(0),
+            )
+            .map_or(Err(UnknownUser), |token| {
+                Ok(UserInfo {
+                    login: user.login,
+                    token,
+                })
+            })
     }
 }

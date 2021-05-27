@@ -519,6 +519,7 @@ dependencies = [
  "clap",
  "colored",
  "failure",
+ "lazy_static",
  "log 0.4.14",
  "miniserde",
  "r2d2",

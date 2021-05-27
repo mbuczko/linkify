@@ -110,14 +110,13 @@ impl Vault {
 }
 
 #[cfg(test)]
-mod test {
+pub mod test_user {
+    use crate::vault::test_db::{auth, vault};
+    use crate::vault::{auth::Authentication, Vault};
     use rstest::*;
-    use super::*;
-    use crate::vault::test_util::testing_vault;
 
     #[rstest]
-    fn test_add_new_user(testing_vault: Vault) {
-        let user = testing_vault.add_user("foo", "secret");
-        assert_eq!("foo", user.unwrap().login);
+    fn test_add_new_user(vault: &Vault, auth: &Option<Authentication>) {
+        assert_eq!("foo", vault.user_info(auth).unwrap().login);
     }
 }

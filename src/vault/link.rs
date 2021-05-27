@@ -221,10 +221,8 @@ impl Vault {
         Ok((link.set_id(Some(meta.0)).set_timestamp(meta.1), version))
     }
     pub fn add_link(&self, auth: &Option<Authentication>, link: Link) -> DBResult<Version> {
-        match self.authenticate_user(auth) {
-            Ok(user) => self.add_links(auth, vec![link], self.get_latest_version(&user)?),
-            Err(e) => Err(e),
-        }
+        let user = self.authenticate_user(auth)?;
+        self.add_links(auth, vec![link], self.get_latest_version(&user)?)
     }
     pub fn add_links(
         &self,
@@ -234,10 +232,7 @@ impl Vault {
     ) -> DBResult<Version> {
         assert!(version.is_valid());
 
-        let user = match self.authenticate_user(auth) {
-            Ok(u) => u,
-            Err(e) => return Err(e),
-        };
+        let user = self.authenticate_user(auth)?;
         let mut conn = self.get_connection();
 
         // remove all the links from request which are already
@@ -273,11 +268,7 @@ impl Vault {
         Ok(ver)
     }
     pub fn import_links(&self, auth: &Option<Authentication>, links: Vec<Link>) -> DBResult<u32> {
-        let user = match self.authenticate_user(auth) {
-            Ok(u) => u,
-            Err(e) => return Err(e),
-        };
-
+        let user = self.authenticate_user(auth)?;
         let mut conn = self.get_connection();
         let mut ver = self.get_latest_version(&user)?.bump();
         let txn = conn.transaction().unwrap();
@@ -300,10 +291,7 @@ impl Vault {
         version: Version,
         limit: Option<u16>,
     ) -> DBResult<(Vec<Link>, Version)> {
-        let user = match self.authenticate_user(auth) {
-            Ok(u) => u,
-            Err(e) => return Err(e),
-        };
+        let user = self.authenticate_user(auth)?;
         let mut query = Query::new_with_initial(
             "SELECT l.id, href, name, description, group_concat(tag) AS tagz, is_toread, is_shared, is_favourite, datetime(l.created_at) \
              FROM links l \
@@ -427,10 +415,7 @@ impl Vault {
         ))
     }
     pub fn get_href(&self, auth: &Option<Authentication>, link_id: i64) -> DBResult<String> {
-        let user = match self.authenticate_user(auth) {
-            Ok(u) => u,
-            Err(e) => return Err(e),
-        };
+        let user = self.authenticate_user(auth)?;
         let href = self.get_connection().query_row(
             "SELECT href FROM links WHERE id = ?1 AND user_id = ?2",
             params![link_id, user.id],
@@ -530,5 +515,22 @@ impl Vault {
         .set_favourite(favourite);
 
         self.find_matching_links(auth, pattern, version, limit)
+    }
+}
+
+#[cfg(test)]
+mod test_user {
+    use super::*;
+    use crate::vault::test_db::{auth, vault};
+    use rstest::*;
+
+    #[rstest]
+    fn test_query_links(vault: &Vault, auth: &Option<Authentication>) {
+        let (links, version) = vault
+            .query_links(auth, String::from(""), Version::unknown(), None)
+            .unwrap();
+
+        assert_eq!(0, version.offset());
+        assert!(links.is_empty());
     }
 }

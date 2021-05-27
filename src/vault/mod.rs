@@ -51,16 +51,35 @@ pub fn init_vault(db: Option<&str>, app_semver: Version) -> SqliteResult<Vault> 
 }
 
 #[cfg(test)]
-pub mod test_util {
+pub mod test_db {
     use super::*;
+    use crate::vault::auth::Authentication;
+    use lazy_static::lazy_static;
     use rstest::*;
 
+    const USER: &str = "foo";
+    const PASS: &str = "secret";
+
+    lazy_static! {
+        static ref AUTH: Option<Authentication> = Some(Authentication::from_credentials(USER.to_owned(), PASS.to_owned()).unwrap());
+        static ref VAULT: Vault = {
+            let appver = semver::Version::parse(env!("CARGO_PKG_VERSION"));
+            let vault = init_vault(None, appver.unwrap()).unwrap();
+
+            // initialize testing vault with sample user
+            vault.add_user(USER, PASS).unwrap();
+            vault.generate_key(USER).unwrap();
+            vault
+        };
+    }
+
     #[fixture]
-    pub fn testing_vault() -> Vault {
-        let appver = semver::Version::parse(env!("CARGO_PKG_VERSION")).unwrap();
-        match init_vault(None, appver) {
-            Ok(vault) => vault,
-            _ => panic!("Cannot initialize testing vault"),
-        }
+    pub fn vault() -> &'static Vault {
+        &*VAULT
+    }
+
+    #[fixture]
+    pub fn auth() -> &'static Option<Authentication> {
+        &*AUTH
     }
 }
