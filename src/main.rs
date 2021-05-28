@@ -29,9 +29,7 @@ fn main() {
         .or_else(|| config.get(Env::Database))
         .expect("Cannot find a database. Use --db parameter or LINKIFY_DB_PATH env variable.");
 
-    SimpleLogger::new()
-        .init()
-        .unwrap();
+    SimpleLogger::new().init().unwrap();
 
     match vault::init_vault(Some(db), semver::Version::parse(VERSION).unwrap()) {
         Ok(v) => {
