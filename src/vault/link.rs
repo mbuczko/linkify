@@ -467,10 +467,10 @@ impl Vault {
     ) -> DBResult<(Vec<Link>, Version)> {
         self.find_links(auth, pattern, DBLookupType::Patterned, version, limit)
     }
-    pub fn query_links(
+    pub fn query_links<S: AsRef<str>>(
         &self,
         auth: &Option<Authentication>,
-        query: String,
+        query: S,
         version: Version,
         limit: Option<u16>,
     ) -> DBResult<(Vec<Link>, Version)> {
@@ -482,7 +482,7 @@ impl Vault {
         let mut shared = false;
         let mut favourite = false;
 
-        for chunk in query.split_whitespace() {
+        for chunk in query.as_ref().split_whitespace() {
             let ch: Vec<_> = chunk.split(':').collect();
             if ch.len() == 2 {
                 match ch[0] {
@@ -520,17 +520,79 @@ impl Vault {
 
 #[cfg(test)]
 mod test_user {
+    #![allow(unused_must_use)]
+
     use super::*;
     use crate::vault::test_db::{auth, vault};
     use rstest::*;
 
+    const QUERY_EMPTY: &'static str = "";
+
     #[rstest]
-    fn test_query_links(vault: &Vault, auth: &Option<Authentication>) {
+    fn test_initial_query_links(vault: &Vault, auth: Option<Authentication>) {
         let (links, version) = vault
-            .query_links(auth, String::from(""), Version::unknown(), None)
+            .query_links(&auth, QUERY_EMPTY, Version::unknown(), None)
             .unwrap();
 
         assert_eq!(0, version.offset());
         assert!(links.is_empty());
+    }
+
+    #[rstest]
+    fn test_version_bump_up(vault: &Vault, auth: Option<Authentication>) {
+        vault.add_link(
+            &auth,
+            Link::new(None, "http://foo.boo.bazz", "foo", None, None),
+        );
+        let (links, version) = vault
+            .query_links(&auth, QUERY_EMPTY, Version::unknown(), None)
+            .unwrap();
+
+        assert_eq!(1, version.offset());
+        assert_eq!(1, links.len());
+    }
+
+    #[rstest]
+    fn test_returns_links_in_version(vault: &Vault, auth: Option<Authentication>) {
+        // at version 0 now
+        vault.add_link(
+            &auth,
+            Link::new(None, "http://foo.boo.bazz", "foo", None, None),
+        );
+        // at version 1 now
+        vault.add_link(&auth, Link::new(None, "http://moo.boo", "moo", None, None));
+        // at version 2 now
+        let (links, version) = vault
+            .query_links(&auth, QUERY_EMPTY, Version::new(2), None)
+            .unwrap();
+
+        assert_eq!(2, version.offset());
+        assert_eq!(1, links.len());
+        assert_eq!("moo", links.first().unwrap().name)
+    }
+
+    #[rstest]
+    fn test_rejects_conflicted_links_with_the_same_version(
+        vault: &Vault,
+        auth: Option<Authentication>,
+    ) {
+        let links_1 = vec![
+            Link::new(None, "http://foo.boo.bazz", "foo", None, None),
+            Link::new(None, "http://moo.boo", "moo", None, None),
+        ];
+        let links_2 = vec![
+            Link::new(None, "http://foo.boo.bazz", "foo modified", None, None),
+            Link::new(None, "http://moo.io", "ioo", None, None),
+        ];
+
+        vault.add_links(&auth, links_1, Version::new(1));
+        vault.add_links(&auth, links_2, Version::new(1));
+
+        let (links, version) = vault
+            .query_links(&auth, QUERY_EMPTY, Version::unknown(), None)
+            .unwrap();
+
+        assert_eq!(2, version.offset());
+        assert_eq!(3, links.len());
     }
 }

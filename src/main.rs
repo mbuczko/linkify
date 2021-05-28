@@ -31,7 +31,7 @@ fn main() {
 
     SimpleLogger::new().init().unwrap();
 
-    match vault::init_vault(Some(db), semver::Version::parse(VERSION).unwrap()) {
+    match vault::init_vault(db, semver::Version::parse(VERSION).unwrap()) {
         Ok(v) => {
             if matches.is_present("server") {
                 server::start(v);

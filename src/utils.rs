@@ -7,7 +7,7 @@ const KEY_CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ\
                              abcdefghijklmnopqrstuvwxyz\
                              0123456789";
 
-pub fn generate_key(len: u8) -> String {
+pub fn random_string(len: u8) -> String {
     let mut rng = rand::thread_rng();
     (0..len)
         .map(|_| {

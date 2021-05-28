@@ -4,6 +4,7 @@ use super::utils::{every, path, some};
 
 use failure::Fail;
 use log::debug;
+use std::path::Path;
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::functions::FunctionFlags;
 use rusqlite::vtab::array;
@@ -73,20 +74,13 @@ fn add_functions(conn: &Connection) -> Result<(), DBError> {
     Ok(())
 }
 
-pub fn conn_manager(db: Option<&str>) -> SqliteConnectionManager {
-    let scm: SqliteConnectionManager;
+pub fn conn_manager<P: AsRef<Path>>(db: P) -> SqliteConnectionManager {
+    debug!("Opening database ({})", db.as_ref().display());
 
-    if let Some(db_name) = db {
-        scm = SqliteConnectionManager::file(db.unwrap());
-        debug!("Opening database ({})", db_name);
-    } else {
-        scm = SqliteConnectionManager::file("file::memory:?cache=shared");
-        debug!("Opening in-memory database");
-    }
-
+    let scm: SqliteConnectionManager = SqliteConnectionManager::file(db);
     scm.with_init(|c| {
         add_functions(c).expect("Cannot initialize additional SQLite functions");
         array::load_module(c).unwrap();
-        c.execute_batch("PRAGMA foreign_keys=1;")
+        c.execute_batch("PRAGMA foreign_keys=1; PRAGMA busy_timeout=3000;")
     })
 }

@@ -1,7 +1,7 @@
 use crate::db::DBError::UnknownUser;
 use crate::db::DBLookupType::{Exact, Patterned};
 use crate::db::{DBLookupType, DBResult};
-use crate::utils::{confirm, generate_key, password};
+use crate::utils::{confirm, random_string, password};
 use crate::vault::Vault;
 
 use crate::db::query::Query;
@@ -97,7 +97,7 @@ impl Vault {
     }
     pub fn generate_key(&self, login: &str) -> DBResult<(User, String)> {
         if let Ok((u, _count)) = self.find_user(login) {
-            let key = generate_key(32);
+            let key = random_string(32);
             self.get_connection().execute(
                 "UPDATE users SET api_key = ?1 WHERE id = ?2",
                 params![key, u.id],
@@ -110,13 +110,15 @@ impl Vault {
 }
 
 #[cfg(test)]
-pub mod test_user {
-    use crate::vault::test_db::{auth, vault};
-    use crate::vault::{auth::Authentication, Vault};
+mod test_user {
     use rstest::*;
+    use super::*;
+    use crate::vault::test_db::{vault, auth};
+    use crate::Authentication;
 
     #[rstest]
-    fn test_add_new_user(vault: &Vault, auth: &Option<Authentication>) {
-        assert_eq!("foo", vault.user_info(auth).unwrap().login);
+    fn test_add_new_user(vault: &Vault, #[with("boo")] auth: Option<Authentication>) {
+        let user_info = vault.user_info(&auth);
+        assert_eq!("boo", user_info.unwrap().login);
     }
 }
