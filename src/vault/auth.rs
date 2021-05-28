@@ -1,7 +1,6 @@
 use crate::config::{Config, Env};
 use crate::db::DBError::{BadPassword, Unauthenticated, UnknownUser};
 use crate::db::DBResult;
-use crate::utils::password;
 use crate::vault::user::User;
 use crate::vault::Vault;
 
@@ -33,27 +32,11 @@ impl Authentication {
         Some(Authentication::Credentials(login, password))
     }
     pub fn from_matches(config: Config, matches: &ArgMatches) -> Option<Self> {
-        let token = matches
+        matches
             .value_of("apikey")
-            .or_else(|| config.get(Env::ApiKey));
-        if token.is_some() {
-            Self::from_token(token)
-        } else {
-            matches
-                .value_of("user")
-                .or_else(|| config.get(Env::User))
-                .map(|login| {
-                    Authentication::Credentials(
-                        login.to_string().to_ascii_lowercase(),
-                        password(
-                            matches
-                                .value_of("password")
-                                .or_else(|| config.get(Env::Password)),
-                            None,
-                        ),
-                    )
-                })
-        }
+            .or_else(|| config.get(Env::ApiKey))
+            .map(|apikey| Self::from_token(Some(apikey)))
+            .unwrap()
     }
 }
 
