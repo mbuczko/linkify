@@ -247,7 +247,7 @@ impl Vault {
         );
         let conflicting = Query::new_with_initial("SELECT lower(path(href)) FROM links WHERE")
             .concat_with_param("user_id = :user_id", (":user_id", &user.id))
-            .concat_with_param("AND version > :version", (":version", &version.offset()))
+            .concat_with_param("AND version >= :version", (":version", &version.offset()))
             .concat_with_param(
                 "AND lower(path(href)) IN rarray(:hrefs)",
                 (":hrefs", &hrefs),
@@ -519,7 +519,7 @@ impl Vault {
 }
 
 #[cfg(test)]
-mod test_user {
+mod test_links {
     #![allow(unused_must_use)]
 
     use super::*;
@@ -535,7 +535,7 @@ mod test_user {
             .unwrap();
 
         assert_eq!(0, version.offset());
-        assert!(links.is_empty());
+        assert_eq!(true, links.is_empty());
     }
 
     #[rstest]
@@ -594,5 +594,8 @@ mod test_user {
 
         assert_eq!(2, version.offset());
         assert_eq!(3, links.len());
+
+        let rejected = links.into_iter().filter(|l| { l.name == "foo modified" }).collect::<Vec<Link>>();
+        assert_eq!(true, rejected.is_empty());
     }
 }
