@@ -592,10 +592,9 @@ mod test_links {
             .query_links(&auth, QUERY_EMPTY, Version::unknown(), None)
             .unwrap();
 
+        let rejected = links.iter().filter(|l| l.name == "foo modified").collect::<Vec<_>>();
+        assert_eq!(true, rejected.is_empty());
         assert_eq!(2, version.offset());
         assert_eq!(3, links.len());
-
-        let rejected = links.into_iter().filter(|l| { l.name == "foo modified" }).collect::<Vec<Link>>();
-        assert_eq!(true, rejected.is_empty());
     }
 }
