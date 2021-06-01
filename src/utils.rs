@@ -7,7 +7,7 @@ const KEY_CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ\
                              abcdefghijklmnopqrstuvwxyz\
                              0123456789";
 
-pub fn generate_key(len: u8) -> String {
+pub fn random_string(len: u8) -> String {
     let mut rng = rand::thread_rng();
     (0..len)
         .map(|_| {
@@ -87,7 +87,7 @@ pub fn path(url: &str) -> String {
 pub fn every(elements: &str, expected: &str) -> bool {
     let v: Vec<&str> = elements.split(',').collect();
     for e in expected.split(',') {
-        if !v.iter().find(|&v| v == &e).is_some() {
+        if !v.iter().any(|&v| v == e) {
             return false;
         }
     }
@@ -97,7 +97,7 @@ pub fn every(elements: &str, expected: &str) -> bool {
 pub fn some(elements: &str, expected: &str) -> bool {
     let v: Vec<&str> = elements.split(',').collect();
     for e in expected.split(',') {
-        if v.iter().find(|&v| v == &e).is_some() {
+        if v.iter().any(|&v| v == e) {
             return true;
         }
     }

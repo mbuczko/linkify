@@ -1,9 +1,9 @@
 use miniserde::{Deserialize, Serialize};
 use rouille::{Request, Response, ResponseBody};
 use std::error::Error;
+use std::fmt;
 use std::io::Error as IoError;
 use std::io::Read;
-use std::fmt;
 
 /// Error that can happen when parsing the JSON input.
 #[derive(Debug)]
@@ -27,7 +27,6 @@ impl fmt::Display for JsonError {
     }
 }
 
-
 impl From<IoError> for JsonError {
     fn from(err: IoError) -> JsonError {
         JsonError::IoError(err)
@@ -46,7 +45,10 @@ pub fn json_output<T: Serialize>(result: T) -> Response {
     }
 }
 
-pub fn json_input<O>(request: &Request) -> Result<O, JsonError> where O: Deserialize {
+pub fn json_input<O>(request: &Request) -> Result<O, JsonError>
+where
+    O: Deserialize,
+{
     if let Some(header) = request.header("Content-Type") {
         if !header.starts_with("application/json") {
             return Err(JsonError::WrongContentType);

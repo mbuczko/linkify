@@ -1,17 +1,15 @@
-use miniserde::{Deserialize};
+use miniserde::Deserialize;
 
 #[derive(Deserialize, Debug)]
 pub struct AuthRequest {
     pub login: String,
-    pub password: String
-
+    pub password: String,
 }
 
 #[derive(Deserialize, Debug)]
 pub struct QueryRequest {
     pub name: String,
-    pub query: String
-
+    pub query: String,
 }
 
 #[derive(Deserialize, Debug)]
@@ -26,5 +24,5 @@ pub struct LinkPostData {
     pub name: String,
     pub description: String,
     pub tags: Option<String>,
-    pub flags: Option<String>
+    pub flags: Option<String>,
 }

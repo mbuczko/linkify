@@ -52,7 +52,7 @@ impl<'a> Query<'a> {
         F: Fn(&Row) -> T,
     {
         let mut stmt = conn.prepare(&self.build())?;
-        let rows = stmt.query_map_named(self.named_params(), |row| Ok(f(row)))?;
+        let rows = stmt.query_map(self.named_params(), |row| Ok(f(row)))?;
 
         Result::from_iter(rows).map_err(Into::into)
     }

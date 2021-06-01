@@ -3,7 +3,10 @@ pub mod query;
 use super::utils::{every, path, some};
 
 use failure::Fail;
+use log::debug;
+use std::path::Path;
 use r2d2_sqlite::SqliteConnectionManager;
+use rusqlite::functions::FunctionFlags;
 use rusqlite::vtab::array;
 use rusqlite::{Connection, Error as SqliteError};
 
@@ -39,27 +42,45 @@ impl From<SqliteError> for DBError {
 }
 
 fn add_functions(conn: &Connection) -> Result<(), DBError> {
-    conn.create_scalar_function("path", 1, true, move |ctx| {
-        let url = ctx.get::<String>(0)?;
-        Ok(path(&url))
-    })?;
-    conn.create_scalar_function("every", 2, true, move |ctx| {
-        let elements = ctx.get::<String>(0)?;
-        let expected = ctx.get::<String>(1)?;
-        Ok(every(&elements, &expected))
-    })?;
-    conn.create_scalar_function("some", 2, true, move |ctx| {
-        let elements = ctx.get::<String>(0)?;
-        let expected = ctx.get::<String>(1)?;
-        Ok(some(&elements, &expected))
-    })?;
+    conn.create_scalar_function(
+        "path",
+        1,
+        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
+        move |ctx| {
+            let url = ctx.get::<String>(0)?;
+            Ok(path(&url))
+        },
+    )?;
+    conn.create_scalar_function(
+        "every",
+        2,
+        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
+        move |ctx| {
+            let elements = ctx.get::<String>(0)?;
+            let expected = ctx.get::<String>(1)?;
+            Ok(every(&elements, &expected))
+        },
+    )?;
+    conn.create_scalar_function(
+        "some",
+        2,
+        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
+        move |ctx| {
+            let elements = ctx.get::<String>(0)?;
+            let expected = ctx.get::<String>(1)?;
+            Ok(some(&elements, &expected))
+        },
+    )?;
     Ok(())
 }
 
-pub fn conn_manager(db: &str) -> SqliteConnectionManager {
-    SqliteConnectionManager::file(db).with_init(|c| {
+pub fn conn_manager<P: AsRef<Path>>(db: P) -> SqliteConnectionManager {
+    debug!("Opening database ({})", db.as_ref().display());
+
+    let scm: SqliteConnectionManager = SqliteConnectionManager::file(db);
+    scm.with_init(|c| {
         add_functions(c).expect("Cannot initialize additional SQLite functions");
         array::load_module(c).unwrap();
-        c.execute_batch("PRAGMA foreign_keys=1;")
+        c.execute_batch("PRAGMA foreign_keys=1; PRAGMA busy_timeout=3000;")
     })
 }

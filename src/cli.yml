@@ -7,18 +7,6 @@ args:
       help: "database to use [env: LINKIFY_DB_PATH]"
       takes_value: true
       global: true
-  - user:
-      help: "user's login [env: LINKIFY_USER]"
-      short: u
-      long: user
-      takes_value: true
-      global: true
-  - password:
-      help: "user's password [env: LINKIFY_PASSWORD]"
-      short: p
-      long: password
-      takes_value: true
-      global: true
   - apikey:
       help: "user's API key [env: LINKIFY_API_KEY]"
       short: k

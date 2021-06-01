@@ -1,7 +1,7 @@
 use crate::db::DBError::UnknownUser;
 use crate::db::DBLookupType::{Exact, Patterned};
 use crate::db::{DBLookupType, DBResult};
-use crate::utils::{confirm, generate_key, password};
+use crate::utils::{confirm, random_string, password};
 use crate::vault::Vault;
 
 use crate::db::query::Query;
@@ -61,9 +61,8 @@ impl Vault {
     pub fn match_users(&self, pattern: &str) -> DBResult<Vec<(User, u32)>> {
         self.find_users(pattern, DBLookupType::Patterned)
     }
-    pub fn add_user(&self, login: &str) -> DBResult<User> {
-        let pass = password(None, Some("Initial password"));
-        let hashed = hash(pass, 10).expect("Couldn't hash a password for some reason.");
+    pub fn add_user(&self, login: &str, password: &str) -> DBResult<User> {
+        let hashed = hash(password, 10).expect("Couldn't hash a password for some reason.");
         self.get_connection().execute(
             "INSERT INTO users(login, password) VALUES(?1, ?2)",
             params![login, hashed],
@@ -98,7 +97,7 @@ impl Vault {
     }
     pub fn generate_key(&self, login: &str) -> DBResult<(User, String)> {
         if let Ok((u, _count)) = self.find_user(login) {
-            let key = generate_key(32);
+            let key = random_string(32);
             self.get_connection().execute(
                 "UPDATE users SET api_key = ?1 WHERE id = ?2",
                 params![key, u.id],
@@ -107,5 +106,19 @@ impl Vault {
         } else {
             Err(UnknownUser)
         }
+    }
+}
+
+#[cfg(test)]
+mod test_user {
+    use rstest::*;
+    use super::*;
+    use crate::vault::test_db::{vault, auth};
+    use crate::Authentication;
+
+    #[rstest]
+    fn test_add_new_user(vault: &Vault, #[with("boo")] auth: Option<Authentication>) {
+        let user_info = vault.user_info(&auth);
+        assert_eq!("boo", user_info.unwrap().login);
     }
 }

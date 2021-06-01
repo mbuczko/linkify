@@ -5,7 +5,7 @@ mod utils;
 mod vault;
 
 use config::{Config, Env};
-use utils::{read_file, truncate};
+use utils::{password, read_file, truncate};
 use vault::auth::Authentication;
 use vault::link::{Link, Version};
 use vault::Vault;
@@ -13,12 +13,11 @@ use vault::Vault;
 use clap::{load_yaml, App, ArgMatches};
 use colored::Colorize;
 use db::DBLookupType;
-use log::Level;
 use miniserde::json;
+use simple_logger::SimpleLogger;
 use std::process::exit;
 use terminal_size::{terminal_size as ts, Width};
 
-const LOG_LEVEL: Level = Level::Warn;
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 fn main() {
@@ -30,13 +29,7 @@ fn main() {
         .or_else(|| config.get(Env::Database))
         .expect("Cannot find a database. Use --db parameter or LINKIFY_DB_PATH env variable.");
 
-    simple_logger::init_with_level(config.get(Env::LogLevel).map_or(LOG_LEVEL, |l| match l {
-        "info" => Level::Info,
-        "debug" => Level::Debug,
-        "error" => Level::Error,
-        _ => LOG_LEVEL,
-    }))
-    .unwrap();
+    SimpleLogger::from_env().init().unwrap();
 
     match vault::init_vault(db, semver::Version::parse(VERSION).unwrap()) {
         Ok(v) => {
@@ -56,9 +49,10 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
             match vault.add_link(
                 &Authentication::from_matches(config, sub_m),
                 Link::from_matches(sub_m),
-                Version::unknown(),
             ) {
-                Ok(link) => println!("Added (id={})", link.id.unwrap()),
+                Ok(version) => {
+                    println!("Added (version={})", version)
+                }
                 Err(e) => {
                     eprintln!("Error while adding a link ({:?})", e);
                     exit(1);
@@ -144,13 +138,16 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
             }
         }
         ("users", Some(sub_m)) => match sub_m.subcommand() {
-            ("add", Some(sub_m)) => match vault.add_user(sub_m.value_of("login").unwrap()) {
-                Ok(u) => println!("Added ({}).", u.login),
-                Err(_) => {
-                    eprintln!("Error while adding new user. User might already exist.");
-                    exit(1);
+            ("add", Some(sub_m)) => {
+                let pass = password(None, Some("Initial password"));
+                match vault.add_user(sub_m.value_of("login").unwrap(), &pass) {
+                    Ok(u) => println!("Added ({}).", u.login),
+                    Err(_) => {
+                        eprintln!("Error while adding new user. User might already exist.");
+                        exit(1);
+                    }
                 }
-            },
+            }
             ("del", Some(sub_m)) => match vault.del_user(sub_m.value_of("login").unwrap()) {
                 Ok((u, is_deleted)) => {
                     if is_deleted {

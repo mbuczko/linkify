@@ -37,12 +37,9 @@ impl Vault {
         exclude: Option<Vec<Tag>>,
         limit: Option<u16>,
     ) -> DBResult<Vec<Tag>> {
-        let user = match self.authenticate_user(auth) {
-            Ok(u) => u,
-            Err(e) => return Err(e),
-        };
+        let user = self.authenticate_user(auth)?;
         let pattern = Query::patternize(pattern.unwrap_or_default());
-        let excludes = Rc::new(
+        let excludes = Rc::<Vec<_>>::new(
             exclude
                 .unwrap_or_default()
                 .into_iter()

@@ -1,7 +1,7 @@
+mod handlers;
 mod json;
 mod request;
 mod response;
-mod handlers;
 
 use log::info;
 use rouille::Response;

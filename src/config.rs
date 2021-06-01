@@ -4,9 +4,6 @@ use std::env;
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub enum Env {
     Database,
-    LogLevel,
-    User,
-    Password,
     ApiKey,
 }
 
@@ -22,17 +19,8 @@ impl Config {
         if let Ok(path) = env::var("LINKIFY_DB_PATH") {
             config.values.insert(Env::Database, path);
         }
-        if let Ok(user) = env::var("LINKIFY_USER") {
-            config.values.insert(Env::User, user);
-        }
-        if let Ok(password) = env::var("LINKIFY_PASSWORD") {
-            config.values.insert(Env::Password, password);
-        }
         if let Ok(apikey) = env::var("LINKIFY_API_KEY") {
             config.values.insert(Env::ApiKey, apikey);
-        }
-        if let Ok(level) = env::var("LOG_LEVEL") {
-            config.values.insert(Env::LogLevel, level);
         }
         config
     }
