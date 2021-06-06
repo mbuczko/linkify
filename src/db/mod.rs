@@ -4,11 +4,11 @@ use super::utils::{every, path, some};
 
 use failure::Fail;
 use log::debug;
-use std::path::Path;
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::functions::FunctionFlags;
 use rusqlite::vtab::array;
 use rusqlite::{Connection, Error as SqliteError};
+use std::path::Path;
 
 #[derive(Debug, Fail)]
 pub enum DBError {
@@ -28,8 +28,11 @@ pub enum DBError {
     BadVersion,
 }
 
+/// Lookup type for core entities, like users and links
 pub enum DBLookupType {
+    /// Exact lookup, searches for entity based on exact phrase
     Exact,
+    /// Substring based lookup
     Patterned,
 }
 

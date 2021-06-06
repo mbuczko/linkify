@@ -15,25 +15,56 @@ use colored::Colorize;
 use db::DBLookupType;
 use miniserde::json;
 use simple_logger::SimpleLogger;
+use std::path::Path;
 use std::process::exit;
+use std::{thread, time};
 use terminal_size::{terminal_size as ts, Width};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
+const RETRIES: i32 = 10;
+
+fn ensure_db_exists(db: &str) {
+    let mut retry = RETRIES;
+    let delay = time::Duration::from_millis(5000);
+    let path = Path::new(db);
+
+    while retry > 0 && !path.exists() {
+        retry -= 1;
+        log::error!(
+            "Looking for database file. Retry {}/{}...",
+            RETRIES - retry,
+            RETRIES
+        );
+        thread::sleep(delay);
+    }
+    if retry <= 0 {
+        log::error!("Database file {} not found.", db);
+        exit(-1);
+    }
+}
 
 fn main() {
+    SimpleLogger::new().init().unwrap();
+
     let yaml = load_yaml!("cli.yml");
     let config = Config::default();
     let matches = App::from(yaml).get_matches();
+    let is_server = matches.is_present("server");
     let db = matches
         .value_of("database")
         .or_else(|| config.get(Env::Database))
-        .expect("Cannot find a database. Use --db parameter or LINKIFY_DB_PATH env variable.");
+        .expect(
+            "Database location not provided. Use --db parameter or LINKIFY_DB_PATH env variable.",
+        );
 
-    SimpleLogger::from_env().init().unwrap();
-
+    // server mode needs to have a database file created upfront.
+    // as db might be in a process of recreation from external source (eg. from S3), let's wait a couple of secs.
+    if is_server {
+        ensure_db_exists(db);
+    }
     match vault::init_vault(db, semver::Version::parse(VERSION).unwrap()) {
         Ok(v) => {
-            if matches.is_present("server") {
+            if is_server {
                 server::start(v);
             } else {
                 process_command(config, v, matches)
@@ -55,7 +86,7 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
                 }
                 Err(e) => {
                     eprintln!("Error while adding a link ({:?})", e);
-                    exit(1);
+                    exit(-1);
                 }
             }
         }
@@ -67,11 +98,11 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
                 Ok(Some(link)) => println!("Deleted (id={})", link.id.unwrap()),
                 Ok(None) => {
                     eprintln!("No such a link found");
-                    exit(1);
+                    exit(-1);
                 }
                 Err(e) => {
                     eprintln!("Error while deleting a link ({:?})", e);
-                    exit(1);
+                    exit(-1);
                 }
             }
         }
@@ -99,7 +130,7 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
                     }
                     Err(e) => {
                         eprintln!("Error while fetching stored query ({:?}).", e);
-                        exit(1);
+                        exit(-1);
                     }
                 }
             } else {
@@ -122,7 +153,7 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
                 }
                 Err(e) => {
                     eprintln!("Error while fetching links ({:?}).", e);
-                    exit(1);
+                    exit(-1);
                 }
             }
         }
@@ -133,7 +164,7 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
                 Ok(n) => println!("Imported {} links.", n),
                 Err(e) => {
                     eprintln!("Error while importing links ({:?}).", e);
-                    exit(1);
+                    exit(-1);
                 }
             }
         }
@@ -144,7 +175,7 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
                     Ok(u) => println!("Added ({}).", u.login),
                     Err(_) => {
                         eprintln!("Error while adding new user. User might already exist.");
-                        exit(1);
+                        exit(-1);
                     }
                 }
             }
@@ -158,14 +189,14 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
                 }
                 Err(e) => {
                     eprintln!("Error while removing user ({:?}).", e);
-                    exit(1);
+                    exit(-1);
                 }
             },
             ("passwd", Some(sub_m)) => match vault.passwd_user(sub_m.value_of("login").unwrap()) {
                 Ok(u) => println!("Changed ({}).", u.login),
                 Err(e) => {
                     eprintln!("Error while changing password ({:?}).", e);
-                    exit(1);
+                    exit(-1);
                 }
             },
             ("ls", Some(sub_m)) => {
@@ -177,7 +208,7 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
                     }
                     Err(_) => {
                         eprintln!("Error while fetching users.");
-                        exit(1);
+                        exit(-1);
                     }
                 }
             }
@@ -190,7 +221,7 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
                 ),
                 Err(e) => {
                     eprintln!("Error while generating API key ({:?})", e);
-                    exit(1);
+                    exit(-1);
                 }
             },
             _ => (),

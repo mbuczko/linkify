@@ -1,0 +1,3 @@
+#!/usr/bin/with-contenv bash
+export RUST_LOG=debug
+exec linkify --db /data/${DB_NAME} server

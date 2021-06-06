@@ -358,8 +358,8 @@ impl Vault {
         // link from results. And so, for any given link with tags attached, to add link to
         // final results:
         //
-        // - at least one of optional tags needs to attached to the link
-        // - all of required tags need to be attached to the link
+        // - at least one of optional tags needs to be added to the link
+        // - all of required tags need to be added to the link
         // - all of excluded tags need to be missing
         //
         // Rules can be combined together when tags of different classification are used in a query,

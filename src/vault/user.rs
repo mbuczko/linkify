@@ -1,7 +1,7 @@
 use crate::db::DBError::UnknownUser;
 use crate::db::DBLookupType::{Exact, Patterned};
 use crate::db::{DBLookupType, DBResult};
-use crate::utils::{confirm, random_string, password};
+use crate::utils::{confirm, password, random_string};
 use crate::vault::Vault;
 
 use crate::db::query::Query;
@@ -31,6 +31,9 @@ impl User {
 }
 
 impl Vault {
+    /// Does a user look up by name, depending on [lookup type] either exactly as provided or as a substring.
+    ///
+    /// [lookup type]: DBLookupType
     fn find_users(&self, pattern: &str, lookup_type: DBLookupType) -> DBResult<Vec<(User, u32)>> {
         let login = match lookup_type {
             Exact => pattern.to_owned(),
@@ -111,10 +114,10 @@ impl Vault {
 
 #[cfg(test)]
 mod test_user {
-    use rstest::*;
     use super::*;
-    use crate::vault::test_db::{vault, auth};
+    use crate::vault::test_db::{auth, vault};
     use crate::Authentication;
+    use rstest::*;
 
     #[rstest]
     fn test_add_new_user(vault: &Vault, #[with("boo")] auth: Option<Authentication>) {
