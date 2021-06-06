@@ -1,7 +1,6 @@
 FROM ekidd/rust-musl-builder:latest as builder
 # https://github.com/emk/rust-musl-builder
 
-WORKDIR /usr/src/linkify
 ADD --chown=rust:rust  . ./
 RUN cargo install --root /tmp/linkify --path .
 
