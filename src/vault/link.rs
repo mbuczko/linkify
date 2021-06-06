@@ -107,9 +107,9 @@ impl Link {
         .digest()
     }
     pub fn from_matches(matches: &ArgMatches) -> Link {
-        let tags = matches
+        let tags: Option<Vec<_>> = matches
             .values_of("tags")
-            .map(|t| t.map(String::from).collect::<Vec<String>>());
+            .map(|t| t.map(String::from).collect());
 
         Link::new(
             None,
@@ -592,7 +592,11 @@ mod test_links {
             .query_links(&auth, QUERY_EMPTY, Version::unknown(), None)
             .unwrap();
 
-        let rejected = links.iter().filter(|l| l.name == "foo modified").collect::<Vec<_>>();
+        let rejected: Vec<_> = links
+            .iter()
+            .filter(|l| l.name == "foo modified")
+            .collect();
+
         assert_eq!(true, rejected.is_empty());
         assert_eq!(2, version.offset());
         assert_eq!(3, links.len());
