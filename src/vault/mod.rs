@@ -9,11 +9,11 @@ mod user;
 use super::db::conn_manager;
 
 use log::debug;
-use std::path::Path;
 use r2d2::{Pool, PooledConnection};
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::Result as SqliteResult;
 use semver::Version;
+use std::path::Path;
 
 pub struct Vault {
     pool: Pool<SqliteConnectionManager>,
@@ -54,10 +54,10 @@ pub fn init_vault<P: AsRef<Path>>(db: P, app_semver: Version) -> SqliteResult<Va
 #[cfg(test)]
 pub mod test_db {
     use super::*;
-    use crate::vault::auth::Authentication;
     use crate::utils::random_string;
-    use rstest::*;
+    use crate::vault::auth::Authentication;
     use lazy_static::lazy_static;
+    use rstest::*;
     use tempfile::NamedTempFile;
 
     lazy_static! {
@@ -73,7 +73,7 @@ pub mod test_db {
 
     #[fixture]
     pub fn vault() -> &'static Vault {
-       &*VAULT
+        &*VAULT
     }
 
     #[fixture]
