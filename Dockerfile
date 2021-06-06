@@ -1,25 +1,28 @@
 FROM ekidd/rust-musl-builder:latest as builder
+# https://github.com/emk/rust-musl-builder
+
 WORKDIR /usr/src/linkify
-ADD --chown=rust:rust . ./
-RUN cargo install --path .
+ADD --chown=rust:rust  . ./
+RUN cargo install --root /tmp/linkify --path .
+
+USER root
 
 # Download the static build of Litestream directly into the path & make it executable.
 # This is done in the builder and copied as the chmod doubles the size.
-USER root
-ADD https://github.com/benbjohnson/litestream/releases/download/v0.3.4/litestream-v0.3.4-linux-amd64-static.tar.gz /tmp/litestream.tar.gz
-RUN tar -C /usr/local/bin -xzf /tmp/litestream.tar.gz
+ADD --chown=rust:rust https://github.com/benbjohnson/litestream/releases/download/v0.3.4/litestream-v0.3.4-linux-amd64-static.tar.gz /tmp/litestream.tar.gz
+RUN tar -C /tmp -xzf /tmp/litestream.tar.gz
 
 # Download the s6-overlay for process supervision.
 # This is done in the builder to reduce the final build size.
-ADD https://github.com/just-containers/s6-overlay/releases/download/v2.2.0.3/s6-overlay-amd64-installer /tmp/
+ADD --chown=rust:rust https://github.com/just-containers/s6-overlay/releases/download/v2.2.0.3/s6-overlay-amd64-installer /tmp/
 RUN chmod +x /tmp/s6-overlay-amd64-installer
 
 FROM alpine
 RUN apk update && apk add bash
 
 # Copy executable & Litestream from builder.
-COPY --from=builder /home/rust/.cargo/bin/linkify /usr/local/bin/linkify
-COPY --from=builder /usr/local/bin/litestream /usr/local/bin/litestream
+COPY --from=builder /tmp/linkify/bin/linkify /usr/local/bin/linkify
+COPY --from=builder /tmp/litestream /usr/local/bin/litestream
 
 # Install s6 for process supervision.
 COPY --from=builder /tmp/s6-overlay-amd64-installer /tmp/s6-overlay-amd64-installer
