@@ -44,6 +44,9 @@ pub fn api_handler(request: &Request, vault: &Vault) -> HandlerResult {
 
     #[allow(clippy::clippy::manual_strip)]
     let resp = router!(request,
+        (GET) (/version) => {
+            Response::text(env!("CARGO_PKG_VERSION"))
+        },
         (POST) (/auth) => {
             match json_input::<AuthRequest>(request) {
                 Ok(t) => match vault.user_info(&Authentication::from_credentials(t.login, t.password)) {
