@@ -45,21 +45,21 @@ spec:
                   key:  litestream_secret_access_key
                   name: {{ .Release.Name }}-s3-auth
             - name: "DB_NAME"
-              value: {{ .Values.litestream.db_name }}_{{ .Release.Name }}.db
+              value: {{ .Values.litestream.db_name }}
             - name: "REPLICA_URL"
-              value: {{ .Values.litestream.replica_bucket_url }}/{{ .Values.litestream.db_name }}_{{ .Release.Name }}.db
+              value: {{ .Values.litestream.replica_bucket_url }}/{{ .Values.litestream.db_name }}
           ports:
             - name: http
-              containerPort: 80
+              containerPort: 8001
               protocol: TCP
           livenessProbe:
             httpGet:
               path: /version
-              port: http
+              port: 8001
           readinessProbe:
             httpGet:
               path: /version
-              port: http
+              port: 8001
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       {{- with .Values.nodeSelector }}
