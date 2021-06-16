@@ -553,6 +553,11 @@ mod test_links {
     }
 
     #[rstest]
+    fn test_query_for_links_at_specific_version(vault: &Vault, auth: Option<Authentication>) {
+        unimplemented!()
+    }
+
+    #[rstest]
     fn test_returns_links_in_version(vault: &Vault, auth: Option<Authentication>) {
         // at version 0 now
         vault.add_link(
