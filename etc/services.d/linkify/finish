@@ -1,0 +1,4 @@
+#!/usr/bin/execlineb -S0
+
+# Stops all services when linkify stops.
+s6-svscanctl -t /var/run/s6/services

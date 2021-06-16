@@ -1,0 +1,7 @@
+dbs:
+  - path: /data/${DB_NAME}
+    replicas:
+      - type: s3
+        url: ${REPLICA_URL}
+        region: eu-central-1
+        skip-verify: true

@@ -4,44 +4,67 @@ mod server;
 mod utils;
 mod vault;
 
-use crate::config::{Config, Env};
-use crate::utils::{read_file, truncate};
-use crate::vault::auth::Authentication;
-use crate::vault::link::Link;
-use crate::vault::{init_vault, Vault};
+use config::{Config, Env};
+use utils::{password, read_file, truncate};
+use vault::auth::Authentication;
+use vault::link::{Link, Version};
+use vault::Vault;
 
 use clap::{load_yaml, App, ArgMatches};
 use colored::Colorize;
 use db::DBLookupType;
-use log::Level;
 use miniserde::json;
-use semver::Version;
+use simple_logger::SimpleLogger;
+use std::path::Path;
 use std::process::exit;
+use std::{thread, time};
 use terminal_size::{terminal_size as ts, Width};
 
-const LOG_LEVEL: Level = Level::Warn;
 const VERSION: &str = env!("CARGO_PKG_VERSION");
+const RETRIES: i32 = 10;
+
+fn ensure_db_exists(db: &str) {
+    let mut retry = RETRIES;
+    let delay = time::Duration::from_millis(5000);
+    let path = Path::new(db);
+
+    while retry > 0 && !path.exists() {
+        retry -= 1;
+        log::error!(
+            "Looking for database file. Retry {}/{}...",
+            RETRIES - retry,
+            RETRIES
+        );
+        thread::sleep(delay);
+    }
+    if retry <= 0 {
+        log::error!("Database file {} not found.", db);
+        exit(-1);
+    }
+}
 
 fn main() {
+    SimpleLogger::new().init().unwrap();
+
     let yaml = load_yaml!("cli.yml");
     let config = Config::default();
     let matches = App::from(yaml).get_matches();
+    let is_server = matches.is_present("server");
     let db = matches
         .value_of("database")
-        .or(config.get(Env::Database))
-        .expect("Cannot find a database. Use --db parameter or LINKIFY_DB_PATH env variable.");
+        .or_else(|| config.get(Env::Database))
+        .expect(
+            "Database location not provided. Use --db parameter or LINKIFY_DB_PATH env variable.",
+        );
 
-    simple_logger::init_with_level(config.get(Env::LogLevel).map_or(LOG_LEVEL, |l| match l {
-        "info" => Level::Info,
-        "debug" => Level::Debug,
-        "error" => Level::Error,
-        _ => LOG_LEVEL,
-    }))
-    .unwrap();
-
-    match init_vault(db, Version::parse(VERSION).unwrap()) {
+    // server mode needs to have a database file created upfront.
+    // as db might be in a process of recreation from external source (eg. from S3), let's wait a couple of secs.
+    if is_server {
+        ensure_db_exists(db);
+    }
+    match vault::init_vault(db, semver::Version::parse(VERSION).unwrap()) {
         Ok(v) => {
-            if matches.is_present("server") {
+            if is_server {
                 server::start(v);
             } else {
                 process_command(config, v, matches)
@@ -58,10 +81,12 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
                 &Authentication::from_matches(config, sub_m),
                 Link::from_matches(sub_m),
             ) {
-                Ok(id) => println!("Added (id={})", id),
+                Ok(version) => {
+                    println!("Added (version={})", version)
+                }
                 Err(e) => {
                     eprintln!("Error while adding a link ({:?})", e);
-                    exit(1);
+                    exit(-1);
                 }
             }
         }
@@ -73,11 +98,11 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
                 Ok(Some(link)) => println!("Deleted (id={})", link.id.unwrap()),
                 Ok(None) => {
                     eprintln!("No such a link found");
-                    exit(1);
+                    exit(-1);
                 }
                 Err(e) => {
                     eprintln!("Error while deleting a link ({:?})", e);
-                    exit(1);
+                    exit(-1);
                 }
             }
         }
@@ -87,11 +112,7 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
             let links = if query.starts_with('@') {
                 let chunks: Vec<&str> = query.splitn(2, '/').collect();
                 let stored_query = chunks.first().unwrap().strip_prefix('@');
-                match vault.find_queries(
-                    &auth,
-                    stored_query,
-                    DBLookupType::Exact,
-                ) {
+                match vault.find_queries(&auth, stored_query, DBLookupType::Exact) {
                     Ok(queries) => {
                         if queries.len() != 1 {
                             eprintln!("No stored query found ({})", stored_query.unwrap());
@@ -99,20 +120,25 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
                         } else {
                             let stored = queries.get(0).map(|q| q.query.clone()).unwrap();
                             let query = chunks.get(1).unwrap_or(&"");
-                            vault.query_links(&auth, format!("{} {}", stored, query), None)
+                            vault.query_links(
+                                &auth,
+                                format!("{} {}", stored, query),
+                                Version::unknown(),
+                                None,
+                            )
                         }
                     }
                     Err(e) => {
                         eprintln!("Error while fetching stored query ({:?}).", e);
-                        exit(1);
+                        exit(-1);
                     }
                 }
             } else {
-                vault.query_links(&auth, query, None)
+                vault.query_links(&auth, query, Version::unknown(), None)
             };
 
             match links {
-                Ok(links) => {
+                Ok((links, _)) => {
                     let size = ts();
                     let tw = if let Some((Width(w), _)) = size {
                         w as i16
@@ -127,7 +153,7 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
                 }
                 Err(e) => {
                     eprintln!("Error while fetching links ({:?}).", e);
-                    exit(1);
+                    exit(-1);
                 }
             }
         }
@@ -138,18 +164,21 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
                 Ok(n) => println!("Imported {} links.", n),
                 Err(e) => {
                     eprintln!("Error while importing links ({:?}).", e);
-                    exit(1);
+                    exit(-1);
                 }
             }
         }
         ("users", Some(sub_m)) => match sub_m.subcommand() {
-            ("add", Some(sub_m)) => match vault.add_user(sub_m.value_of("login").unwrap()) {
-                Ok(u) => println!("Added ({}).", u.login),
-                Err(_) => {
-                    eprintln!("Error while adding new user. User might already exist.");
-                    exit(1);
+            ("add", Some(sub_m)) => {
+                let pass = password(None, Some("Initial password"));
+                match vault.add_user(sub_m.value_of("login").unwrap(), &pass) {
+                    Ok(u) => println!("Added ({}).", u.login),
+                    Err(_) => {
+                        eprintln!("Error while adding new user. User might already exist.");
+                        exit(-1);
+                    }
                 }
-            },
+            }
             ("del", Some(sub_m)) => match vault.del_user(sub_m.value_of("login").unwrap()) {
                 Ok((u, is_deleted)) => {
                     if is_deleted {
@@ -160,27 +189,29 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
                 }
                 Err(e) => {
                     eprintln!("Error while removing user ({:?}).", e);
-                    exit(1);
+                    exit(-1);
                 }
             },
             ("passwd", Some(sub_m)) => match vault.passwd_user(sub_m.value_of("login").unwrap()) {
                 Ok(u) => println!("Changed ({}).", u.login),
                 Err(e) => {
                     eprintln!("Error while changing password ({:?}).", e);
-                    exit(1);
+                    exit(-1);
                 }
             },
-            ("ls", Some(sub_m)) => match vault.match_users(sub_m.value_of("login").unwrap_or_default()) {
-                Ok(users) => {
-                    for (user, count) in users {
-                        println!("{} ({})", user, count);
+            ("ls", Some(sub_m)) => {
+                match vault.match_users(sub_m.value_of("login").unwrap_or_default()) {
+                    Ok(users) => {
+                        for (user, count) in users {
+                            println!("{} ({})", user, count);
+                        }
+                    }
+                    Err(_) => {
+                        eprintln!("Error while fetching users.");
+                        exit(-1);
                     }
                 }
-                Err(_) => {
-                    eprintln!("Error while fetching users.");
-                    exit(1);
-                }
-            },
+            }
             ("token", Some(sub_m)) => match vault.generate_key(sub_m.value_of("login").unwrap()) {
                 Ok((_u, k)) => println!(
                     "Generated API key: {}\nSample cURL:\n\n  \
@@ -190,7 +221,7 @@ fn process_command(config: Config, vault: Vault, matches: ArgMatches) {
                 ),
                 Err(e) => {
                     eprintln!("Error while generating API key ({:?})", e);
-                    exit(1);
+                    exit(-1);
                 }
             },
             _ => (),

@@ -36,11 +36,7 @@ impl Vault {
         name: String,
         query: String,
     ) -> DBResult<i64> {
-        let user = match self.authenticate_user(auth) {
-            Ok(u) => u,
-            Err(e) => return Err(e),
-        };
-
+        let user = self.authenticate_user(auth)?;
         let mut conn = self.get_connection();
         let txn = conn.transaction().unwrap();
         txn.execute(
@@ -67,10 +63,7 @@ impl Vault {
         name: Option<&str>,
         lookup_type: DBLookupType,
     ) -> DBResult<Vec<StoredQuery>> {
-        let user = match self.authenticate_user(auth) {
-            Ok(u) => u,
-            Err(e) => return Err(e),
-        };
+        let user = self.authenticate_user(auth)?;
         let name = name.map_or(Default::default(), |v| match lookup_type {
             DBLookupType::Exact => v.to_owned(),
             DBLookupType::Patterned => Query::patternize(v),
@@ -91,17 +84,14 @@ impl Vault {
         auth: &Option<Authentication>,
         query_id: i64,
     ) -> DBResult<Option<StoredQuery>> {
-        let user = match self.authenticate_user(auth) {
-            Ok(u) => u,
-            Err(e) => return Err(e),
-        };
+        let user = self.authenticate_user(auth)?;
         let mut query = Query::new_with_initial("SELECT id, name, query FROM queries WHERE");
         query
             .concat_with_param("id = :sid AND", (":sid", &query_id))
             .concat_with_param("user_id = :uid", (":uid", &user.id));
 
         self.get_connection()
-            .query_row_named(query.to_string().as_str(), query.named_params(), |r| {
+            .query_row(query.build().as_str(), query.named_params(), |r| {
                 Ok(StoredQuery::from(r))
             })
             .optional()

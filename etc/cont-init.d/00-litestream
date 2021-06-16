@@ -1,0 +1,14 @@
+#!/usr/bin/with-contenv bash
+
+: ${REPLICA_URL?"Need to set REPLICA_URL environment variable"}
+: ${DB_NAME?"Need to set DB_NAME environment variable"}
+
+db_location="/data/${DB_NAME}"
+
+# Restore the database if it does not already exist.
+if [ -f $db_location ]; then
+	echo "Database already exists, skipping restore"
+else
+	echo "No database found, restoring from replica if exists"
+	exec litestream restore -v -if-replica-exists -o $db_location "${REPLICA_URL}"
+fi

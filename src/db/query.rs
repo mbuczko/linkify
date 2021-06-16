@@ -34,7 +34,7 @@ impl<'a> Query<'a> {
         self.params.push(query_param);
         self.concat(query_str)
     }
-    pub fn to_string(&self) -> String {
+    pub fn build(&self) -> String {
         self.query.join(" ")
     }
     pub fn named_params(&self) -> &[(&str, &dyn ToSql)] {
@@ -51,8 +51,8 @@ impl<'a> Query<'a> {
     where
         F: Fn(&Row) -> T,
     {
-        let mut stmt = conn.prepare(&self.to_string())?;
-        let rows = stmt.query_map_named(self.named_params(), |row| Ok(f(row)))?;
+        let mut stmt = conn.prepare(&self.build())?;
+        let rows = stmt.query_map(self.named_params(), |row| Ok(f(row)))?;
 
         Result::from_iter(rows).map_err(Into::into)
     }

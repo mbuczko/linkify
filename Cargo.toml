@@ -1,14 +1,14 @@
 [package]
 name = "linkify"
-version = "0.1.7"
+version = "0.2.1"
 authors = ["Michal Buczko <michal.buczko@gmail.com>"]
 edition = "2018"
 
 [dependencies]
 clap = {version = "2.33.0", features = ["yaml"]}
-rusqlite = {version = "0.21.0", features = ["bundled", "array", "functions"]}
-r2d2 = "0.8.8"
-r2d2_sqlite = "0.14.0"
+rusqlite = {version = "0.25.3", features = ["bundled", "array", "functions"]}
+r2d2 = "0.8.9"
+r2d2_sqlite = "0.18.0"
 rust-embed = "5.2.0"
 semver = "0.9.0"
 sha1 = "0.6.0"
@@ -19,9 +19,14 @@ bcrypt = "0.6.1"
 miniserde = "0.1.12"
 colored = "1.9.3"
 terminal_size = "0.1.10"
-rouille = "3.0.0"
+rouille = "3.1.0"
 failure = "0.1.7"
 rand = "0.7.3"
+
+[dev-dependencies]
+rstest = "0.9.0"
+lazy_static = "1.4.0"
+tempfile = "3"
 
 [profile.release]
 opt-level = 'z'  # Optimize for size.
