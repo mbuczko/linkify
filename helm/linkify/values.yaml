@@ -8,7 +8,7 @@ image:
   repository: quay.io/defunkt/linkify
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: "develop"
+  # tag: "develop"
 
 imagePullSecrets: []
 nameOverride: ""
