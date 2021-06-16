@@ -1,5 +1,5 @@
 name: linkify
-version: "0.1.7"
+version: "0.2.1"
 about: Saves your precious links into local vault
 args:
   - database:
