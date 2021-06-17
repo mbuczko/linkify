@@ -8,7 +8,7 @@ image:
   repository: quay.io/defunkt/linkify
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  # tag: "develop"
+  tag: "latest"
 
 imagePullSecrets: []
 nameOverride: ""
@@ -45,9 +45,11 @@ service:
 ingress:
   enabled: true
   className: ""
-  annotations: {}
+  annotations:
     # kubernetes.io/ingress.class: nginx
     # kubernetes.io/tls-acme: "true"
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls.certresolver: letsencrypt
   hosts:
     - host: linkify.bitside.pl
       paths:
