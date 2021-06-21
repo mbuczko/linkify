@@ -555,7 +555,7 @@ mod test_links {
             .unwrap();
 
         assert_eq!(0, version.offset());
-        assert_eq!(true, links.is_empty());
+        assert!(links.is_empty());
     }
 
     #[rstest]
@@ -581,7 +581,7 @@ mod test_links {
             .query_links(&auth, QUERY_EMPTY, Version(3), None)
             .unwrap();
         assert_eq!(3, version.offset());
-        assert_eq!(true, links.is_empty());
+        assert!(links.is_empty());
     }
 
     #[rstest]

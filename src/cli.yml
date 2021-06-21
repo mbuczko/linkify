@@ -1,5 +1,5 @@
 name: linkify
-version: "0.2.1"
+version: "0.2.2"
 about: Saves your precious links into local vault
 args:
   - database:
@@ -85,13 +85,8 @@ subcommands:
             args:
               - login:
                   help: user's identifier (or part of it) to list
-        - token:
-            about: Generate API key
-            args:
-              - login:
-                  help: user's identitfier
-
-
-
-
-
+  - token:
+      about: Generate API key
+      args:
+        - login:
+            help: user's identitfier

@@ -5,7 +5,7 @@ Linkify is a CLI tool and HTTP server in one binary, which lets you store links 
 No additional database installation required. Linkify works straight out of the box.
 
 #+begin_src
-linkify 0.2.1
+linkify 0.2.2
 Saves your precious links into local vault
 
 USAGE:
@@ -55,12 +55,13 @@ A word of explanation about attributes attached to the link:
 
 Tags together with name and description provide quite a powerful way to locate link in database so it's worth to spend a few seconds to think them over a bit.
 
-All the examples above specify =--db= and =--user= every time, which might be frustrating in practice, it's highly recommended to move this information into environmental variables:
+All the examples above specify =--db= and =--user= every time, which might be frustrating in practice. It's highly recommended to generate API key and move authentication data into environmental variables:
 
 #+begin_src shell
+linkify token foobar --db /usr/local/var/linkify/default.db
+
 export LINKIFY_DB_PATH=/usr/local/var/linkify/default.db
-export LINKIFY_USER=foobar
-export LINKIFY_PASSWORD=secret
+export LINKIFY_API_KEY=<your-generated-token>
 #+end_src
 
 That can be simplified (secured?) even further by providing API key instead of user/password pair, but more on this later.
@@ -205,22 +206,10 @@ As mentioned, this combination requires linkify server set up. Sample command ma
 linkify server --db /usr/local/var/linkify/default.db
 #+end_src
 
-To get some more information what's actually going on when the server starts up, change =LOG_LEVEL= environmental variable to =debug=:
+To get some more information what's actually going on when the server starts up, change =RUST_LOG= environmental variable to =debug=:
 
 #+begin_src shell
-LOG_LEVEL=debug linkify server --db /usr/local/var/linkify/default.db
-#+end_src
-
-Having server up and running next step is to generate an access token so the server would know what user the extension impersonates:
-
-#+begin_src shell
-linkify users token <your-user-name> --db /usr/local/var/linkify/default.db
-#+end_src
-
-Generated token may be also used as a replacement for user/pass pair for linkify run in CLI:
-
-#+begin_src shell
-export LINKIFY_API_KEY=<your-generated-token>
+RUST_LOG=debug linkify server --db /usr/local/var/linkify/default.db
 #+end_src
 
 Last missing part is extension itself. While it's not available yet in a store it needs to be installed directly from a package (in developer mode):
