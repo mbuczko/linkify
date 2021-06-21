@@ -55,6 +55,7 @@ pub struct Link {
     pub toread: bool,
     pub favourite: bool,
     pub created_at: String,
+    pub deleted_at: Option<String>,
 }
 
 impl fmt::Display for Link {
@@ -80,7 +81,8 @@ impl From<&Row<'_>> for Link {
         .set_toread(row.get_unwrap::<_, bool>(5))
         .set_shared(row.get_unwrap::<_, bool>(6))
         .set_favourite(row.get_unwrap::<_, bool>(7))
-        .set_timestamp(row.get_unwrap::<_, String>(8))
+        .set_created_at(row.get_unwrap::<_, String>(8))
+        .set_deleted_at(row.get_unwrap::<_, Option<String>>(9))
     }
 }
 
@@ -103,6 +105,7 @@ impl Link {
             toread: false,
             favourite: false,
             created_at: String::new(),
+            deleted_at: None,
         }
         .digest()
     }
@@ -140,8 +143,12 @@ impl Link {
         self.id = id;
         self
     }
-    pub fn set_timestamp(mut self, ts: String) -> Self {
+    pub fn set_created_at(mut self, ts: String) -> Self {
         self.created_at = ts;
+        self
+    }
+    pub fn set_deleted_at(mut self, ts: Option<String>) -> Self {
+        self.deleted_at = ts;
         self
     }
     pub fn set_toread(mut self, toread: bool) -> Self {
@@ -218,7 +225,7 @@ impl Vault {
                 params![meta.0, Rc::new(values), user.id],
             )?;
         }
-        Ok((link.set_id(Some(meta.0)).set_timestamp(meta.1), version))
+        Ok((link.set_id(Some(meta.0)).set_created_at(meta.1), version))
     }
     pub fn add_link(&self, auth: &Option<Authentication>, link: Link) -> DBResult<Version> {
         let user = self.authenticate_user(auth)?;
@@ -293,7 +300,7 @@ impl Vault {
     ) -> DBResult<(Vec<Link>, Version)> {
         let user = self.authenticate_user(auth)?;
         let mut query = Query::new_with_initial(
-            "SELECT l.id, href, name, description, group_concat(tag) AS tagz, is_toread, is_shared, is_favourite, datetime(l.created_at) \
+            "SELECT l.id, href, name, description, group_concat(tag) AS tagz, is_toread, is_shared, is_favourite, datetime(l.created_at), datetime(l.deleted_at) \
              FROM links l \
              LEFT JOIN links_tags lt ON l.id = lt.link_id \
              LEFT JOIN tags t ON lt.tag_id = t.id WHERE",
@@ -403,15 +410,25 @@ impl Vault {
         }
         query.concat("ORDER BY l.created_at DESC, l.is_favourite DESC");
 
+        let latest_version = self.get_latest_version(&user)?;
+
         // Finally the limit. It's not the best idea to return all the links if no constraints
         // were provided. Let's limit result up to 10 links by default.
 
         if limit > 0 {
             query.concat_with_param("LIMIT :limit", (":limit", &limit));
         }
+
         Ok((
             query.fetch(self.get_connection())?,
-            self.get_latest_version(&user)?,
+            // if required version is higher than the one stored server side - return required
+            // version (and empty vector of links) in result to let client know that there is
+            // no data at this version yet.
+            if version.is_valid() && (version.offset() > latest_version.offset()) {
+                version
+            } else {
+                latest_version
+            },
         ))
     }
     pub fn get_href(&self, auth: &Option<Authentication>, link_id: i64) -> DBResult<String> {
@@ -437,8 +454,11 @@ impl Vault {
     pub fn del_link(&self, auth: &Option<Authentication>, href: &str) -> DBResult<Option<Link>> {
         match self.get_link(auth, &href) {
             Ok(Some(link)) => {
-                self.get_connection()
-                    .execute("DELETE FROM links WHERE id = ?", params![link.id])?;
+                let user = self.authenticate_user(auth)?;
+                self.get_connection().execute(
+                    "UPDATE links SET deleted_at = CURRENT_TIMESTAMP, version = (SELECT max(version)+1 FROM links WHERE user_id = ?) WHERE id = ?",
+                    params![user.id, link.id],
+                )?;
                 Ok(Some(link))
             }
             Ok(None) => Ok(None),
@@ -553,8 +573,15 @@ mod test_links {
     }
 
     #[rstest]
-    fn test_query_for_links_at_specific_version(vault: &Vault, auth: Option<Authentication>) {
-        unimplemented!()
+    fn test_query_for_links_version_higher_than_known_serverside(
+        vault: &Vault,
+        auth: Option<Authentication>,
+    ) {
+        let (links, version) = vault
+            .query_links(&auth, QUERY_EMPTY, Version(3), None)
+            .unwrap();
+        assert_eq!(3, version.offset());
+        assert_eq!(true, links.is_empty());
     }
 
     #[rstest]
@@ -597,13 +624,24 @@ mod test_links {
             .query_links(&auth, QUERY_EMPTY, Version::unknown(), None)
             .unwrap();
 
-        let rejected: Vec<_> = links
-            .iter()
-            .filter(|l| l.name == "foo modified")
-            .collect();
+        let rejected: Vec<_> = links.iter().filter(|l| l.name == "foo modified").collect();
 
-        assert_eq!(true, rejected.is_empty());
+        assert!(rejected.is_empty());
         assert_eq!(2, version.offset());
         assert_eq!(3, links.len());
+    }
+
+    #[rstest]
+    fn test_delete_bumps_up_version(vault: &Vault, auth: Option<Authentication>) {
+        let href = "http://moo.foo";
+        vault.add_link(&auth, Link::new(None, href, "foo", Some("moar foo"), None));
+        vault.del_link(&auth, href);
+
+        let (links, version) = vault
+            .query_links(&auth, QUERY_EMPTY, Version::unknown(), None)
+            .unwrap();
+
+        assert!(links.is_empty());
+        assert_eq!(2, version.offset());
     }
 }
