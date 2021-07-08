@@ -3,5 +3,7 @@ dbs:
     replicas:
       - type: s3
         url: ${REPLICA_URL}
+        endpoint: ${S3_ENDPOINT_URL}
+        force-path-style: true
         region: eu-central-1
         skip-verify: true

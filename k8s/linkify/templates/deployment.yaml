@@ -48,6 +48,8 @@ spec:
               value: {{ .Values.litestream.db_name }}
             - name: "REPLICA_URL"
               value: {{ .Values.litestream.replica_bucket_url }}/{{ .Values.litestream.db_name }}
+            - name: "S3_ENDPOINT_URL"
+              value: {{ .Values.litestream.s3_endpoint_url }}
           ports:
             - name: http
               containerPort: 8001

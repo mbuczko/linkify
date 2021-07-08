@@ -86,3 +86,4 @@ litestream:
   secret_access_key: s3secretkey
   db_name: linkify-prod.db
   replica_bucket_url: s3://linkify-backup
+  s3_endpoint_url: https://s3.bitside.pl

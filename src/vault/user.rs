@@ -39,7 +39,6 @@ impl Vault {
             Exact => pattern.to_owned(),
             Patterned => Query::patternize(pattern),
         };
-
         Query::new_with_initial(
             "SELECT u.id, login, count(l.id) FROM users u \
             LEFT JOIN links l ON l.user_id = u.id",
