@@ -5,5 +5,5 @@ dbs:
         url: ${REPLICA_URL}
         endpoint: ${S3_ENDPOINT_URL}
         force-path-style: true
-        region: eu-central-1
+        region: eu-east-1
         skip-verify: true
