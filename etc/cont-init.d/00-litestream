@@ -10,5 +10,5 @@ if [ -f $db_location ]; then
 	echo "Database already exists, skipping restore"
 else
 	echo "No database found, restoring from replica if exists"
-	exec litestream restore -v -if-replica-exists -o $db_location "${REPLICA_URL}"
+	exec litestream restore -v -config /etc/litestream.yml -if-replica-exists $db_location
 fi

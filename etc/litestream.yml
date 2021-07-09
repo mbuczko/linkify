@@ -1,9 +1,8 @@
 dbs:
   - path: /data/${DB_NAME}
     replicas:
-      - type: s3
-        url: ${REPLICA_URL}
+      - url: ${REPLICA_URL}
         endpoint: ${S3_ENDPOINT_URL}
         force-path-style: true
-        region: eu-east-1
+        region: eu-central-1
         skip-verify: true
