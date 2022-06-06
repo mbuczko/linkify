@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 clap = {version = "2.33.0", features = ["yaml"]}
-rusqlite = {version = "0.25.3", features = ["bundled", "array", "functions"]}
+rusqlite = {version = "0.25.4", features = ["bundled", "array", "functions"]}
 r2d2 = "0.8.9"
 r2d2_sqlite = "0.18.0"
 rust-embed = "6.3.0"
